@@ -1,0 +1,83 @@
+quickscribe/
+│
+├── frontend/           # React/TypeScript frontend code
+│   ├── public/         # Static assets (images, fonts, etc.)
+│   ├── src/            # React components, hooks, context, and services
+│   │   ├── components/ # Reusable React components
+│   │   ├── pages/      # React page components (e.g., Dashboard, Upload, etc.)
+│   │   ├── services/   # API calls to backend (e.g., Axios services)
+│   │   ├── styles/     # CSS/SCSS files
+│   │   └── App.tsx     # Main React component
+│   ├── package.json    # Frontend dependencies
+│   ├── tsconfig.json   # TypeScript configuration
+│   └── .env            # Environment variables for frontend
+│
+├── backend/            # Flask back-end API
+│   ├── app/            # Flask application code
+│   │   ├── routes/     # Flask routes (e.g., upload, transcription status)
+│   │   ├── models/     # Database models (if any)
+│   │   ├── services/   # Services for interacting with Azure Blob, AssemblyAI, CosmosDB
+│   │   ├── utils/      # Helper functions or utility scripts
+│   │   ├── static/     # Any static files served by the Flask app (optional)
+│   │   └── app.py      # Flask app initialization
+│   ├── requirements.txt # Python dependencies
+│   ├── config.ini      # App configuration file (DB connections, API keys, etc.)
+│   └── .env            # Environment variables for Flask (keys, DB URLs)
+|
+├── functions/             # Azure Functions code
+│   ├── transcription/     # Individual Azure Function app (one folder per function app)
+│   │   ├── __init__.py    # Main Python file for the transcription function
+│   │   ├── function.json  # Azure Function configuration
+│   │   └── requirements.txt # Python dependencies for Azure Function
+│   ├── shared/            # Shared code (e.g., helper functions, logging, etc.)
+│   └── local.settings.json # Local environment settings for Azure Functions
+├── infrastructure/     # Infrastructure as Code (IaC) scripts and deployment
+│   ├── terraform/      # Terraform scripts to provision Azure resources
+│   ├── arm-templates/  # ARM templates for resource provisioning (optional if using Terraform)
+│   ├── deploy_webapp.sh # Bash script for automating web app deployment
+│   ├── create_db.sh     # Script to reset or recreate the Cosmos DB instance
+│   └── README.md       # Instructions on how to run the infrastructure scripts
+│
+├── .github/            # GitHub Actions CI/CD workflows
+│   └── workflows/
+│       ├── deploy.yml  # Workflow for automatic deployment to Azure (CI/CD)
+│       ├── tests.yml   # Workflow for running tests on pull requests (optional)
+│
+├── docs/               # Documentation for your project
+│   ├── architecture.md # Documentation on app architecture and flow
+│   └── setup.md        # Setup instructions for developers
+│
+├── .env                # Global environment variables (for local dev; avoid hardcoding)
+├── README.md           # Project overview, setup instructions, and usage
+├── LICENSE             # License for the project
+└── .gitignore          # Ignoring files you don’t want in Git
+
+Key Areas of the Directory Structure
+1. Frontend (React/TypeScript)
+public/: Static assets like images, icons, fonts, or the favicon.
+src/: All React code (components, services for API calls, and styling).
+components/: For reusable components.
+pages/: For different page components (e.g., Dashboard, Upload page).
+services/: API calls to the Flask back end using libraries like Axios.
+styles/: Global or component-specific stylesheets.
+package.json: For managing dependencies (React, Axios, etc.).
+.env: Environment variables, e.g., backend API URL.
+2. Backend (Flask)
+app.py: The Flask app’s entry point.
+routes/: Different routes/endpoints for handling requests (e.g., file upload, status check, etc.).
+services/: Logic for interacting with Azure (Blob Storage, Cosmos DB) and AssemblyAI’s transcription API.
+requirements.txt: Python dependencies (Flask, Flask-SocketIO, Azure SDKs, etc.).
+config.ini: Use .ini for configuration options like DB URLs or API keys.
+3. Infrastructure (Azure Deployment)
+terraform/: Scripts to provision Azure resources (like App Service, Blob Storage, CosmosDB, Azure Functions). Use Terraform to create and manage infrastructure.
+arm-templates/ (Optional): If you're using Azure Resource Manager (ARM) templates instead of Terraform for infrastructure as code.
+deploy_webapp.sh: Script to deploy the Flask app and React front end to Azure Web App.
+create_db.sh: Script for creating or resetting the Cosmos DB.
+4. CI/CD (.github/workflows)
+deploy.yml: GitHub Action for deploying your app to Azure automatically. This could trigger on specific branches (e.g., main) or after pull requests.
+tests.yml: Optional testing workflow, running unit tests for both the Flask and React app when a pull request is made.
+5. Global Configuration
+.env: Store global environment variables for local development (keys for Azure services, database URLs, etc.).
+README.md: Overview of the project, setup instructions, and details for contributors.
+LICENSE: Project licensing.
+.gitignore: Ignore files like virtual environment folders, node_modules, and sensitive information.
