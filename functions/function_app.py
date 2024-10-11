@@ -7,6 +7,7 @@ from azure.identity import DefaultAzureCredential
 from azure.keyvault.secrets import SecretClient
 import hashlib
 from dotenv import load_dotenv
+from api_version import API_VERSION
 
 load_dotenv()
 app = func.FunctionApp()
@@ -23,6 +24,11 @@ def get_secret(secret_name):
     
     retrieved_secret = client.get_secret(secret_name)
     return retrieved_secret.value
+
+# get the api version
+@app.route(route="api_version", auth_level=func.AuthLevel.ANONYMOUS)
+def api_version(req: func.HttpRequest) -> func.HttpResponse:
+    return func.HttpResponse(API_VERSION, status_code=200)
 
 @app.route(route="test_key_vault", auth_level=func.AuthLevel.FUNCTION)
 def test_key_vault(req: func.HttpRequest) -> func.HttpResponse:

@@ -1,6 +1,7 @@
 import click
 from azure.storage.blob import BlobServiceClient
 from azure.cosmos import CosmosClient, PartitionKey
+from user_handler import UserHandler
 import os
 import json
 from dotenv import load_dotenv
@@ -78,8 +79,6 @@ def show_cosmos_entry(partial_id):
     if entry:
         click.echo(json.dumps(entry, indent=4))
 
-    except Exception as e:
-        click.echo(f"Error: {str(e)}")
 
 # Command to delete a Cosmos DB entry and its associated blob
 @cli.command()
@@ -139,6 +138,27 @@ def check_consistency():
         click.echo("Consistency check passed. Everything is in sync!")
     else:
         click.echo(f"\nSummary: {len(missing_files)} missing blobs, {len(missing_entries)} missing Cosmos DB entries.")
+
+# Command to create a new user
+@cli.command()
+@click.argument('email')
+@click.argument('name')
+@click.option('--role', default="user", help="Role of the user (default is 'user')")
+def create_user(email, name, role):
+    # Create the user handler
+    user_handler = UserHandler(COSMOS_URL, COSMOS_KEY, COSMOS_DB_NAME, COSMOS_CONTAINER_NAME)
+    """Create a new user with the provided email, name, and optional role."""
+    user_id = user_handler.create_user(email, name, role)
+    click.echo(f"User created with ID: {user_id}")
+
+# Command to list users
+@cli.command()
+def list_users():
+    user_handler = UserHandler(COSMOS_URL, COSMOS_KEY, COSMOS_DB_NAME, COSMOS_CONTAINER_NAME)
+    users = user_handler.get_all_users()
+    for user in users:
+        click.echo(f"- {user['id']}: {user['name']} ({user['email']})")
+    
 
 if __name__ == '__main__':
     cli()

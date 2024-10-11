@@ -8,6 +8,8 @@ from dotenv import load_dotenv
 from werkzeug.utils import secure_filename
 from azure.cosmos import CosmosClient, PartitionKey
 from azure.storage.blob import BlobServiceClient, ContentSettings, generate_blob_sas, BlobSasPermissions
+from user_handler import UserHandler
+from recording_handler import RecordingHandler
 
 import uuid
 from datetime import datetime, timedelta
@@ -35,6 +37,23 @@ CONTAINER_NAME = os.getenv("COSMOS_CONTAINER_NAME")
 cosmos_client = CosmosClient(COSMOS_URL, credential=COSMOS_KEY)
 cosmos_database = cosmos_client.get_database_client(DATABASE_NAME)
 cosmos_container = cosmos_database.get_container_client(CONTAINER_NAME)
+
+
+def get_user(request):
+    # Try to get the user_id from cookies
+    user_id = request.cookies.get('user_id')
+
+    user_handler = UserHandler(COSMOS_URL, COSMOS_KEY, DATABASE_NAME, CONTAINER_NAME)
+
+    if user_id:
+        # Fetch user by ID if the user_id exists in the cookie
+        user = user_handler.get_user(user_id)
+    else:
+        # If no user_id in cookie, fetch user by name 'cbird'
+        users = user_handler.get_user_by_name('cbird')
+        user = users[0] if users else None  # Assuming 'cbird' is unique, take the first result
+
+    return user
 
 # Helper function to get secret from Azure Key Vault
 def get_secret(secret_name):
@@ -127,15 +146,9 @@ def upload():
                 )
 
             socketio.emit('status', {'message': f'File uploaded to Azure Blob Storage complete...'})
-            
-            file_metadata = {
-                "id": str(uuid.uuid4()),
-                "original_filename": original_filename,
-                "unique_filename": unique_filename,
-                "upload_timestamp": datetime.utcnow().isoformat(),
-                "partitionKey": "file"
-            }
-            cosmos_container.create_item(body=file_metadata)
+            recording_handler = RecordingHandler(COSMOS_URL, COSMOS_KEY, DATABASE_NAME, CONTAINER_NAME)
+            user = get_user(request)
+            recording_handler.create_recording(user['id'], original_filename, unique_filename)
 
             return jsonify({'message': 'File uploaded successfully!', 'filename': original_filename}), 200
 
