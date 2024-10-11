@@ -8,9 +8,9 @@ from dotenv import load_dotenv
 from werkzeug.utils import secure_filename
 from azure.cosmos import CosmosClient, PartitionKey
 from azure.storage.blob import BlobServiceClient, ContentSettings, generate_blob_sas, BlobSasPermissions
-from user_handler import UserHandler
-from recording_handler import RecordingHandler
-
+from shared.user_handler import UserHandler
+from shared.recording_handler import RecordingHandler
+from shared.transcription_handler import TranscriptionHandler, TranscribingStatus
 import uuid
 from datetime import datetime, timedelta
 
@@ -184,30 +184,44 @@ def generate_download_url(blob_name):
     return blob_url
 
 # Route to list all uploaded files
-@app.route('/files')
-def list_files():
+@app.route('/recordings')
+def list_recordings():
     try:
+        user = get_user(request)
         # Get all file metadata from Cosmos DB
-        items = container.read_all_items()
+        recording_handler = RecordingHandler(COSMOS_URL, COSMOS_KEY, DATABASE_NAME, CONTAINER_NAME)
+        recordings = recording_handler.get_user_recordings(user['id'])
+        transcription_handler = TranscriptionHandler(COSMOS_URL, COSMOS_KEY, DATABASE_NAME, CONTAINER_NAME)
 
-        file_data = []
-        for item in items:
-            unique_filename = item['unique_filename']
+        recording_data = []
+        for recording in recordings:
+            unique_filename = recording['unique_filename']
 
             # Get blob properties (size) from Azure Blob Storage
             blob_client = blob_service_client.get_blob_client(container=BLOB_CONTAINER, blob=unique_filename)
             blob_properties = blob_client.get_blob_properties()
 
+            transcription = transcription_handler.get_transcription_by_recording(recording['id'])
+            if not transcription:
+                status = '<a href="/start_transcription/{}">Start Transcription</a>'.format(recording['id'])
+            elif transcription['transcription_status'] == 'in_progress':
+                status = 'In Progress'
+            elif transcription['transcription_status'] == 'completed':
+                status = '<a href="/view_transcription/{}">View Transcription</a>'.format(transcription['id'])
+            else:
+                status = f"Unknown status: {transcription['transcription_status']}"
+
             # Prepare the data for rendering
-            file_info = {
-                'original_filename': item['original_filename'],
+            recording_info = {
+                'original_filename': recording['original_filename'],
                 'unique_filename': unique_filename,
                 'file_size': blob_properties.size,  # Get file size in bytes
-                'download_url': generate_download_url(unique_filename)
+                'download_url': generate_download_url(unique_filename),
+                'transcription_status': status  
             }
-            file_data.append(file_info)
+            recording_data.append(recording_info)
 
-        return render_template('files.html', files=file_data)
+        return render_template('recordings.html', recordings=recording_data)
 
     except Exception as e:
         print(f"An error occurred: {str(e)}")
@@ -219,6 +233,44 @@ def list_files():
         stack_trace = traceback.format_exc()
         return f"<pre>Error: {error_message}\n\nStack Trace:\n{stack_trace}</pre>"
 
+
+@app.route("/start_transcription/<recording_id>", methods=["POST"])
+def start_transcription(recording_id):
+    user = get_user(request)
+    recording_handler = RecordingHandler(COSMOS_URL, COSMOS_KEY, DATABASE_NAME, CONTAINER_NAME)
+    # Get the recording details
+    # TODO - check that the recording exists and belongs to the user
+    recording = recording_handler.get_recording(recording_id)
+    if not recording or recording['user_id'] != user['id']:
+        return jsonify({'error': 'Recording not found or does not belong to the user'}), 404
+
+    transcription_handler = TranscriptionHandler(COSMOS_URL, COSMOS_KEY, DATABASE_NAME, CONTAINER_NAME)
+    #see if there is already a transcription for this recording
+    transcription = transcription_handler.get_transcription_by_recording(recording_id)
+    if transcription and transcription['status'] in [TranscribingStatus.IN_PROGRESS.value, TranscribingStatus.COMPLETED.value]:
+        return jsonify({'error': 'Transcription already exists for this recording'}), 400
+    
+    payload = {
+        'user_id': user['id'],
+        'recording_id': recording_id
+    }
+    function_url = "https://quickscribefunctionapp.azurewebsites.net/api/transcribe_recording"
+    try:
+        FUNCTIONS_KEY = os.environ.get("FUNCTIONS_KEY")
+        if not FUNCTIONS_KEY:
+            return jsonify({'error': 'FUNCTIONS_KEY not set in environment variables'}), 500
+        headers = {"x-functions-key": FUNCTIONS_KEY}
+        response = requests.post(function_url, json=payload, headers=headers)
+        if response.status_code != 200:
+            return jsonify({'error': 'Failed to start transcription'}), response.status_code
+        else:
+            return jsonify({'message': 'Transcription started successfully'}), 200
+    except Exception as e:
+        print(f"An error occurred: {str(e)}")
+        #print the stack trace
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
 
 
 if __name__ == '__main__':

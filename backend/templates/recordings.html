@@ -27,14 +27,16 @@
                 <th>Original Filename</th>
                 <th>Unique Filename</th>
                 <th>File Size (Bytes)</th>
+                <th>Transcription Status</th>
             </tr>
         </thead>
         <tbody>
-            {% for file in files %}
+            {% for recording in recordings %}
                 <tr>
-                    <td><a href="{{ file.download_url }}" download>{{ file.original_filename }}</a></td>
-                    <td>{{ file.unique_filename }}</td>
-                    <td>{{ file.file_size }}</td>
+                    <td><a href="{{ recording.download_url }}" download>{{ recording.original_filename }}</a></td>
+                    <td>{{ recording.unique_filename }}</td>
+                    <td>{{ recording.file_size }}</td>
+                    <td>{{ recording.transcription_status | safe}}</td>
                 </tr>
             {% endfor %}
         </tbody>

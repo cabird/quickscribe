@@ -44,6 +44,15 @@ def call_test_key_vault_function(secret_name=None):
     print(f"Status Code: {response.status_code}")
     print(f"Response: {response.text}")
 
+
+def call_transcribe_recording_function(recording_id, user_id):
+    url = f"{BASE_URL}/transcribe_recording"
+    headers = {"x-functions-key": FUNCTIONS_KEY} if FUNCTIONS_KEY else {}
+    payload = {"recording_id": recording_id, "user_id": user_id}
+    response = requests.post(url, json=payload, headers=headers)
+    print(f"Status Code: {response.status_code}")
+    print(f"Response: {response.text}")
+
 # Main entry point for the script
 if __name__ == "__main__":
     if len(sys.argv) < 3:
@@ -65,5 +74,9 @@ if __name__ == "__main__":
         call_test_key_vault_function(secret_name)
     elif function_name == "api_version":
         call_api_version_function()
+    elif function_name == "transcribe_recording":
+        recording_id = sys.argv[3] if len(sys.argv) > 3 else None
+        user_id = sys.argv[4] if len(sys.argv) > 4 else None
+        call_transcribe_recording_function(recording_id, user_id)
     else:
         print(f"Unknown function: {function_name}")

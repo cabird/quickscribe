@@ -1,5 +1,5 @@
 from azure.cosmos import CosmosClient, PartitionKey
-from transcription_handler import TranscriptionHandler
+from .transcription_handler import TranscriptionHandler
 from datetime import datetime
 import uuid
 
@@ -35,9 +35,9 @@ class RecordingHandler:
 
     def get_user_recordings(self, user_id):
         """Get all recordings for a specific user."""
-        query = "SELECT * FROM c WHERE c.user_id = @user_id AND c.partitionKey = 'recording'"
+        query = "SELECT * FROM c WHERE c.user_id = @user_id"
         parameters = [{"name": "@user_id", "value": user_id}]
-        recordings = list(self.container.query_items(query=query, parameters=parameters, enable_cross_partition_query=True))
+        recordings = list(self.container.query_items(query=query, parameters=parameters, partition_key="recording"))
         return recordings
 
     def link_to_transcription(self, recording_id, transcription_id):

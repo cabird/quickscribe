@@ -1,17 +1,21 @@
 import azure.functions as func
-import datetime
 import json
 import os
 import logging
 from azure.identity import DefaultAzureCredential
 from azure.keyvault.secrets import SecretClient
+from azure.storage.blob import BlobServiceClient, generate_blob_sas, BlobSasPermissions
 import hashlib
 from dotenv import load_dotenv
 from api_version import API_VERSION
+from shared.transcription_handler import TranscriptionHandler, TranscribingStatus
+from shared.recording_handler import RecordingHandler
+from datetime import datetime, timedelta
+import assemblyai as aai
+import asyncio
 
 load_dotenv()
 app = func.FunctionApp()
-
 
 # Function to get secret from Key Vault
 def get_secret(secret_name):
@@ -29,6 +33,115 @@ def get_secret(secret_name):
 @app.route(route="api_version", auth_level=func.AuthLevel.ANONYMOUS)
 def api_version(req: func.HttpRequest) -> func.HttpResponse:
     return func.HttpResponse(API_VERSION, status_code=200)
+
+COSMOS_URL = os.environ["COSMOS_URL"]
+COSMOS_KEY = os.environ["COSMOS_KEY"]
+COSMOS_DB_NAME = os.environ["COSMOS_DB_NAME"]
+COSMOS_CONTAINER_NAME = os.environ["COSMOS_CONTAINER_NAME"]
+
+AZURE_RECORDING_BLOB_CONTAINER = os.environ["AZURE_RECORDING_BLOB_CONTAINER"]
+AZURE_STORAGE_CONNECTION_STRING = os.environ["AZURE_STORAGE_CONNECTION_STRING"]
+
+
+# Async function to handle the transcription process in the background
+async def transcribe_recording_async(recording_id, user_id):
+    logging.info('Transcribing recording asynchronously')
+
+    recording_handler = RecordingHandler(COSMOS_URL, COSMOS_KEY, COSMOS_DB_NAME, COSMOS_CONTAINER_NAME)
+    transcription_handler = TranscriptionHandler(COSMOS_URL, COSMOS_KEY, COSMOS_DB_NAME, COSMOS_CONTAINER_NAME)
+
+    # Get the recording details and ensure it exists and belongs to the user
+    recording = recording_handler.get_recording(recording_id)
+    if not recording or recording['user_id'] != user_id:
+        #TODO - log this... how do we handle this in the frontend?
+        return func.HttpResponse("Recording not found or does not belong to the user", status_code=404)
+    transcription = transcription_handler.get_transcription_by_recording(recording_id)
+
+    if transcription and transcription['status'] in [TranscribingStatus.IN_PROGRESS.value, TranscribingStatus.COMPLETED.value]:
+        #TODO - log this... how do we handle this in the frontend?
+        return func.HttpResponse("Transcription already exists or in progress for this recording", status_code=400)
+
+    if not transcription:
+        transcription = transcription_handler.create_transcription(user_id, recording_id)
+    transcription['status'] = TranscribingStatus.IN_PROGRESS.value
+    transcription_handler.update_transcription(transcription)
+
+    try:
+        # Generate a SAS URL for the blob (the recording file)
+        blob_service_client = BlobServiceClient.from_connection_string(AZURE_STORAGE_CONNECTION_STRING)
+        sas_token = generate_blob_sas(
+            account_name=blob_service_client.account_name,
+            container_name=AZURE_RECORDING_BLOB_CONTAINER,
+            blob_name=recording['unique_filename'],
+            account_key=blob_service_client.credential.account_key,
+            permission=BlobSasPermissions(read=True),
+            expiry=datetime.utcnow() + timedelta(hours=1)
+        )
+        blob_sas_url = f"https://{blob_service_client.account_name}.blob.core.windows.net/{AZURE_RECORDING_BLOB_CONTAINER}/{recording['unique_filename']}?{sas_token}"
+        logging.info(f"SAS URL generated: {blob_sas_url}")
+        
+        # Call the long-running AssemblyAI transcription function asynchronously
+        await do_assemblyai_transcription(blob_sas_url, transcription['id'])
+        
+    except Exception as e:
+        logging.error(f"Failed to generate SAS URL: {e}")
+        transcription['status'] = TranscribingStatus.FAILED.value
+        transcription['error'] = str(e)
+        transcription_handler.update_transcription(transcription)
+
+# Update the main route to trigger the async transcription
+@app.route(route="transcribe_recording", auth_level=func.AuthLevel.FUNCTION)
+async def transcribe_recording(req: func.HttpRequest) -> func.HttpResponse:
+    logging.info('Received request to transcribe recording')
+
+    recording_id = req.params.get('recording_id')
+    user_id = req.params.get('user_id')
+
+    if not recording_id or not user_id:
+        return func.HttpResponse("Recording ID and user ID are required", status_code=400)
+
+    # Fire off the transcription task asynchronously and return immediately
+    asyncio.create_task(transcribe_recording_async(recording_id, user_id))
+
+    return func.HttpResponse("Transcription started", status_code=202)
+
+# Async transcription function (AssemblyAI call)
+async def do_assemblyai_transcription(blob_sas_url, transcription_id):
+    ASSEMBLYAI_API_KEY = os.environ.get("ASSEMBLYAI_API_KEY")
+    if not ASSEMBLYAI_API_KEY:
+        logging.error("ASSEMBLYAI_API_KEY not set")
+        return
+
+    aai.settings.api_key = ASSEMBLYAI_API_KEY
+    transcriber = aai.Transcriber()
+    config = aai.TranscriptionConfig(
+        speaker_labels=True,
+        language_code="en"
+    )
+
+    transcription_handler = TranscriptionHandler(COSMOS_URL, COSMOS_KEY, COSMOS_DB_NAME, COSMOS_CONTAINER_NAME)
+    transcription = transcription_handler.get_transcription(transcription_id)
+
+    try:
+        # Call the transcription service asynchronously
+        transcript = await transcriber.transcribe(blob_sas_url, config=config)
+
+        if transcript.error:
+            transcription['status'] = TranscribingStatus.FAILED.value
+            transcription['error'] = str(transcript.error)
+            transcription_handler.update_transcription(transcription)
+            logging.error(f"Error transcribing recording: {transcript.error}")
+        else:
+            transcription['status'] = TranscribingStatus.COMPLETED.value
+            transcription['transcript'] = transcript.text
+            transcription_handler.update_transcription(transcription)
+            logging.info(f"Transcription completed for {transcription_id}")
+
+    except Exception as e:
+        logging.error(f"Error during transcription: {e}")
+        transcription['status'] = TranscribingStatus.FAILED.value
+        transcription['error'] = str(e)
+        transcription_handler.update_transcription(transcription)
 
 @app.route(route="test_key_vault", auth_level=func.AuthLevel.FUNCTION)
 def test_key_vault(req: func.HttpRequest) -> func.HttpResponse:
