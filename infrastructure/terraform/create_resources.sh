@@ -59,3 +59,33 @@ az keyvault secret set \
     --vault-name QuickScribeKeyVault \
     --name AzureFunctionKey \
     --value "$KEY"
+
+
+
+az storage container create \
+    --name mp3uploads \
+    --account-name quickscribestorage
+
+
+#create the cosmosdb
+az cosmosdb create \
+  --name quickscribecosmosdb \
+  --resource-group QuickScribeResourceGroup \
+  --locations regionName=westus \
+  --default-consistency-level Eventual \
+  --kind GlobalDocumentDB
+
+
+#create nosql db in the cosmosdb
+az cosmosdb sql database create \
+  --account-name quickscribecosmosdb \
+  --resource-group QuickScribeResourceGroup \
+  --name QuickScribeDatabase
+
+az cosmosdb sql container create \
+  --account-name quickscribecosmosdb \
+  --resource-group QuickScribeResourceGroup \
+  --database-name QuickScribeDatabase \
+  --name QuickScribeContainer \
+  --partition-key-path "/partitionKey" \
+  --throughput 400

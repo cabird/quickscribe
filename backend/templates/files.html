@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Uploaded Files</title>
+    <style>
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        table, th, td {
+            border: 1px solid black;
+        }
+        th, td {
+            padding: 10px;
+            text-align: left;
+        }
+    </style>
+</head>
+<body>
+    <h1>List of Uploaded Files</h1>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Original Filename</th>
+                <th>Unique Filename</th>
+                <th>File Size (Bytes)</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for file in files %}
+                <tr>
+                    <td><a href="{{ file.download_url }}" download>{{ file.original_filename }}</a></td>
+                    <td>{{ file.unique_filename }}</td>
+                    <td>{{ file.file_size }}</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <br>
+    <a href="{{ url_for('index') }}">Go back to the homepage</a>
+</body>
+</html>

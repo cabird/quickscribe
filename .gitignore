@@ -1,0 +1,7 @@
+# Ignore all dotfiles
+.*
+
+# But don't ignore .gitignore
+!.gitignore
+
+venv/
