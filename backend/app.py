@@ -8,9 +8,9 @@ from dotenv import load_dotenv
 from werkzeug.utils import secure_filename
 from azure.cosmos import CosmosClient, PartitionKey
 from azure.storage.blob import BlobServiceClient, ContentSettings, generate_blob_sas, BlobSasPermissions
-from shared.user_handler import UserHandler
-from shared.recording_handler import RecordingHandler
-from shared.transcription_handler import TranscriptionHandler, TranscribingStatus
+from db_handlers.user_handler import UserHandler
+from db_handlers.recording_handler import RecordingHandler
+from db_handlers.transcription_handler import TranscriptionHandler, TranscribingStatus
 import uuid
 from datetime import datetime, timedelta
 
@@ -232,45 +232,6 @@ def list_recordings():
         error_message = str(e)
         stack_trace = traceback.format_exc()
         return f"<pre>Error: {error_message}\n\nStack Trace:\n{stack_trace}</pre>"
-
-
-@app.route("/start_transcription/<recording_id>", methods=["POST"])
-def start_transcription(recording_id):
-    user = get_user(request)
-    recording_handler = RecordingHandler(COSMOS_URL, COSMOS_KEY, DATABASE_NAME, CONTAINER_NAME)
-    # Get the recording details
-    # TODO - check that the recording exists and belongs to the user
-    recording = recording_handler.get_recording(recording_id)
-    if not recording or recording['user_id'] != user['id']:
-        return jsonify({'error': 'Recording not found or does not belong to the user'}), 404
-
-    transcription_handler = TranscriptionHandler(COSMOS_URL, COSMOS_KEY, DATABASE_NAME, CONTAINER_NAME)
-    #see if there is already a transcription for this recording
-    transcription = transcription_handler.get_transcription_by_recording(recording_id)
-    if transcription and transcription['status'] in [TranscribingStatus.IN_PROGRESS.value, TranscribingStatus.COMPLETED.value]:
-        return jsonify({'error': 'Transcription already exists for this recording'}), 400
-    
-    payload = {
-        'user_id': user['id'],
-        'recording_id': recording_id
-    }
-    function_url = "https://quickscribefunctionapp.azurewebsites.net/api/transcribe_recording"
-    try:
-        FUNCTIONS_KEY = os.environ.get("FUNCTIONS_KEY")
-        if not FUNCTIONS_KEY:
-            return jsonify({'error': 'FUNCTIONS_KEY not set in environment variables'}), 500
-        headers = {"x-functions-key": FUNCTIONS_KEY}
-        response = requests.post(function_url, json=payload, headers=headers)
-        if response.status_code != 200:
-            return jsonify({'error': 'Failed to start transcription'}), response.status_code
-        else:
-            return jsonify({'message': 'Transcription started successfully'}), 200
-    except Exception as e:
-        print(f"An error occurred: {str(e)}")
-        #print the stack trace
-        import traceback
-        traceback.print_exc()
-        return jsonify({'error': str(e)}), 500
 
 
 if __name__ == '__main__':

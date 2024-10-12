@@ -1,6 +1,6 @@
 import os
-import sys
 import requests
+import click
 from dotenv import load_dotenv
 
 # Load the .env file that contains the FUNCTIONS_KEY
@@ -15,68 +15,74 @@ CLOUD_URL = "http://quickscribefunctionapp.azurewebsites.net/api"
 
 BASE_URL = ""
 
-def call_api_version_function():
+# Click group to define the base of our commands
+@click.group()
+@click.option('--env', default='local', help='Environment to use (local or cloud).')
+def cli(env):
+    """A CLI tool to interact with Azure Functions."""
+    global BASE_URL
+    BASE_URL = LOCAL_URL if env == "local" else CLOUD_URL
+
+# Command to call the API version function
+@cli.command()
+def api_version():
+    """Call the API version function."""
     url = f"{BASE_URL}/api_version"
     response = requests.get(url)
-    print(f"Status Code: {response.status_code}")
-    print(f"Response: {response.text}")
+    click.echo(f"Status Code: {response.status_code}")
+    click.echo(f"Response: {response.text}")
 
-def call_test_function(name=None):
+# Command to call the test function
+@cli.command()
+@click.option('--name', default=None, help='Name to send as a query parameter.')
+def test(name):
+    """Call the test function."""
     url = f"{BASE_URL}/test"
     payload = {"name": name} if name else {}
     response = requests.get(url, params=payload)
-    print(f"Status Code: {response.status_code}")
-    print(f"Response: {response.text}")
+    click.echo(f"Status Code: {response.status_code}")
+    click.echo(f"Response: {response.text}")
 
-def call_test_with_auth_function(name=None):
+# Command to call the test function with authentication
+@cli.command()
+@click.option('--name', default=None, help='Name to send as a query parameter.')
+def test_with_auth(name):
+    """Call the test function with authentication."""
     url = f"{BASE_URL}/test_with_auth"
     headers = {"x-functions-key": FUNCTIONS_KEY} if FUNCTIONS_KEY else {}
     payload = {"name": name} if name else {}
     response = requests.get(url, params=payload, headers=headers)
-    print(f"Status Code: {response.status_code}")
-    print(f"Response: {response.text}")
+    click.echo(f"Status Code: {response.status_code}")
+    click.echo(f"Response: {response.text}")
 
-def call_test_key_vault_function(secret_name=None):
+# Command to call the Key Vault test function
+@cli.command()
+@click.option('--secret_name', default=None, help='Secret name to retrieve from Key Vault.')
+def test_key_vault(secret_name):
+    """Call the test Key Vault function."""
     url = f"{BASE_URL}/test_key_vault"
     headers = {"x-functions-key": FUNCTIONS_KEY} if FUNCTIONS_KEY else {}
     payload = {"secret_name": secret_name} if secret_name else {}
     response = requests.get(url, params=payload, headers=headers)
-    print(f"Status Code: {response.status_code}")
-    print(f"Response: {response.text}")
+    click.echo(f"Status Code: {response.status_code}")
+    click.echo(f"Response: {response.text}")
 
-
-def call_transcribe_recording_function(recording_id, user_id):
+# Command to call the transcription function
+@cli.command()
+@click.argument('recording_id')
+@click.argument('user_id')
+def transcribe_recording(recording_id, user_id):
+    """Call the transcribe recording function."""
     url = f"{BASE_URL}/transcribe_recording"
+    click.echo(f"URL: {url}")
+    click.echo(f"Recording ID: {recording_id}")
+    click.echo(f"User ID: {user_id}")
     headers = {"x-functions-key": FUNCTIONS_KEY} if FUNCTIONS_KEY else {}
     payload = {"recording_id": recording_id, "user_id": user_id}
     response = requests.post(url, json=payload, headers=headers)
-    print(f"Status Code: {response.status_code}")
-    print(f"Response: {response.text}")
+    click.echo(f"Status Code: {response.status_code}")
+    click.echo(f"Response: {response.text}")
 
-# Main entry point for the script
+# Entry point
 if __name__ == "__main__":
-    if len(sys.argv) < 3:
-        print("Usage: python test_functions.py {local|cloud} <function_name> [optional_args]")
-        sys.exit(1)
-
-    BASE_URL = LOCAL_URL if sys.argv[1] == "local" else CLOUD_URL
-
-    function_name = sys.argv[2]
-
-    if function_name == "test":
-        name = sys.argv[3] if len(sys.argv) > 3 else None
-        call_test_function(name)
-    elif function_name == "test_with_auth":
-        name = sys.argv[3] if len(sys.argv) > 3 else None
-        call_test_with_auth_function(name)
-    elif function_name == "test_key_vault":
-        secret_name = sys.argv[3] if len(sys.argv) > 3 else None
-        call_test_key_vault_function(secret_name)
-    elif function_name == "api_version":
-        call_api_version_function()
-    elif function_name == "transcribe_recording":
-        recording_id = sys.argv[3] if len(sys.argv) > 3 else None
-        user_id = sys.argv[4] if len(sys.argv) > 4 else None
-        call_transcribe_recording_function(recording_id, user_id)
-    else:
-        print(f"Unknown function: {function_name}")
+    cli()

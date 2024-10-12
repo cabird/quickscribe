@@ -17,6 +17,11 @@ import asyncio
 load_dotenv()
 app = func.FunctionApp()
 
+# add a logging handler that write to a file
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+file_handler = logging.FileHandler('function_app.log')
+logging.getLogger().addHandler(file_handler)
+
 # Function to get secret from Key Vault
 def get_secret(secret_name):
     #key_vault_name = os.environ["KEY_VAULT_NAME"]
@@ -50,19 +55,30 @@ async def transcribe_recording_async(recording_id, user_id):
     recording_handler = RecordingHandler(COSMOS_URL, COSMOS_KEY, COSMOS_DB_NAME, COSMOS_CONTAINER_NAME)
     transcription_handler = TranscriptionHandler(COSMOS_URL, COSMOS_KEY, COSMOS_DB_NAME, COSMOS_CONTAINER_NAME)
 
+    logging.info(f"Getting recording details: {recording_id}")
     # Get the recording details and ensure it exists and belongs to the user
     recording = recording_handler.get_recording(recording_id)
     if not recording or recording['user_id'] != user_id:
         #TODO - log this... how do we handle this in the frontend?
+        logging.error(f"Recording not found or does not belong to the user: {recording_id} {user_id}")
         return func.HttpResponse("Recording not found or does not belong to the user", status_code=404)
+    
+    logging.info(f"Recording found: {recording}")
+    
+    
     transcription = transcription_handler.get_transcription_by_recording(recording_id)
-
     if transcription and transcription['status'] in [TranscribingStatus.IN_PROGRESS.value, TranscribingStatus.COMPLETED.value]:
         #TODO - log this... how do we handle this in the frontend?
+        logging.error(f"Transcription already exists or in progress for this recording: {recording_id}")
         return func.HttpResponse("Transcription already exists or in progress for this recording", status_code=400)
 
     if not transcription:
+        logging.info(f"No transcription found, creating new transcription")
         transcription = transcription_handler.create_transcription(user_id, recording_id)
+    else:
+        logging.info(f"Transcription found: {transcription}")
+
+    logging.info(f"Updating transcription status to IN_PROGRESS: {transcription['id']}")
     transcription['status'] = TranscribingStatus.IN_PROGRESS.value
     transcription_handler.update_transcription(transcription)
 
@@ -81,7 +97,9 @@ async def transcribe_recording_async(recording_id, user_id):
         logging.info(f"SAS URL generated: {blob_sas_url}")
         
         # Call the long-running AssemblyAI transcription function asynchronously
-        await do_assemblyai_transcription(blob_sas_url, transcription['id'])
+        logging.info(f"Calling AssemblyAI transcription function: {transcription['id']}")
+        transcription_id = transcription['id']
+        await do_assemblyai_transcription(blob_sas_url, transcription_id)
         
     except Exception as e:
         logging.error(f"Failed to generate SAS URL: {e}")
@@ -94,8 +112,19 @@ async def transcribe_recording_async(recording_id, user_id):
 async def transcribe_recording(req: func.HttpRequest) -> func.HttpResponse:
     logging.info('Received request to transcribe recording')
 
-    recording_id = req.params.get('recording_id')
-    user_id = req.params.get('user_id')
+    #output the request body
+    logging.info(f"Request body: {req.get_body()}")
+
+    recording_id = None
+    user_id = None
+
+    try:
+        req_body = req.get_json()
+        recording_id = req_body.get('recording_id')
+        user_id = req_body.get('user_id')
+    except ValueError:
+        pass
+
 
     if not recording_id or not user_id:
         return func.HttpResponse("Recording ID and user ID are required", status_code=400)
@@ -107,14 +136,18 @@ async def transcribe_recording(req: func.HttpRequest) -> func.HttpResponse:
 
 # Async transcription function (AssemblyAI call)
 async def do_assemblyai_transcription(blob_sas_url, transcription_id):
+    logging.info(f"Starting AssemblyAI transcription: {transcription_id}")
     ASSEMBLYAI_API_KEY = os.environ.get("ASSEMBLYAI_API_KEY")
     if not ASSEMBLYAI_API_KEY:
         logging.error("ASSEMBLYAI_API_KEY not set")
         return
 
     aai.settings.api_key = ASSEMBLYAI_API_KEY
+    logging.info(f"AssemblyAI API key set: {ASSEMBLYAI_API_KEY}")
     transcriber = aai.Transcriber()
+    logging.info(f"Transcriber created")
     config = aai.TranscriptionConfig(
+        
         speaker_labels=True,
         language_code="en"
     )
@@ -124,7 +157,8 @@ async def do_assemblyai_transcription(blob_sas_url, transcription_id):
 
     try:
         # Call the transcription service asynchronously
-        transcript = await transcriber.transcribe(blob_sas_url, config=config)
+        logging.info(f"Calling AssemblyAI transcription service: with url {blob_sas_url}")
+        transcript = transcriber.transcribe(blob_sas_url, config=config)
 
         if transcript.error:
             transcription['status'] = TranscribingStatus.FAILED.value

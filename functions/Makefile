@@ -21,6 +21,9 @@ test_cloud:
 start_local: copy_shared
 	func start --port 7071
 
+start_local_with_logging: copy_shared
+	func start --port 7071 --verbose
+
 test_local:
 	python test_function.py local api_version
 
