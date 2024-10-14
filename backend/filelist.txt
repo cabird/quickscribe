@@ -1,0 +1,16 @@
+.env
+api_version.py
+app.py
+blob_util.py
+config.py
+db_handlers/__init__.py
+db_handlers/recording_handler.py
+db_handlers/transcription_handler.py
+db_handlers/user_handler.py
+requirements.txt
+routes/transcription_routes.py
+templates/index.html
+templates/recordings.html
+templates/upload.html
+templates/view_transcription.html
+user_util.py

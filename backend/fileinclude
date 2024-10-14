@@ -1,0 +1,12 @@
+*.py
+!manage.py
+!generate_filelist.py
+!generate_example_env.py
+.env
+requirements.txt
+util/*.py
+db_handlers/*.py
+api_version.py
+routes/*.py
+templates/*.html
+

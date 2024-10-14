@@ -13,98 +13,39 @@ from db_handlers.recording_handler import RecordingHandler
 from db_handlers.transcription_handler import TranscriptionHandler, TranscribingStatus
 import uuid
 from datetime import datetime, timedelta
+from routes.transcription_routes import transcription_bp
+from blob_util import store_recording, generate_recording_sas_url
+from api_version import API_VERSION
+import logging
+from user_util import get_user
+from config import config
 
 load_dotenv()
 
 app = Flask(__name__)
-# todo - make this a random key and store it somewhere like in a keyvault
-app.secret_key = 'supersecretkey'
+app.secret_key = config.SECRET_KEY
 socketio = SocketIO(app)
 
-# Azure Blob Storage configurations
-AZURE_STORAGE_CONNECTION_STRING = os.environ.get("AZURE_STORAGE_CONNECTION_STRING")
-BLOB_CONTAINER = os.getenv("AZURE_RECORDING_BLOB_CONTAINER")
+logging.basicConfig(level=logging.INFO)
+logging.info("Starting QuickScribe Web App")
+
+
+app.register_blueprint(transcription_bp, url_prefix='/transcription')
 
 # Initialize the BlobServiceClient
-blob_service_client = BlobServiceClient.from_connection_string(AZURE_STORAGE_CONNECTION_STRING)
+blob_service_client = BlobServiceClient.from_connection_string(config.AZURE_STORAGE_CONNECTION_STRING)
 
 # Initialize Cosmos DB client
-COSMOS_URL = os.environ.get('COSMOS_URL')  # Your Cosmos DB URI
-COSMOS_KEY = os.environ.get('COSMOS_KEY')  # Your Cosmos DB primary key
-DATABASE_NAME = os.getenv("COSMOS_DB_NAME")
-CONTAINER_NAME = os.getenv("COSMOS_CONTAINER_NAME")
-
-cosmos_client = CosmosClient(COSMOS_URL, credential=COSMOS_KEY)
-cosmos_database = cosmos_client.get_database_client(DATABASE_NAME)
-cosmos_container = cosmos_database.get_container_client(CONTAINER_NAME)
-
-
-def get_user(request):
-    # Try to get the user_id from cookies
-    user_id = request.cookies.get('user_id')
-
-    user_handler = UserHandler(COSMOS_URL, COSMOS_KEY, DATABASE_NAME, CONTAINER_NAME)
-
-    if user_id:
-        # Fetch user by ID if the user_id exists in the cookie
-        user = user_handler.get_user(user_id)
-    else:
-        # If no user_id in cookie, fetch user by name 'cbird'
-        users = user_handler.get_user_by_name('cbird')
-        user = users[0] if users else None  # Assuming 'cbird' is unique, take the first result
-
-    return user
-
-# Helper function to get secret from Azure Key Vault
-def get_secret(secret_name):
-    key_vault_name = os.environ["KEY_VAULT_NAME"]
-    key_vault_uri = f"https://{key_vault_name}.vault.azure.net"
-
-    credential = DefaultAzureCredential()
-    client = SecretClient(vault_url=key_vault_uri, credential=credential)
-    
-    secret = client.get_secret(secret_name)
-    return secret.value
+cosmos_client = CosmosClient(config.COSMOS_URL, credential=config.COSMOS_KEY)
+cosmos_database = cosmos_client.get_database_client(config.COSMOS_DB_NAME)
+cosmos_container = cosmos_database.get_container_client(config.COSMOS_CONTAINER_NAME)
 
 # Landing page route
 @app.route('/')
 def index():
-    return render_template('index.html')
+    return render_template('index.html', api_version=API_VERSION)
 
-# Route to call the Azure Functions app's test function
-@app.route('/call-function')
-def call_function():
-    try:
-        # Call the Azure Functions app's test function
-        function_url = "https://quickscribefunctionapp.azurewebsites.net/api/test"
-        response = requests.get(function_url, params={"name": "Chris"})
-        
-        if response.status_code == 200:
-            return f"Function call successful! Response: {response.text}"
-        else:
-            return f"Failed to call function. Status code: {response.status_code}"
-    except Exception as e:
-        return f"Error: {str(e)}"
 
-# Route to call the Azure Functions app's test function
-@app.route('/call-function-with-auth')
-def call_function_with_auth():
-    try:
-        # Get the function key from Key Vault
-        function_key = get_secret("AzureFunctionKey")
-        
-        # Call the Azure Functions app's test function
-        function_url = "https://quickscribefunctionapp.azurewebsites.net/api/test_with_auth"
-        headers = {"x-functions-key": function_key}
-        params = {"name": "Chris"}
-        response = requests.get(function_url, params=params, headers=headers)
-        
-        if response.status_code == 200:
-            return f"Function call with auth successful! Response: {response.text}"
-        else:
-            return f"Failed to call function with auth. Status code: {response.status_code}"
-    except Exception as e:
-        return f"Error: {str(e)}"
 @app.route('/upload', methods=['GET'])
 def upload_form():
     return render_template('upload.html')
@@ -133,20 +74,10 @@ def upload():
             socketio.emit('status', {'message': f'File downloaded to server...'})
             print("emitting status message: Uploading to Azure Blob Storage...")
             socketio.emit('status', {'message': f'Uploading to Azure Blob Storage...'})
-
-            blob_client = blob_service_client.get_blob_client(container=BLOB_CONTAINER, blob=unique_filename)
-
-            with open(file_path, "rb") as data:
-                blob_client.upload_blob(
-                    data,
-                    content_settings=ContentSettings(
-                        content_type='audio/mpeg',
-                        content_disposition=f'attachment; filename={original_filename}'
-                    )
-                )
+            store_recording(file_path, unique_filename)
 
             socketio.emit('status', {'message': f'File uploaded to Azure Blob Storage complete...'})
-            recording_handler = RecordingHandler(COSMOS_URL, COSMOS_KEY, DATABASE_NAME, CONTAINER_NAME)
+            recording_handler = RecordingHandler(config.COSMOS_URL, config.COSMOS_KEY, config.COSMOS_DB_NAME, config.COSMOS_CONTAINER_NAME)
             user = get_user(request)
             recording_handler.create_recording(user['id'], original_filename, unique_filename)
 
@@ -161,62 +92,44 @@ def upload():
     return jsonify({'error': 'Only .mp3 files are allowed'}), 400
 
 
-
-
-# Generate a SAS URL for downloading a file
-def generate_download_url(blob_name):
-    # Get the account key from environment variable
-    account_key = os.environ.get("AZURE_STORAGE_ACCOUNT_KEY")
-    if not account_key:
-        raise ValueError("Account key not set in environment variables")
-
-    sas_token = generate_blob_sas(
-        account_name=blob_service_client.account_name,
-        container_name=BLOB_CONTAINER,
-        blob_name=blob_name,
-        permission=BlobSasPermissions(read=True),
-        expiry=datetime.utcnow() + timedelta(hours=1),  # 1-hour expiry
-        account_key=account_key
-    )
-
-    # Construct the full URL with SAS token
-    blob_url = f"https://{blob_service_client.account_name}.blob.core.windows.net/{BLOB_CONTAINER}/{blob_name}?{sas_token}"
-    return blob_url
-
 # Route to list all uploaded files
 @app.route('/recordings')
 def list_recordings():
     try:
         user = get_user(request)
         # Get all file metadata from Cosmos DB
-        recording_handler = RecordingHandler(COSMOS_URL, COSMOS_KEY, DATABASE_NAME, CONTAINER_NAME)
+        recording_handler = RecordingHandler(config.COSMOS_URL, config.COSMOS_KEY, config.COSMOS_DB_NAME, config.COSMOS_CONTAINER_NAME)
         recordings = recording_handler.get_user_recordings(user['id'])
-        transcription_handler = TranscriptionHandler(COSMOS_URL, COSMOS_KEY, DATABASE_NAME, CONTAINER_NAME)
+        transcription_handler = TranscriptionHandler(config.COSMOS_URL, config.COSMOS_KEY, config.COSMOS_DB_NAME, config.COSMOS_CONTAINER_NAME)
 
         recording_data = []
         for recording in recordings:
             unique_filename = recording['unique_filename']
 
             # Get blob properties (size) from Azure Blob Storage
-            blob_client = blob_service_client.get_blob_client(container=BLOB_CONTAINER, blob=unique_filename)
+            blob_client = blob_service_client.get_blob_client(container=config.AZURE_RECORDING_BLOB_CONTAINER, blob=unique_filename)
             blob_properties = blob_client.get_blob_properties()
 
             transcription = transcription_handler.get_transcription_by_recording(recording['id'])
             if not transcription:
-                status = '<a href="/start_transcription/{}">Start Transcription</a>'.format(recording['id'])
-            elif transcription['transcription_status'] == 'in_progress':
+                status = '<a href="/transcription/start_transcription/{}">Start Transcription</a>'.format(recording['id'])
+            elif transcription['transcription_status'] == TranscribingStatus.IN_PROGRESS.value:
                 status = 'In Progress'
-            elif transcription['transcription_status'] == 'completed':
+            elif transcription['transcription_status'] == TranscribingStatus.COMPLETED.value:
                 status = '<a href="/view_transcription/{}">View Transcription</a>'.format(transcription['id'])
+            elif transcription['transcription_status'] == TranscribingStatus.FAILED.value:
+                status = 'Failed'
+            elif transcription['transcription_status'] == TranscribingStatus.NOT_STARTED.value:
+                status = '<a href="/transcription/start_transcription/{}">Start Transcription</a>'.format(recording['id'])
             else:
-                status = f"Unknown status: {transcription['transcription_status']}"
+                status = f"Unknown status: {transcription['status']}"
 
             # Prepare the data for rendering
             recording_info = {
                 'original_filename': recording['original_filename'],
                 'unique_filename': unique_filename,
                 'file_size': blob_properties.size,  # Get file size in bytes
-                'download_url': generate_download_url(unique_filename),
+                'download_url': generate_recording_sas_url(unique_filename),
                 'transcription_status': status  
             }
             recording_data.append(recording_info)
@@ -233,7 +146,19 @@ def list_recordings():
         stack_trace = traceback.format_exc()
         return f"<pre>Error: {error_message}\n\nStack Trace:\n{stack_trace}</pre>"
 
+@app.route("/view_transcription/<transcription_id>")
+def view_transcription(transcription_id):
+    """View the transcription for a given transcription ID."""
+    transcription_handler = TranscriptionHandler(config.COSMOS_URL, config.COSMOS_KEY, config.COSMOS_DB_NAME, config.COSMOS_CONTAINER_NAME)
+    transcription = transcription_handler.get_transcription(transcription_id)
+    
+    if transcription:
+        # Render a template to display the transcription text
+        return render_template('view_transcription.html', transcription=transcription)
+    else:
+        return "Transcription not found", 404
+
+
 
 if __name__ == '__main__':
     app.run(debug=True)
-

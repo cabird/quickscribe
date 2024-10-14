@@ -27,14 +27,14 @@ class TranscriptionHandler:
             "recording_id": recording_id,
             "transcription_status": "not_started",  # Default status
             "transcription_progress": 0,
-            "transcript_text": "",
             "created_at": datetime.utcnow().isoformat(),
             "updated_at": datetime.utcnow().isoformat(),
             "partitionKey": "transcription",
-            "status": "not_started"
+            "text": "",
+            "transcript_json": ""
         }
-        self.container.create_item(body=transcription_item)
-        return transcription_id
+        item = self.container.create_item(body=transcription_item)
+        return item
 
     def get_transcription_by_recording(self, recording_id):
         """Get a transcription entry by the associated recording ID."""

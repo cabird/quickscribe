@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Transcription</title>
+</head>
+<body>
+    <h1>Transcription for {{ transcription.id }}</h1>
+    
+    <h3>Status: {{ transcription.transcription_status }}</h3>
+    
+    {% if transcription.transcription_status == "completed" %}
+        <h3>Transcription Text:</h3>
+        {% if 'diarized_transcript' in transcription %}
+            <h3>Diarized Transcription:</h3>
+            {% for segment in transcription.diarized_transcript.split('\n\n') %}
+                <p>{{ segment }}</p>
+            {% endfor %}
+
+        {% elif 'text' in transcription %}
+            <p>{{ transcription.text }}</p>
+        {% else %}
+            <p>No transcription text available.</p>
+        {% endif %}
+    {% else %}
+        <p>The transcription is {{ transcription.transcription_status }}.</p>
+    {% endif %}
+    
+    <a href="/recordings">Back to Recordings</a>
+</body>
+</html>
