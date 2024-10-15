@@ -19,6 +19,7 @@ import logging
 from user_util import get_user
 from config import config
 import auth
+from llms import get_speaker_mapping
 
 load_dotenv()
 
@@ -102,7 +103,7 @@ def upload():
 
 # Route to list all uploaded files
 @app.route('/recordings')
-def list_recordings():
+def recordings():
     try:
         user = get_user(request)
         # Get all file metadata from Cosmos DB
@@ -119,6 +120,7 @@ def list_recordings():
             blob_properties = blob_client.get_blob_properties()
 
             transcription = transcription_handler.get_transcription_by_recording(recording['id'])
+            
             if not transcription:
                 status = '<a href="/transcription/start_transcription/{}">Start Transcription</a>'.format(recording['id'])
             elif transcription['transcription_status'] == TranscribingStatus.IN_PROGRESS.value:
@@ -134,11 +136,15 @@ def list_recordings():
 
             # Prepare the data for rendering
             recording_info = {
+                'transcription_status': transcription['transcription_status'] if transcription else None,
                 'original_filename': recording['original_filename'],
                 'unique_filename': unique_filename,
                 'file_size': blob_properties.size,  # Get file size in bytes
                 'download_url': generate_recording_sas_url(unique_filename),
-                'transcription_status': status  
+                'recording_id': recording['id'],
+                'transcription_id': transcription['id'] if transcription else None,
+                'speaker_names_inferred':True if transcription and 'speaker_mapping' in transcription else False
+                
             }
             recording_data.append(recording_info)
 
@@ -153,6 +159,25 @@ def list_recordings():
         error_message = str(e)
         stack_trace = traceback.format_exc()
         return f"<pre>Error: {error_message}\n\nStack Trace:\n{stack_trace}</pre>"
+
+
+@app.route("/infer_speaker_names/<transcription_id>")
+def infer_speaker_names(transcription_id):
+    transcription_handler = TranscriptionHandler(config.COSMOS_URL, config.COSMOS_KEY, config.COSMOS_DB_NAME, config.COSMOS_CONTAINER_NAME)
+    transcription = transcription_handler.get_transcription(transcription_id)
+    if transcription and "diarized_transcript" in transcription:
+        if not "speaker_mapping" in transcription:
+            speaker_mapping = get_speaker_mapping(transcription['diarized_transcript'])
+            transcription['speaker_mapping'] = speaker_mapping
+            transcription['diarized_transcript'] = speaker_mapping['transcript_text']
+            transcription_handler.update_transcription(transcription)
+            flash("Speaker names successfully inferred", "success")
+        else:
+            # redirect to recordings page, but flash the message that we already inferred the speaker names
+            flash("Speaker names already inferred", "info")
+    else:
+        flash("Transcription not found", "error")
+    return redirect(url_for('recordings'))
 
 @app.route("/view_transcription/<transcription_id>")
 def view_transcription(transcription_id):

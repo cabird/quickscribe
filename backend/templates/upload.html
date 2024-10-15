@@ -1,93 +1,73 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Upload MP3 File</title>
-    <style>
-        /* Simple styling for the progress bar */
-        #progress-container {
-            width: 100%;
-            background-color: #f3f3f3;
-            margin-top: 10px;
+{% extends "base.html" %}
+
+{% block title %}Upload MP3 File{% endblock %}
+
+{% block content %}
+<h1>Upload an Audio File</h1>
+<form id="upload-form" enctype="multipart/form-data">
+    <input type="file" name="file" accept=".mp3,.m4a" id="file-input">
+    <button type="submit">Upload</button>
+</form>
+
+<!-- Progress bar -->
+<div id="progress-container">
+    <div id="progress-bar">0%</div>
+</div>
+
+<!-- Status updates from server -->
+<div id="status"></div>
+
+<script>
+    document.getElementById('upload-form').addEventListener('submit', function(event) {
+        event.preventDefault(); // Prevent default form submission
+
+        var fileInput = document.getElementById('file-input');
+        var file = fileInput.files[0];
+
+        if (!file) {
+            alert("Please select a file.");
+            return;
         }
-        #progress-bar {
-            width: 0%;
-            height: 30px;
-            background-color: #4caf50;
-            text-align: center;
-            line-height: 30px;
-            color: white;
-        }
-    </style>
-</head>
-<body>
-    <h1>Upload an MP3 File</h1>
-    <form id="upload-form" enctype="multipart/form-data">
-        <input type="file" name="file" accept=".mp3,.m4a" id="file-input">
-        <button type="submit">Upload</button>
-    </form>
 
-    <!-- Progress bar -->
-    <div id="progress-container">
-        <div id="progress-bar">0%</div>
-    </div>
+        // Create a FormData object to send the file
+        var formData = new FormData();
+        formData.append('file', file);
 
-    <!-- Status updates from server -->
-    <div id="status"></div>
+        // Create an XMLHttpRequest object for AJAX
+        var xhr = new XMLHttpRequest();
 
-    <script>
-        document.getElementById('upload-form').addEventListener('submit', function(event) {
-            event.preventDefault(); // Prevent default form submission
-
-            var fileInput = document.getElementById('file-input');
-            var file = fileInput.files[0];
-
-            if (!file) {
-                alert("Please select a file.");
-                return;
+        // Set up a progress event listener for the file upload
+        xhr.upload.addEventListener('progress', function(e) {
+            if (e.lengthComputable) {
+                var percentComplete = (e.loaded / e.total) * 100;
+                var progressBar = document.getElementById('progress-bar');
+                progressBar.style.width = percentComplete + '%';
+                progressBar.textContent = Math.round(percentComplete) + '%';
             }
-
-            // Create a FormData object to send the file
-            var formData = new FormData();
-            formData.append('file', file);
-
-            // Create an XMLHttpRequest object for AJAX
-            var xhr = new XMLHttpRequest();
-
-            // Set up a progress event listener for the file upload
-            xhr.upload.addEventListener('progress', function(e) {
-                if (e.lengthComputable) {
-                    var percentComplete = (e.loaded / e.total) * 100;
-                    var progressBar = document.getElementById('progress-bar');
-                    progressBar.style.width = percentComplete + '%';
-                    progressBar.textContent = Math.round(percentComplete) + '%';
-                }
-            });
-
-            // Set up a load event listener (when the upload completes)
-            xhr.addEventListener('load', function(e) {
-                console.log("upload status: ", xhr.status);
-                if (xhr.status === 200) {
-                    alert('File uploaded successfully!');
-                    document.getElementById('progress-bar').textContent = "Upload complete!";
-                } else {
-                    alert('File upload failed.');
-                }
-            });
-
-            // Set up error handling for the request
-            xhr.addEventListener('error', function(e) {
-                alert('An error occurred during the upload.');
-            });
-
-            // Open the connection and send the form data via POST request
-            xhr.open('POST', '/upload', true);
-            xhr.send(formData);
         });
-    </script>
 
-    <br>
-    <a href="{{ url_for('index') }}">Go back to the homepage</a>
-</body>
-</html>
+        // Set up a load event listener (when the upload completes)
+        xhr.addEventListener('load', function(e) {
+            console.log("upload status: ", xhr.status);
+            if (xhr.status === 200) {
+                alert('File uploaded successfully!');
+                document.getElementById('progress-bar').textContent = "Upload complete!";
+            } else {
+                alert('File upload failed.');
+            }
+        });
+
+        // Set up error handling for the request
+        xhr.addEventListener('error', function(e) {
+            alert('An error occurred during the upload.');
+        });
+
+        // Open the connection and send the form data via POST request
+        xhr.open('POST', '/upload', true);
+        xhr.send(formData);
+    });
+</script>
+
+<br>
+<a href="{{ url_for('index') }}">Go back to the homepage</a>
+{% endblock %}

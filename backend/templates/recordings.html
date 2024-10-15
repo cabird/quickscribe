@@ -1,48 +1,44 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Uploaded Files</title>
-    <style>
-        table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-        table, th, td {
-            border: 1px solid black;
-        }
-        th, td {
-            padding: 10px;
-            text-align: left;
-        }
-    </style>
-</head>
-<body>
-    <h1>List of Uploaded Files</h1>
+{% extends "base.html" %}
 
-    <table>
-        <thead>
+{% block title %}Uploaded Recordings{% endblock %}
+
+{% block content %}
+<h1>List of Uploaded Files</h1>
+
+<table>
+    <thead>
+        <tr>
+            <th>Original Filename</th>
+            <th>File Size (Bytes)</th>
+            <th>Transcription Status</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for recording in recordings %}
             <tr>
-                <th>Original Filename</th>
-                <th>Unique Filename</th>
-                <th>File Size (Bytes)</th>
-                <th>Transcription Status</th>
+                <td><a href="{{ recording.download_url }}" download>{{ recording.original_filename }}</a></td>
+                <td>{{ recording.file_size }}</td>
+                <td>
+                    {% if recording.transcription_status == 'completed' %}
+                        <div><a href="{{ url_for('view_transcription', transcription_id=recording.transcription_id) }}">View Transcription</a></div>
+                        
+                        <!-- Show "Infer Speaker Names" link if speaker names haven't been inferred -->
+                        {% if not recording.speaker_names_inferred %}
+                            <div><a href="{{ url_for('infer_speaker_names', transcription_id=recording.transcription_id) }}">Infer Speaker Names</a></div>
+                        {% endif %}
+                    {% elif recording.transcription_status == 'in_progress' %}
+                        <span>Transcription in Progress...</span>
+                    {% elif recording.transcription_status == 'not_started' %}
+                        <div><a href="{{ url_for('start_transcription', recording_id=recording.recording_id) }}">Start Transcription</a></div>
+                    {% else %}
+                        <span>Unknown Status</span>
+                    {% endif %}
+                </td>
             </tr>
-        </thead>
-        <tbody>
-            {% for recording in recordings %}
-                <tr>
-                    <td><a href="{{ recording.download_url }}" download>{{ recording.original_filename }}</a></td>
-                    <td>{{ recording.unique_filename }}</td>
-                    <td>{{ recording.file_size }}</td>
-                    <td>{{ recording.transcription_status | safe}}</td>
-                </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+        {% endfor %}
+    </tbody>
+</table>
 
-    <br>
-    <a href="{{ url_for('index') }}">Go back to the homepage</a>
-</body>
-</html>
+<br>
+<a href="{{ url_for('index') }}">Go back to the homepage</a>
+{% endblock %}

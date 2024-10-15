@@ -13,7 +13,7 @@ class Config:
     COSMOS_CONTAINER_NAME = os.getenv("COSMOS_CONTAINER_NAME")
     KEY_VAULT_NAME = os.getenv("KEY_VAULT_NAME")
     AZURE_STORAGE_ACCOUNT_KEY = os.getenv("AZURE_STORAGE_ACCOUNT_KEY")
-    ASSEMBLYAI_API_KEY = os.getenv("ASSEMBLYAI_API_KEY")
+    
     # this is a workaround to determine if we're running in a container
     # https://stackoverflow.com/questions/71411665/how-to-determine-if-a-python-flask-application-is-running-in-a-container
     RUNNING_IN_CONTAINER = "WEBSITE_INSTANCE_ID" in os.environ
@@ -28,5 +28,9 @@ class Config:
     AZURE_OPENAI_API_ENDPOINT = os.getenv("AZURE_OPENAI_API_ENDPOINT")
     AZURE_OPENAI_API_VERSION = os.getenv("AZURE_OPENAI_API_VERSION")
     AZURE_OPENAI_DEPLOYMENT_NAME = os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME")
+
+    #AssemblyAI
+    ASSEMBLYAI_SPEECH_MODEL = os.getenv("ASSEMBLYAI_SPEECH_MODEL")
+    ASSEMBLYAI_API_KEY = os.getenv("ASSEMBLYAI_API_KEY")
 
 config = Config()

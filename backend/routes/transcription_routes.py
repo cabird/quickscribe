@@ -57,7 +57,10 @@ def start_transcription(recording_id):
         transcription['callback_secret'] = callback_secret
 
         aai.settings.api_key = config.ASSEMBLYAI_API_KEY
-        aai_config = aai.TranscriptionConfig(speaker_labels=True, speech_model=aai.SpeechModel.nano)
+
+        aai_config = aai.TranscriptionConfig(speaker_labels=True)
+        if config.ASSEMBLYAI_SPEECH_MODEL == "nano":
+            aai_config.speech_model = aai.SpeechModel.nano
 
         if config.RUNNING_IN_CONTAINER:
             logging.info(f"Running in container, setting webhook")

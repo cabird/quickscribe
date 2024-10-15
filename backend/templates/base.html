@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}QuickScribe{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <style>
+        /* Add the container style here */
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+    </style>
+</head>
+<body>
+    <nav>
+        <!-- Navigation content, if needed -->
+        <a href="/">Home</a>
+        <a href="/upload">Upload</a>
+        <a href="/recordings">Recordings</a>
+    </nav>
+
+    <!-- Flash Messages Section -->
+    <div class="container">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div id="flash-messages">
+                    {% for category, message in messages %}
+                        <div class="flash-message flash-{{ category }}">
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        <!-- Main container content -->
+        {% block content %}{% endblock %}
+    </div>
+
+    <footer>
+        <p>©2024 QuickScribe</p>
+    </footer>
+</body>
+</html>
