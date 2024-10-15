@@ -55,3 +55,7 @@ class RecordingHandler:
             transcription = self.transcription_handler.get_transcription(transcription_id)
             return transcription['transcription_status'] if transcription else "No Transcription Found"
         return "No Transcription"
+
+    def delete_recording(self, recording_id):
+        """Delete a recording by its ID."""
+        self.container.delete_item(item=recording_id, partition_key="recording")

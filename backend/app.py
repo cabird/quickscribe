@@ -121,22 +121,9 @@ def recordings():
 
             transcription = transcription_handler.get_transcription_by_recording(recording['id'])
             
-            if not transcription:
-                status = '<a href="/transcription/start_transcription/{}">Start Transcription</a>'.format(recording['id'])
-            elif transcription['transcription_status'] == TranscribingStatus.IN_PROGRESS.value:
-                status = 'In Progress'
-            elif transcription['transcription_status'] == TranscribingStatus.COMPLETED.value:
-                status = '<a href="/view_transcription/{}">View Transcription</a>'.format(transcription['id'])
-            elif transcription['transcription_status'] == TranscribingStatus.FAILED.value:
-                status = 'Failed'
-            elif transcription['transcription_status'] == TranscribingStatus.NOT_STARTED.value:
-                status = '<a href="/transcription/start_transcription/{}">Start Transcription</a>'.format(recording['id'])
-            else:
-                status = f"Unknown status: {transcription['status']}"
-
             # Prepare the data for rendering
             recording_info = {
-                'transcription_status': transcription['transcription_status'] if transcription else None,
+                'transcription_status': transcription['transcription_status'] if transcription else TranscribingStatus.NOT_STARTED.value,
                 'original_filename': recording['original_filename'],
                 'unique_filename': unique_filename,
                 'file_size': blob_properties.size,  # Get file size in bytes
@@ -190,7 +177,13 @@ def view_transcription(transcription_id):
         return render_template('view_transcription.html', transcription=transcription)
     else:
         return "Transcription not found", 404
-
+        
+@app.route("/delete_recording/<recording_id>")
+def delete_recording(recording_id):
+    recording_handler = RecordingHandler(config.COSMOS_URL, config.COSMOS_KEY, config.COSMOS_DB_NAME, config.COSMOS_CONTAINER_NAME)
+    recording_handler.delete_recording(recording_id)
+    flash("Recording deleted successfully", "success")
+    return redirect(url_for('recordings'))
 
 
 if __name__ == '__main__':

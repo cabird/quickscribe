@@ -8,8 +8,12 @@ db_handlers/__init__.py
 db_handlers/recording_handler.py
 db_handlers/transcription_handler.py
 db_handlers/user_handler.py
+llms.py
+prompts.yaml
 requirements.txt
 routes/transcription_routes.py
+static/styles.css
+templates/base.html
 templates/index.html
 templates/recordings.html
 templates/upload.html

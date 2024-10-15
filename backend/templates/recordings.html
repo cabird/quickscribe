@@ -11,34 +11,60 @@
             <th>Original Filename</th>
             <th>File Size (Bytes)</th>
             <th>Transcription Status</th>
+            <th>Actions</th>
         </tr>
     </thead>
     <tbody>
         {% for recording in recordings %}
-            <tr>
+            <tr class="recording-row">
                 <td><a href="{{ recording.download_url }}" download>{{ recording.original_filename }}</a></td>
                 <td>{{ recording.file_size }}</td>
                 <td>
                     {% if recording.transcription_status == 'completed' %}
-                        <div><a href="{{ url_for('view_transcription', transcription_id=recording.transcription_id) }}">View Transcription</a></div>
-                        
-                        <!-- Show "Infer Speaker Names" link if speaker names haven't been inferred -->
-                        {% if not recording.speaker_names_inferred %}
-                            <div><a href="{{ url_for('infer_speaker_names', transcription_id=recording.transcription_id) }}">Infer Speaker Names</a></div>
-                        {% endif %}
+                        <span>Completed</span>
                     {% elif recording.transcription_status == 'in_progress' %}
                         <span>Transcription in Progress...</span>
                     {% elif recording.transcription_status == 'not_started' %}
-                        <div><a href="{{ url_for('start_transcription', recording_id=recording.recording_id) }}">Start Transcription</a></div>
+                        <span>Not Started</span>
                     {% else %}
-                        <span>Unknown Status</span>
+                        <span>Unknown Status ({{ recording.transcription_status }})</span>
                     {% endif %}
+                </td>
+                <td class="actions">
+                    {% if recording.transcription_status == 'not_started' %}
+                        <span class="icon" data-tooltip="Start Transcription">
+                            <a href="{{ url_for('transcription_bp.start_transcription', recording_id=recording.recording_id) }}">
+                                <i class="fas fa-microphone"></i> <!-- Transcribe Icon -->
+                            </a>
+                        </span>
+                    {% elif recording.transcription_status == 'completed' %}
+                        <span class="icon" data-tooltip="View Transcription">
+                            <a href="{{ url_for('view_transcription', transcription_id=recording.transcription_id) }}">
+                                <i class="fas fa-file-alt"></i> <!-- View Transcription Icon -->
+                            </a>
+                        </span>
+                        {% if not recording.speaker_names_inferred %}
+                            <span class="icon" data-tooltip="Infer Speaker Names">
+                                <a href="{{ url_for('infer_speaker_names', transcription_id=recording.transcription_id) }}">
+                                    <i class="fas fa-users"></i> <!-- Infer Speaker Icon -->
+                                </a>
+                            </span>
+                        {% endif %}
+                    {% endif %}
+                    <span class="icon" data-tooltip="Download">
+                        <a href="{{ recording.download_url }}" download>
+                            <i class="fas fa-download"></i> <!-- Download Icon -->
+                        </a>
+                    </span>
+                    <span class="icon" data-tooltip="Delete">
+                        <a href="{{ url_for('delete_recording', recording_id=recording.recording_id) }}">
+                            <i class="fas fa-trash-alt"></i> <!-- Delete Icon -->
+                        </a>
+                    </span>
                 </td>
             </tr>
         {% endfor %}
     </tbody>
 </table>
 
-<br>
-<a href="{{ url_for('index') }}">Go back to the homepage</a>
 {% endblock %}

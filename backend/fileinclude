@@ -9,4 +9,5 @@ db_handlers/*.py
 api_version.py
 routes/*.py
 templates/*.html
-
+prompts.yaml
+static/*
