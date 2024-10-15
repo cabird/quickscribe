@@ -20,12 +20,17 @@ from user_util import get_user
 from config import config
 import auth
 from llms import get_speaker_mapping
+import jinja2
+from util import jinja2_escapejs_filter, get_recording_duration_in_seconds, format_duration, ellide
+
 
 load_dotenv()
 
 app = Flask(__name__)
 app.secret_key = config.SECRET_KEY
 
+app.jinja_env.filters['escapejs'] = jinja2_escapejs_filter
+app.jinja_env.filters['ellide'] = ellide
 
 logging.basicConfig(level=logging.INFO)
 logging.info("Starting QuickScribe Web App")
@@ -80,7 +85,9 @@ def upload():
         logging.info("file found")
         try:
             original_filename = secure_filename(file.filename)
-            unique_filename = f"{uuid.uuid4()}.mp3"
+            #get the file extension
+            file_extension = file.filename.split(".")[-1]
+            unique_filename = f"{uuid.uuid4()}.{file_extension}"
             logging.info(f"unique_filename: {unique_filename}")
             file_path = os.path.join('/tmp', unique_filename)
             file.save(file_path)
@@ -88,8 +95,13 @@ def upload():
             store_recording(file_path, unique_filename)
             recording_handler = RecordingHandler(config.COSMOS_URL, config.COSMOS_KEY, config.COSMOS_DB_NAME, config.COSMOS_CONTAINER_NAME)
             user = get_user(request)
-            recording_handler.create_recording(user['id'], original_filename, unique_filename)
-            return jsonify({'message': 'File uploaded successfully!', 'filename': original_filename}), 200
+
+            recording = recording_handler.create_recording(user['id'], original_filename, unique_filename)
+            # determine the duration of the recording
+            duration = get_recording_duration_in_seconds(file_path)
+            recording['duration'] = duration
+            recording_handler.update_recording(recording)
+            return jsonify({'message': 'File uploaded successfully!', 'filename': original_filename, 'recording_id': recording['id'], 'duration': duration}), 200
 
         except Exception as e:
             logging.error(f"error uploading file: {e}")
@@ -114,6 +126,10 @@ def recordings():
         recording_data = []
         for recording in recordings:
             unique_filename = recording['unique_filename']
+            if 'duration' in recording:
+                duration_str = format_duration(recording['duration'])
+            else:
+                duration_str = "unknown"
 
             # Get blob properties (size) from Azure Blob Storage
             blob_client = blob_service_client.get_blob_client(container=config.AZURE_RECORDING_BLOB_CONTAINER, blob=unique_filename)
@@ -121,6 +137,7 @@ def recordings():
 
             transcription = transcription_handler.get_transcription_by_recording(recording['id'])
             
+            text = transcription['diarized_transcript'] if transcription and 'diarized_transcript' in transcription else transcription['text'] if transcription else ""
             # Prepare the data for rendering
             recording_info = {
                 'transcription_status': transcription['transcription_status'] if transcription else TranscribingStatus.NOT_STARTED.value,
@@ -129,9 +146,10 @@ def recordings():
                 'file_size': blob_properties.size,  # Get file size in bytes
                 'download_url': generate_recording_sas_url(unique_filename),
                 'recording_id': recording['id'],
-                'transcription_id': transcription['id'] if transcription else None,
-                'speaker_names_inferred':True if transcription and 'speaker_mapping' in transcription else False
-                
+                'transcription_id': transcription['id'] if transcription else -1,
+                'speaker_names_inferred':True if transcription and 'speaker_mapping' in transcription else False,
+                'duration': duration_str,
+                'transcription_text': text
             }
             recording_data.append(recording_info)
 
@@ -181,8 +199,19 @@ def view_transcription(transcription_id):
 @app.route("/delete_recording/<recording_id>")
 def delete_recording(recording_id):
     recording_handler = RecordingHandler(config.COSMOS_URL, config.COSMOS_KEY, config.COSMOS_DB_NAME, config.COSMOS_CONTAINER_NAME)
-    recording_handler.delete_recording(recording_id)
-    flash("Recording deleted successfully", "success")
+    recording = recording_handler.get_recording(recording_id)
+    #check if there is a transcription for this recording
+    transcription_handler = TranscriptionHandler(config.COSMOS_URL, config.COSMOS_KEY, config.COSMOS_DB_NAME, config.COSMOS_CONTAINER_NAME)
+    transcription = transcription_handler.get_transcription_by_recording(recording_id)
+    if transcription:
+        #delete the transcription
+        transcription_handler.delete_transcription(transcription['id'])
+        flash("Transcription deleted successfully", "success")
+    elif recording:
+        recording_handler.delete_recording(recording_id)
+        flash("Recording deleted successfully", "success")
+    else:
+        flash("Recording not found", "error")
     return redirect(url_for('recordings'))
 
 

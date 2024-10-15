@@ -19,3 +19,4 @@ templates/recordings.html
 templates/upload.html
 templates/view_transcription.html
 user_util.py
+util.py

@@ -21,8 +21,8 @@ class RecordingHandler:
             "upload_timestamp": datetime.utcnow().isoformat(),
             "partitionKey": "recording"
         }
-        self.container.create_item(body=recording_item)
-        return recording_id
+        item = self.container.create_item(body=recording_item)
+        return item
 
     def get_recording(self, recording_id):
         """Retrieve a recording by its ID."""
@@ -59,3 +59,7 @@ class RecordingHandler:
     def delete_recording(self, recording_id):
         """Delete a recording by its ID."""
         self.container.delete_item(item=recording_id, partition_key="recording")
+
+    def update_recording(self, recording):
+        """Update a recording in Cosmos DB."""
+        self.container.replace_item(item=recording['id'], body=recording)

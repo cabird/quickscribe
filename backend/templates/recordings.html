@@ -9,7 +9,7 @@
     <thead>
         <tr>
             <th>Original Filename</th>
-            <th>File Size (Bytes)</th>
+            <th>Length</th>
             <th>Transcription Status</th>
             <th>Actions</th>
         </tr>
@@ -17,8 +17,8 @@
     <tbody>
         {% for recording in recordings %}
             <tr class="recording-row">
-                <td><a href="{{ recording.download_url }}" download>{{ recording.original_filename }}</a></td>
-                <td>{{ recording.file_size }}</td>
+                <td><a href="{{ recording.download_url }}" data-tooltip="{{recording.original_filename}}" download>{{ recording.original_filename | ellide(50) }}</a></td>
+                <td>{{ recording.duration }}</td>
                 <td>
                     {% if recording.transcription_status == 'completed' %}
                         <span>Completed</span>
@@ -30,41 +30,67 @@
                         <span>Unknown Status ({{ recording.transcription_status }})</span>
                     {% endif %}
                 </td>
+
                 <td class="actions">
-                    {% if recording.transcription_status == 'not_started' %}
-                        <span class="icon" data-tooltip="Start Transcription">
-                            <a href="{{ url_for('transcription_bp.start_transcription', recording_id=recording.recording_id) }}">
-                                <i class="fas fa-microphone"></i> <!-- Transcribe Icon -->
-                            </a>
-                        </span>
-                    {% elif recording.transcription_status == 'completed' %}
-                        <span class="icon" data-tooltip="View Transcription">
-                            <a href="{{ url_for('view_transcription', transcription_id=recording.transcription_id) }}">
-                                <i class="fas fa-file-alt"></i> <!-- View Transcription Icon -->
-                            </a>
-                        </span>
-                        {% if not recording.speaker_names_inferred %}
-                            <span class="icon" data-tooltip="Infer Speaker Names">
-                                <a href="{{ url_for('infer_speaker_names', transcription_id=recording.transcription_id) }}">
-                                    <i class="fas fa-users"></i> <!-- Infer Speaker Icon -->
-                                </a>
-                            </span>
-                        {% endif %}
-                    {% endif %}
-                    <span class="icon" data-tooltip="Download">
-                        <a href="{{ recording.download_url }}" download>
-                            <i class="fas fa-download"></i> <!-- Download Icon -->
+                    <span class="icon {% if recording.transcription_status != 'not_started' %}disabled{% endif %}" data-tooltip="Start Transcription">
+                        <a href="{{ url_for('transcription_bp.start_transcription', recording_id=recording.recording_id) }}">
+                            <i class="fas fa-microphone"></i>
                         </a>
                     </span>
+                    
+                    <span class="icon {% if recording.transcription_status != 'completed' %}disabled{% endif %}" data-tooltip="View Transcription">
+                        <a href="{{ url_for('view_transcription', transcription_id=recording.transcription_id if recording.transcription_status == 'completed' else -1) }}">
+                            <i class="fas fa-file-alt"></i>
+                        </a>
+                    </span>
+                
+                    <span class="icon {% if recording.transcription_status != 'completed' or recording.speaker_names_inferred %}disabled{% endif %}" data-tooltip="Infer Speaker Names">
+                        <a href="{{ url_for('infer_speaker_names', transcription_id=recording.transcription_id) }}">
+                            <i class="fas fa-users"></i>
+                        </a>
+                    </span>
+                
+                    <span class="icon {% if recording.transcription_status == 'not_started' %}disabled{% endif %}" data-tooltip="Download">
+                        <a href="{{ recording.download_url }}" download>
+                            <i class="fas fa-download"></i>
+                        </a>
+                    </span>
+                
+                    <span class="icon {% if recording.transcription_status != 'completed' %}disabled{% endif %}" data-tooltip="Copy Transcript">
+                        <a href="#" onclick="copyTranscriptToClipboard('{{ recording.transcription_text | escapejs }}')">
+                            <i class="fas fa-clipboard"></i>
+                        </a>
+                    </span>
+                
                     <span class="icon" data-tooltip="Delete">
                         <a href="{{ url_for('delete_recording', recording_id=recording.recording_id) }}">
-                            <i class="fas fa-trash-alt"></i> <!-- Delete Icon -->
+                            <i class="fas fa-trash-alt"></i>
                         </a>
                     </span>
                 </td>
+                
+
             </tr>
         {% endfor %}
     </tbody>
 </table>
+<script>
+    function copyTranscriptToClipboard(text) {
+        // Create a temporary text area element
+        const textArea = document.createElement('textarea');
+        textArea.value = text;
+        document.body.appendChild(textArea);
 
+        // Select the text in the text area and copy it to the clipboard
+        textArea.select();
+        textArea.setSelectionRange(0, 99999); // For mobile devices
+        document.execCommand('copy');
+
+        // Remove the temporary text area from the document
+        document.body.removeChild(textArea);
+
+        // Show a message to the user (optional)
+        alert('Transcript copied to clipboard!');
+    }
+</script>
 {% endblock %}

@@ -29,6 +29,7 @@ jiter==0.6.1
 MarkupSafe==3.0.1
 msal==1.31.0
 msal-extensions==1.2.0
+mutagen==1.47.0
 openai==1.51.2
 portalocker==2.10.1
 pycparser==2.22
