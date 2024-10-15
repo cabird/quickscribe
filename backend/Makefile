@@ -3,6 +3,7 @@ APP_NAME = QuickScribeWebApp
 
 bump_version:
 	bump2version --allow-dirty patch
+	@cat api_version.py
 
 build_zip:
 	pip freeze > requirements.txt

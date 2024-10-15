@@ -1,0 +1,24 @@
+prompts:
+  infer_speaker_names:
+    description: "This prompt is used to infer speaker names based on a transcript."
+    prompt: |
+      I have a transcript where the speakers are labeled as "Speaker A", "Speaker B", etc.
+      Based on the conversation, I would like you to infer the names or roles of the speakers.
+      If an actual name cannot be determined, describe the speaker in one or two words based on the content.
+      Please explain your reasoning clearly, and then provide a mapping of the speaker labels to names/roles in JSON format.
+
+      The output should look like this:
+
+      *** Reasoning ***
+
+      <Provide reasoning for the inferred names/roles of each speaker here>
+
+      *** JSON ***
+
+      {
+        "Speaker A": { "name": "<inferred name or description>", "reasoning": "<brief reasoning>" },
+        "Speaker B": { "name": "<inferred name or description>", "reasoning": "<brief reasoning>" },
+        "Speaker C": { "name": "<inferred name or description>", "reasoning": "<brief reasoning>" }
+      }
+
+      __TRANSCRIPT__

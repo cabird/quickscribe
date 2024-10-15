@@ -24,7 +24,7 @@
 <body>
     <h1>Upload an MP3 File</h1>
     <form id="upload-form" enctype="multipart/form-data">
-        <input type="file" name="file" accept=".mp3" id="file-input">
+        <input type="file" name="file" accept=".mp3,.m4a" id="file-input">
         <button type="submit">Upload</button>
     </form>
 
@@ -36,16 +36,7 @@
     <!-- Status updates from server -->
     <div id="status"></div>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.0/socket.io.js"></script>
     <script>
-        const socket = io.connect();
-
-        // Listen for real-time status messages from the server
-        socket.on('status', function(data) {
-            const statusDiv = document.getElementById('status');
-            statusDiv.innerHTML += `<p>${data.message}</p>`;
-        });
-
         document.getElementById('upload-form').addEventListener('submit', function(event) {
             event.preventDefault(); // Prevent default form submission
 
@@ -76,12 +67,18 @@
 
             // Set up a load event listener (when the upload completes)
             xhr.addEventListener('load', function(e) {
+                console.log("upload status: ", xhr.status);
                 if (xhr.status === 200) {
                     alert('File uploaded successfully!');
                     document.getElementById('progress-bar').textContent = "Upload complete!";
                 } else {
                     alert('File upload failed.');
                 }
+            });
+
+            // Set up error handling for the request
+            xhr.addEventListener('error', function(e) {
+                alert('An error occurred during the upload.');
             });
 
             // Open the connection and send the form data via POST request

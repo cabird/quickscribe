@@ -1,0 +1,77 @@
+import os
+import requests
+import base64
+import json
+from config import config
+import yaml
+
+# Configuration
+API_KEY = config.AZURE_OPENAI_API_KEY
+ENDPOINT = config.AZURE_OPENAI_API_ENDPOINT
+DEPLOYMENT_NAME = config.AZURE_OPENAI_DEPLOYMENT_NAME
+API_VERSION = config.AZURE_OPENAI_API_VERSION
+
+ENDPOINT = f"{ENDPOINT}/openai/deployments/{DEPLOYMENT_NAME}/chat/completions?api-version={API_VERSION}"
+headers = {
+    "Content-Type": "application/json",
+    "api-key": API_KEY,
+}
+
+# Payload for the request
+payload = {
+  "messages": [
+    {
+      "role": "system",
+      "content": [
+        {
+          "type": "text",
+          "text": "You are an AI assistant that helps people find information."
+        }
+      ]
+    },
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "text",
+          "text": "tell me a joke"
+        }
+      ]
+    }
+  ],
+  "temperature": 0.1,
+  "top_p": 0.95,
+  "max_tokens": 800
+}
+
+with open("prompts.yaml", 'r') as stream:
+    prompts = yaml.safe_load(stream)
+
+infer_speaker_prompt = prompts['prompts']['infer_speaker_names']['prompt']
+
+def get_speaker_mapping(transcript_text):
+    prompt = infer_speaker_prompt.replace("__TRANSCRIPT__", transcript_text)
+    payload["messages"][1]["content"][0]["text"] = prompt
+    response = send_prompt_to_llm(prompt)
+    return response
+
+def send_prompt_to_llm(prompt):
+    payload["messages"][1]["content"][0]["text"] = prompt
+
+    # Send request
+    try:
+        response = requests.post(ENDPOINT, headers=headers, json=payload)
+        response.raise_for_status()  # Will raise an HTTPError if the HTTP request returned an unsuccessful status code
+    except requests.RequestException as e:
+        raise SystemExit(f"Failed to make the request. Error: {e}")
+
+    return response.json()["choices"][0]["message"]["content"]
+
+
+
+# Example usage
+if __name__ == "__main__":
+    prompt = "Tell me a joke about computers."
+    response = send_prompt_to_llm(prompt)
+    if response:
+        print(f"LLM Response:\n{response}")

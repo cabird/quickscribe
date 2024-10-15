@@ -18,5 +18,15 @@ class Config:
     # https://stackoverflow.com/questions/71411665/how-to-determine-if-a-python-flask-application-is-running-in-a-container
     RUNNING_IN_CONTAINER = "WEBSITE_INSTANCE_ID" in os.environ
     
+    #Azure Authentication
+    AZ_AUTH_CLIENT_ID = os.getenv("AZ_AUTH_CLIENT_ID")
+    AZ_AUTH_CLIENT_SECRET = os.getenv("AZ_AUTH_CLIENT_SECRET")
+    AZ_AUTH_TENANT_ID = os.getenv("AZ_AUTH_TENANT_ID")
+
+    #Azure OpenAI
+    AZURE_OPENAI_API_KEY = os.getenv("AZURE_OPENAI_API_KEY")
+    AZURE_OPENAI_API_ENDPOINT = os.getenv("AZURE_OPENAI_API_ENDPOINT")
+    AZURE_OPENAI_API_VERSION = os.getenv("AZURE_OPENAI_API_VERSION")
+    AZURE_OPENAI_DEPLOYMENT_NAME = os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME")
 
 config = Config()

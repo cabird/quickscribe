@@ -1,6 +1,7 @@
 .env
 api_version.py
 app.py
+auth.py
 blob_util.py
 config.py
 db_handlers/__init__.py

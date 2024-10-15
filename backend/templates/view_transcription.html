@@ -3,6 +3,27 @@
 <head>
     <meta charset="UTF-8">
     <title>Transcription</title>
+    <script>
+        function copyToClipboard() {
+            // Find the transcription text element
+            var transcriptionText = document.getElementById("transcription-text");
+            
+            // Create a temporary textarea to copy text
+            var tempTextArea = document.createElement("textarea");
+            tempTextArea.value = transcriptionText.innerText;
+            document.body.appendChild(tempTextArea);
+
+            // Select the text and copy to clipboard
+            tempTextArea.select();
+            document.execCommand("copy");
+
+            // Remove the temporary textarea
+            document.body.removeChild(tempTextArea);
+
+            // Alert the user that text has been copied
+            alert("Transcription copied to clipboard!");
+        }
+    </script>
 </head>
 <body>
     <h1>Transcription for {{ transcription.id }}</h1>
@@ -11,17 +32,23 @@
     
     {% if transcription.transcription_status == "completed" %}
         <h3>Transcription Text:</h3>
+        <button onclick="copyToClipboard()">📋 Copy to Clipboard</button>
         {% if 'diarized_transcript' in transcription %}
-            <h3>Diarized Transcription:</h3>
-            {% for segment in transcription.diarized_transcript.split('\n\n') %}
-                <p>{{ segment }}</p>
-            {% endfor %}
+            <div id="transcription-text">
+                {% for segment in transcription.diarized_transcript.split('\n\n') %}
+                    <p>{{ segment }}</p>
+                {% endfor %}
+            </div>
 
         {% elif 'text' in transcription %}
-            <p>{{ transcription.text }}</p>
+            <div id="transcription-text">
+                <p>{{ transcription.text }}</p>
+            </div>
         {% else %}
             <p>No transcription text available.</p>
         {% endif %}
+        <!-- Copy to Clipboard Icon/Button -->
+        <button onclick="copyToClipboard()">📋 Copy to Clipboard</button>
     {% else %}
         <p>The transcription is {{ transcription.transcription_status }}.</p>
     {% endif %}

@@ -1,5 +1,4 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
-from flask_socketio import SocketIO, emit
 import os
 import requests
 from azure.identity import DefaultAzureCredential
@@ -19,12 +18,13 @@ from api_version import API_VERSION
 import logging
 from user_util import get_user
 from config import config
+import auth
 
 load_dotenv()
 
 app = Flask(__name__)
 app.secret_key = config.SECRET_KEY
-socketio = SocketIO(app)
+
 
 logging.basicConfig(level=logging.INFO)
 logging.info("Starting QuickScribe Web App")
@@ -43,7 +43,20 @@ cosmos_container = cosmos_database.get_container_client(config.COSMOS_CONTAINER_
 # Landing page route
 @app.route('/')
 def index():
-    return render_template('index.html', api_version=API_VERSION)
+    if config.RUNNING_IN_CONTAINER:
+        user = auth.get_user()
+        return render_template('index.html', api_version=API_VERSION, user=user)
+    else:
+        user = get_user(request)
+        return render_template('index.html', api_version=API_VERSION)
+
+@app.route('/login')
+def login():
+    return auth.login()
+
+@app.route('/auth/callback')
+def callback():
+    return auth.handle_auth_callback()
 
 
 @app.route('/upload', methods=['GET'])
@@ -53,6 +66,7 @@ def upload_form():
 # File upload form route
 @app.route('/upload', methods=['POST'])
 def upload():
+    logging.info("upload endpoint called")
     if 'file' not in request.files:
         return jsonify({'error': 'No file part'}), 400
 
@@ -61,35 +75,29 @@ def upload():
     if file.filename == '':
         return jsonify({'error': 'No selected file'}), 400
 
-    if file and file.filename.endswith('.mp3'):
+    if file: # and (file.filename.endswith('.mp3') or file.filename.endswith('.m4a')):
+        logging.info("file found")
         try:
             original_filename = secure_filename(file.filename)
             unique_filename = f"{uuid.uuid4()}.mp3"
-            print(f"unique_filename: {unique_filename}")
-
-            # TODO - figure out where this should really be saved...
+            logging.info(f"unique_filename: {unique_filename}")
             file_path = os.path.join('/tmp', unique_filename)
             file.save(file_path)
-            print(f"file saved to {file_path}")
-            socketio.emit('status', {'message': f'File downloaded to server...'})
-            print("emitting status message: Uploading to Azure Blob Storage...")
-            socketio.emit('status', {'message': f'Uploading to Azure Blob Storage...'})
+            logging.info(f"file saved to {file_path}")
             store_recording(file_path, unique_filename)
-
-            socketio.emit('status', {'message': f'File uploaded to Azure Blob Storage complete...'})
             recording_handler = RecordingHandler(config.COSMOS_URL, config.COSMOS_KEY, config.COSMOS_DB_NAME, config.COSMOS_CONTAINER_NAME)
             user = get_user(request)
             recording_handler.create_recording(user['id'], original_filename, unique_filename)
-
             return jsonify({'message': 'File uploaded successfully!', 'filename': original_filename}), 200
 
         except Exception as e:
+            logging.error(f"error uploading file: {e}")
             #print the stack trace
             import traceback
             traceback.print_exc()
             return jsonify({'error': str(e)}), 500
 
-    return jsonify({'error': 'Only .mp3 files are allowed'}), 400
+    return jsonify({'error': 'Only .mp3 and .m4a files are allowed'}), 400
 
 
 # Route to list all uploaded files

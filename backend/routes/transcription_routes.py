@@ -53,28 +53,34 @@ def start_transcription(recording_id):
         # Call the long-running AssemblyAI transcription function asynchronously
         logging.info(f"Calling AssemblyAI transcription function: {transcription['id']}")
         
-        callback_url = f"{request.host}/transcription/transcription_callback/{transcription['id']}"
-        logging.info(f"Callback URL: {callback_url}")
+
         transcription['callback_secret'] = callback_secret
 
         aai.settings.api_key = config.ASSEMBLYAI_API_KEY
         aai_config = aai.TranscriptionConfig(speaker_labels=True, speech_model=aai.SpeechModel.nano)
 
         if config.RUNNING_IN_CONTAINER:
-            logging.info(f"Running in container, not setting webhook")
+            logging.info(f"Running in container, setting webhook")
+            callback_url = f"https://{request.host}/transcription/transcription_callback/{transcription['id']}"
+            logging.info(f"Callback URL: {callback_url}")
             aai_config.set_webhook(callback_url, "X-Callback-Secret", callback_secret)
             logging.info(f"Submitting transcription to AssemblyAI: {blob_sas_url}")
             aai.Transcriber().submit(blob_sas_url, aai_config)
             transcription['transcription_status'] = TranscribingStatus.IN_PROGRESS.value
             transcription_handler.update_transcription(transcription)
+            return "<html><body><h1>Transcription started</h1></body></html>", 200
         else:
             logging.info(f"Running locally, calling and waiting for transcription to complete")
             transcript = aai.Transcriber().transcribe(blob_sas_url, aai_config)
             transcription['transcription_status'] = TranscribingStatus.COMPLETED.value
             aai_transcript_id = transcript.id
-            transcription['text'] = transcript.text
             transcription_handler.update_transcription(transcription)
-            logging.info(f"Transcript: {transcript}")
+            # return a simple html page saying that the transcription has completed
+            headers = {"X-Callback-Secret": callback_secret}
+            json_payload = {"status": "completed", "transcript_id": aai_transcript_id}
+            logging.info("Calling handle_transcription_callback since we're running locally")
+            handle_transcription_callback(transcription['id'], json_payload, headers)
+            return "<html><body><h1>Transcription completed</h1></body></html>", 200
 
     except Exception as e:
         logging.error(f"An error occurred: {str(e)}")
@@ -83,23 +89,6 @@ def start_transcription(recording_id):
         traceback.print_exc()
         logging.error(f"Stack trace: {traceback.format_exc()}")
         return jsonify({'error': str(e)}), 500
-
-    # if this is a get request, return something saying that it was a success
-    if request.method == "GET":
-        if config.RUNNING_IN_CONTAINER:
-            # return a simple html page saying that the transcription has started
-            return "<html><body><h1>Transcription started</h1></body></html>", 200
-        else:
-            # return a simple html page saying that the transcription has completed
-            headers = {"X-Callback-Secret": callback_secret}
-            json_payload = {"status": "completed", "transcript_id": aai_transcript_id}
-            transcription_id = transcription['id']
-            logging.info("Calling handle_transcription_callback since we're running locally")
-            logging.info(f"Transcription ID: {transcription_id}")
-            logging.info(f"JSON payload: {json_payload}")
-            logging.info(f"Headers: {headers}")
-            handle_transcription_callback(transcription_id, json_payload, headers)
-            return "<html><body><h1>Transcription completed</h1></body></html>", 200
 
 @transcription_bp.route("/transcription_callback/<transcription_id>", methods=["POST"])
 def transcription_callback(transcription_id):
