@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, g
 import os
 import requests
 from azure.identity import DefaultAzureCredential
@@ -11,7 +11,7 @@ from db_handlers.user_handler import UserHandler
 from db_handlers.recording_handler import RecordingHandler
 from db_handlers.transcription_handler import TranscriptionHandler, TranscribingStatus
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, UTC
 from routes.transcription_routes import transcription_bp
 from blob_util import store_recording, generate_recording_sas_url
 from api_version import API_VERSION
@@ -22,7 +22,7 @@ import auth
 from llms import get_speaker_mapping
 import jinja2
 from util import jinja2_escapejs_filter, get_recording_duration_in_seconds, format_duration, ellide
-
+from db_handlers.handler_factory import get_recording_handler, get_transcription_handler, get_user_handler
 
 load_dotenv()
 
@@ -35,6 +35,7 @@ app.jinja_env.filters['ellide'] = ellide
 logging.basicConfig(level=logging.INFO)
 logging.info("Starting QuickScribe Web App")
 
+TRANSCRIPTION_IN_PROGRESS_TIMEOUT_SECONDS = 60 * 15 # 5 minutes
 
 app.register_blueprint(transcription_bp, url_prefix='/transcription')
 
@@ -45,6 +46,7 @@ blob_service_client = BlobServiceClient.from_connection_string(config.AZURE_STOR
 cosmos_client = CosmosClient(config.COSMOS_URL, credential=config.COSMOS_KEY)
 cosmos_database = cosmos_client.get_database_client(config.COSMOS_DB_NAME)
 cosmos_container = cosmos_database.get_container_client(config.COSMOS_CONTAINER_NAME)
+
 
 # Landing page route
 @app.route('/')
@@ -93,7 +95,7 @@ def upload():
             file.save(file_path)
             logging.info(f"file saved to {file_path}")
             store_recording(file_path, unique_filename)
-            recording_handler = RecordingHandler(config.COSMOS_URL, config.COSMOS_KEY, config.COSMOS_DB_NAME, config.COSMOS_CONTAINER_NAME)
+            recording_handler = get_recording_handler()
             user = get_user(request)
 
             recording = recording_handler.create_recording(user['id'], original_filename, unique_filename)
@@ -119,13 +121,33 @@ def recordings():
     try:
         user = get_user(request)
         # Get all file metadata from Cosmos DB
-        recording_handler = RecordingHandler(config.COSMOS_URL, config.COSMOS_KEY, config.COSMOS_DB_NAME, config.COSMOS_CONTAINER_NAME)
+        recording_handler = get_recording_handler()
         recordings = recording_handler.get_user_recordings(user['id'])
-        transcription_handler = TranscriptionHandler(config.COSMOS_URL, config.COSMOS_KEY, config.COSMOS_DB_NAME, config.COSMOS_CONTAINER_NAME)
+        transcription_handler = get_transcription_handler()
 
         recording_data = []
         for recording in recordings:
             unique_filename = recording['unique_filename']
+
+            if not 'transcription_status' in recording:
+                recording['transcription_status'] = TranscribingStatus.NOT_STARTED.value
+                recording_handler.update_recording(recording)
+
+            # if the transcription status is in progress, then check how long it has been in progress
+            if recording['transcription_status'] == TranscribingStatus.IN_PROGRESS.value:
+                logging.info(f"transcription status is in progress for recording {recording['id']}")
+                # if the transcription status updated at is not in the recording, then set it to the current timestamp
+                # and eventually the transcription status will be updated to either failed or completed
+                if not 'transcription_status_updated_at' in recording:
+                    recording['transcription_status_updated_at'] = datetime.now(UTC).timestamp()
+                duration_in_progress = datetime.now(UTC) - datetime.fromtimestamp(recording['transcription_status_updated_at'])
+                if duration_in_progress.total_seconds() > TRANSCRIPTION_IN_PROGRESS_TIMEOUT_SECONDS:
+                    logging.info(f"duration in progress is greater than {TRANSCRIPTION_IN_PROGRESS_TIMEOUT_SECONDS} seconds, setting transcription status to failed")
+                    recording['transcription_status'] = TranscribingStatus.FAILED.value
+                    recording['transcription_status_updated_at'] = datetime.now(UTC).timestamp()
+                    recording_handler.update_recording(recording)
+
+
             if 'duration' in recording:
                 duration_str = format_duration(recording['duration'])
             else:
@@ -140,7 +162,7 @@ def recordings():
             text = transcription['diarized_transcript'] if transcription and 'diarized_transcript' in transcription else transcription['text'] if transcription else ""
             # Prepare the data for rendering
             recording_info = {
-                'transcription_status': transcription['transcription_status'] if transcription else TranscribingStatus.NOT_STARTED.value,
+                'transcription_status': recording['transcription_status'] if 'transcription_status' in recording else TranscribingStatus.NOT_STARTED.value,
                 'original_filename': recording['original_filename'],
                 'unique_filename': unique_filename,
                 'file_size': blob_properties.size,  # Get file size in bytes
@@ -168,7 +190,7 @@ def recordings():
 
 @app.route("/infer_speaker_names/<transcription_id>")
 def infer_speaker_names(transcription_id):
-    transcription_handler = TranscriptionHandler(config.COSMOS_URL, config.COSMOS_KEY, config.COSMOS_DB_NAME, config.COSMOS_CONTAINER_NAME)
+    transcription_handler = get_transcription_handler()
     transcription = transcription_handler.get_transcription(transcription_id)
     if transcription and "diarized_transcript" in transcription:
         if not "speaker_mapping" in transcription:
@@ -187,7 +209,7 @@ def infer_speaker_names(transcription_id):
 @app.route("/view_transcription/<transcription_id>")
 def view_transcription(transcription_id):
     """View the transcription for a given transcription ID."""
-    transcription_handler = TranscriptionHandler(config.COSMOS_URL, config.COSMOS_KEY, config.COSMOS_DB_NAME, config.COSMOS_CONTAINER_NAME)
+    transcription_handler = get_transcription_handler()
     transcription = transcription_handler.get_transcription(transcription_id)
     
     if transcription:
@@ -198,10 +220,10 @@ def view_transcription(transcription_id):
         
 @app.route("/delete_recording/<recording_id>")
 def delete_recording(recording_id):
-    recording_handler = RecordingHandler(config.COSMOS_URL, config.COSMOS_KEY, config.COSMOS_DB_NAME, config.COSMOS_CONTAINER_NAME)
+    recording_handler = get_recording_handler()
     recording = recording_handler.get_recording(recording_id)
     #check if there is a transcription for this recording
-    transcription_handler = TranscriptionHandler(config.COSMOS_URL, config.COSMOS_KEY, config.COSMOS_DB_NAME, config.COSMOS_CONTAINER_NAME)
+    transcription_handler = get_transcription_handler()
     transcription = transcription_handler.get_transcription_by_recording(recording_id)
     if transcription:
         #delete the transcription

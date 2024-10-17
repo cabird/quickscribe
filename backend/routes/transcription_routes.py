@@ -9,7 +9,7 @@ import logging
 import uuid
 import json
 from config import config
-
+from datetime import datetime, UTC
 
 # Initialize the BlobServiceClient
 blob_service_client = BlobServiceClient.from_connection_string(config.AZURE_STORAGE_CONNECTION_STRING)
@@ -33,9 +33,9 @@ def start_transcription(recording_id):
     #see if there is already a transcription for this recording
     transcription = transcription_handler.get_transcription_by_recording(recording_id)
     logging.info(f"Transcription: {transcription}")
-    if transcription and transcription['transcription_status'] in [TranscribingStatus.IN_PROGRESS.value, TranscribingStatus.COMPLETED.value]:
-        logging.error(f"Transcription already exists for this recording: {transcription['id']}")
-        return jsonify({'error': 'Transcription already exists for this recording'}), 400
+    if recording and recording['transcription_status'] in [TranscribingStatus.IN_PROGRESS.value, TranscribingStatus.COMPLETED.value]:
+        logging.error(f"Transcription already exists or in progress for this recording: {recording['id']}")
+        return jsonify({'error': 'Transcription already exists or in progress for this recording'}), 400
     
     if not transcription:
         logging.info(f"No transcription found, creating new transcription")
@@ -69,13 +69,16 @@ def start_transcription(recording_id):
             aai_config.set_webhook(callback_url, "X-Callback-Secret", callback_secret)
             logging.info(f"Submitting transcription to AssemblyAI: {blob_sas_url}")
             aai.Transcriber().submit(blob_sas_url, aai_config)
-            transcription['transcription_status'] = TranscribingStatus.IN_PROGRESS.value
-            transcription_handler.update_transcription(transcription)
+            recording['transcription_status'] = TranscribingStatus.IN_PROGRESS.value
+            recording['transcription_status_updated_at'] = datetime.now(UTC).timestamp()
+            recording_handler.update_recording(recording)
             return "<html><body><h1>Transcription started</h1></body></html>", 200
         else:
             logging.info(f"Running locally, calling and waiting for transcription to complete")
             transcript = aai.Transcriber().transcribe(blob_sas_url, aai_config)
-            transcription['transcription_status'] = TranscribingStatus.COMPLETED.value
+            recording['transcription_status'] = TranscribingStatus.COMPLETED.value
+            recording['transcription_status_updated_at'] = datetime.now(UTC).timestamp()
+            recording_handler.update_recording(recording)
             aai_transcript_id = transcript.id
             transcription_handler.update_transcription(transcription)
             # return a simple html page saying that the transcription has completed
@@ -105,10 +108,17 @@ def handle_transcription_callback(transcription_id, json_data, headers):
     logging.info(f"Transcription callback received: {transcription_id}")
     logging.info(f"Request body: {json_data}")
     logging.info(f"Headers: {headers}")
+    
     transcription = transcription_handler.get_transcription(transcription_id)
+    
     if not transcription:
         logging.error(f"Transcription not found: {transcription_id}")
         return jsonify({'error': 'Transcription not found'}), 404
+
+    recording = recording_handler.get_recording(transcription['recording_id'])
+    if not recording:
+        logging.error(f"Recording not found: {transcription['recording_id']}")
+        return jsonify({'error': 'Recording not found'}), 404
 
     if transcription['callback_secret'] != headers.get('X-Callback-Secret', ""):
         logging.error(f"Invalid callback secret: {headers.get('X-Callback-Secret')}")
@@ -119,11 +129,14 @@ def handle_transcription_callback(transcription_id, json_data, headers):
 
     if status == 'completed':
         logging.info(f"AssemblyAI transcription completed: {transcription_id}")
-        transcription['transcription_status'] = TranscribingStatus.COMPLETED.value
+        recording['transcription_status'] = TranscribingStatus.COMPLETED.value
+        recording['transcription_status_updated_at'] = datetime.now(UTC).timestamp()
         transcription['aai_transcript_id'] = transcript_id
+
     else:
         logging.error(f"AssemblyAI transcription failed: {transcription_id}")
-        transcription['transcription_status'] = TranscribingStatus.FAILED.value
+        recording['transcription_status'] = TranscribingStatus.FAILED.value
+        recording['transcription_status_updated_at'] = datetime.now(UTC).timestamp()
         return jsonify({'error': 'Transcription failed'}), 500
     
 
@@ -140,6 +153,7 @@ def handle_transcription_callback(transcription_id, json_data, headers):
     transcription['diarized_transcript'] = get_diarized_transcript(transcript)
     # save the transcript to Cosmos DB
     transcription_handler.update_transcription(transcription)
+    recording_handler.update_recording(recording)
     
 
 def get_json_from_transcript(transcript):

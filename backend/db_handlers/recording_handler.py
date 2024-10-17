@@ -40,6 +40,12 @@ class RecordingHandler:
         recordings = list(self.container.query_items(query=query, parameters=parameters, partition_key="recording"))
         return recordings
 
+    def get_all_recordings(self):
+        """Get all recordings."""
+        query = "SELECT * FROM c WHERE c.partitionKey = 'recording'"
+        recordings = list(self.container.query_items(query=query, partition_key="recording"))
+        return recordings
+
     def link_to_transcription(self, recording_id, transcription_id):
         """Link a recording to a transcription by updating the recording with a transcription ID."""
         recording = self.get_recording(recording_id)

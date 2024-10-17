@@ -71,7 +71,11 @@ def get_patch(commit_hash):
 def get_current_diff():
     """Get the current diff for the repository."""
     result = subprocess.run(["git", "diff", "--cached"], capture_output=True, text=True)
-    return result.stdout
+    diff = result.stdout
+    result = subprocess.run(["git", "diff"], capture_output=True, text=True)
+    diff += "\n\n"
+    diff += result.stdout
+    return diff
 
 def main_old():
     # Get all commit hashes in the repository in reverse order (oldest to newest)

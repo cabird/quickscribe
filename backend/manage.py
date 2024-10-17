@@ -1,10 +1,11 @@
 import click
 from azure.storage.blob import BlobServiceClient
 from azure.cosmos import CosmosClient, PartitionKey
-from user_handler import UserHandler
+from db_handlers.handler_factory import create_user_handler, create_recording_handler
 import os
 import json
 from dotenv import load_dotenv
+
 
 load_dotenv()
 
@@ -72,7 +73,7 @@ def list_cosmos_entries():
 
 @cli.command()
 @click.argument('partial_id')
-def show_cosmos_entry(partial_id):
+def show_item(partial_id):
     """Show the full JSON of a particular entry in Cosmos DB by partial ID."""
     entry = find_entry_by_partial_id(partial_id)
     
@@ -80,12 +81,20 @@ def show_cosmos_entry(partial_id):
         click.echo(json.dumps(entry, indent=4))
 
 
+@cli.command()
+def list_recordings():
+    recording_handler = create_recording_handler()
+    recordings = recording_handler.get_all_recordings()
+    for recording in recordings:
+        click.echo(f"- {recording['id']}: {recording['original_filename']} {recording['unique_filename']}")
+
+
 # Command to delete a Cosmos DB entry and its associated blob
 @cli.command()
 @click.argument('entry_id')
 def delete_cosmos_entry(entry_id):
     """Delete an entry in Cosmos DB and the associated file in Blob Storage."""
-    entry = find_entry_by_partial_id(partial_id)
+    entry = find_entry_by_partial_id(entry_id)
     if not entry:
         return
     try:
@@ -146,7 +155,7 @@ def check_consistency():
 @click.option('--role', default="user", help="Role of the user (default is 'user')")
 def create_user(email, name, role):
     # Create the user handler
-    user_handler = UserHandler(COSMOS_URL, COSMOS_KEY, COSMOS_DB_NAME, COSMOS_CONTAINER_NAME)
+    user_handler = create_user_handler()
     """Create a new user with the provided email, name, and optional role."""
     user_id = user_handler.create_user(email, name, role)
     click.echo(f"User created with ID: {user_id}")
@@ -154,7 +163,7 @@ def create_user(email, name, role):
 # Command to list users
 @cli.command()
 def list_users():
-    user_handler = UserHandler(COSMOS_URL, COSMOS_KEY, COSMOS_DB_NAME, COSMOS_CONTAINER_NAME)
+    user_handler = create_user_handler()
     users = user_handler.get_all_users()
     for user in users:
         click.echo(f"- {user['id']}: {user['name']} ({user['email']})")
