@@ -11,3 +11,5 @@ routes/*.py
 templates/*.html
 prompts.yaml
 static/*
+local_packages/*
+startup.sh
