@@ -1,6 +1,7 @@
 import jinja2
 from mutagen.mp3 import MP3
 from mutagen.mp4 import MP4
+from pydub import AudioSegment
 
 _js_escapes = {
         '\\': '\\u005C',
@@ -51,3 +52,15 @@ def ellide(text, max_length):
     else:
         return text
 
+AudioSegment.ffmpeg = "/usr/bin/ffmpeg"
+valid_file_extensions = ["mp3", "m4a"] # TODO - are there other valid file extensions?
+def convert_to_mp3(file_path):
+    extension = file_path.lower().split(".")[-1]
+    if extension not in valid_file_extensions:
+        raise ValueError(f"Unsupported file type. Only {', '.join(valid_file_extensions)} files are supported.")
+    if extension == "m4a":
+        audio = AudioSegment.from_file(file_path, format="m4a")
+    #ensure that we only replace the extension, not the entire filename
+    mp3_file_path = file_path.rsplit('.', 1)[0] + '.mp3'
+    audio.export(mp3_file_path, format="mp3", bitrate="128k")
+    return mp3_file_path

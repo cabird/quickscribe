@@ -33,7 +33,7 @@
 
                 <td class="actions">
                     <span class="icon {% if recording.transcription_status != 'not_started' %}disabled{% endif %}" data-tooltip="Start Transcription">
-                        <a href="{{ url_for('transcription_bp.start_transcription', recording_id=recording.recording_id) }}">
+                        <a href="{{ url_for('az_transcription_bp.start_transcription', recording_id=recording.recording_id) }}">
                             <i class="fas fa-microphone"></i>
                         </a>
                     </span>

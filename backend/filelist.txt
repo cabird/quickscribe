@@ -15,6 +15,7 @@ llms.py
 local_packages/swagger_client-1.0.0-py3-none-any.whl
 prompts.yaml
 requirements.txt
+routes/az_transcription_routes.py
 routes/transcription_routes.py
 startup.sh
 static/styles.css
@@ -23,5 +24,6 @@ templates/index.html
 templates/recordings.html
 templates/upload.html
 templates/view_transcription.html
+test.py
 user_util.py
 util.py

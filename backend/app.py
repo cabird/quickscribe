@@ -13,6 +13,7 @@ from db_handlers.transcription_handler import TranscriptionHandler, Transcribing
 import uuid
 from datetime import datetime, timedelta, UTC
 from routes.transcription_routes import transcription_bp
+from routes.az_transcription_routes import az_transcription_bp, check_in_progress_transcription
 from blob_util import store_recording, generate_recording_sas_url
 from api_version import API_VERSION
 import logging
@@ -21,24 +22,35 @@ from config import config
 import auth
 from llms import get_speaker_mapping
 import jinja2
-from util import jinja2_escapejs_filter, get_recording_duration_in_seconds, format_duration, ellide
+from util import jinja2_escapejs_filter, get_recording_duration_in_seconds, format_duration, ellide, convert_to_mp3
 from db_handlers.handler_factory import get_recording_handler, get_transcription_handler, get_user_handler
+import time
+import logging
 
 load_dotenv()
 
 app = Flask(__name__)
 app.secret_key = config.SECRET_KEY
+app.config['PREFERRED_URL_SCHEME'] = 'https'
 
 app.jinja_env.filters['escapejs'] = jinja2_escapejs_filter
 app.jinja_env.filters['ellide'] = ellide
 
+# Create a context processor to make API_VERSION available globally
+@app.context_processor
+def inject_api_version():
+    return dict(api_version=API_VERSION)
+
 logging.basicConfig(level=logging.INFO)
+# Set logging level for Azure SDK components to suppress headers
+# TODO - could move this to an environment variable
+logging.getLogger('azure.core.pipeline.policies.http_logging_policy').setLevel(logging.WARNING)
 logging.info("Starting QuickScribe Web App")
 
 TRANSCRIPTION_IN_PROGRESS_TIMEOUT_SECONDS = 60 * 15 # 5 minutes
 
 app.register_blueprint(transcription_bp, url_prefix='/transcription')
-
+app.register_blueprint(az_transcription_bp, url_prefix='/az_transcription')
 # Initialize the BlobServiceClient
 blob_service_client = BlobServiceClient.from_connection_string(config.AZURE_STORAGE_CONNECTION_STRING)
 
@@ -94,16 +106,36 @@ def upload():
             file_path = os.path.join('/tmp', unique_filename)
             file.save(file_path)
             logging.info(f"file saved to {file_path}")
-            store_recording(file_path, unique_filename)
+            #if the file is an m4a, convert it to mp3
+            mp3_file_path = file_path
+            if file_extension.lower() == "m4a":
+                logging.info("converting m4a to mp3")
+                start_time = time.time()
+                try:
+                    mp3_file_path = convert_to_mp3(file_path)
+                except Exception as e:
+                    logging.error(f"error converting m4a to mp3: {e}")
+                    return jsonify({'error': str(e)}), 500
+                end_time = time.time()
+                logging.info(f"converted m4a to mp3 and saved to {mp3_file_path} in {end_time - start_time} seconds")
+                # change the extension on unique_filename
+                unique_filename = unique_filename.replace(".m4a", ".mp3")
+
+            store_recording(mp3_file_path, unique_filename)
             recording_handler = get_recording_handler()
             user = get_user(request)
 
             recording = recording_handler.create_recording(user['id'], original_filename, unique_filename)
             # determine the duration of the recording
-            duration = get_recording_duration_in_seconds(file_path)
-            recording['duration'] = duration
+            recording['duration'] = get_recording_duration_in_seconds(mp3_file_path)
             recording_handler.update_recording(recording)
-            return jsonify({'message': 'File uploaded successfully!', 'filename': original_filename, 'recording_id': recording['id'], 'duration': duration}), 200
+
+            #remove the file(s) from the tmp directory
+            os.remove(file_path)
+            if mp3_file_path != file_path:
+                os.remove(mp3_file_path)
+
+            return jsonify({'message': 'File uploaded successfully!', 'filename': original_filename, 'recording_id': recording['id']}), 200
 
         except Exception as e:
             logging.error(f"error uploading file: {e}")
@@ -140,6 +172,24 @@ def recordings():
                 # and eventually the transcription status will be updated to either failed or completed
                 if not 'transcription_status_updated_at' in recording:
                     recording['transcription_status_updated_at'] = datetime.now(UTC).timestamp()
+                
+                # if the recording is in progress, then it better have an az_transcription_id
+                if 'az_transcription_id' in recording:
+                    status = check_in_progress_transcription(recording['az_transcription_id'])
+                    if status == "Succeeded":
+                        recording['transcription_status'] = TranscribingStatus.COMPLETED.value
+                        recording['transcription_status_updated_at'] = datetime.now(UTC).timestamp()
+                        recording_handler.update_recording(recording)
+                    if status == "Failed":
+                        recording['transcription_status'] = TranscribingStatus.FAILED.value
+                        recording['transcription_status_updated_at'] = datetime.now(UTC).timestamp()
+                        recording_handler.update_recording(recording)
+
+                    
+                else:
+                    logging.warning(f"recording {recording['id']} is in progress but does not have an az_transcription_id")
+                
+                
                 duration_in_progress = datetime.now(UTC) - datetime.fromtimestamp(recording['transcription_status_updated_at'])
                 if duration_in_progress.total_seconds() > TRANSCRIPTION_IN_PROGRESS_TIMEOUT_SECONDS:
                     logging.info(f"duration in progress is greater than {TRANSCRIPTION_IN_PROGRESS_TIMEOUT_SECONDS} seconds, setting transcription status to failed")

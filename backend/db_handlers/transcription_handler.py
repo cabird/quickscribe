@@ -43,6 +43,13 @@ class TranscriptionHandler:
         transcriptions = list(self.container.query_items(query=query, parameters=parameters, enable_cross_partition_query=True))
         return transcriptions[0] if transcriptions else None
 
+    def get_transcription_by_az_id(self, az_transcription_id):
+        """Get a transcription entry by the associated Azure Speech Services transcription ID."""
+        query = "SELECT * FROM c WHERE c.az_transcription_id = @az_transcription_id AND c.partitionKey = 'transcription'"
+        parameters = [{"name": "@az_transcription_id", "value": az_transcription_id}]
+        transcriptions = list(self.container.query_items(query=query, parameters=parameters, enable_cross_partition_query=True))
+        return transcriptions[0] if transcriptions else None
+
     def get_transcription(self, transcription_id):
         """Retrieve a transcription by its ID."""
         try:

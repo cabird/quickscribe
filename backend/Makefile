@@ -15,7 +15,7 @@ bump_version:
 
 build_zip: build_packages
 	rm -f app.zip
-	pip freeze > requirements.txt
+	pip freeze | grep -v "swagger_client" > requirements.txt
 	python generate_filelist.py
 	zip app.zip -@ < filelist.txt
 
