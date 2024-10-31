@@ -1,8 +1,18 @@
 RESOURCE_GROUP = QuickScribeResourceGroup
 APP_NAME = QuickScribeWebApp
 SPEECH_CLIENT_DIR = azure_speech/python-client
+SHARED_DIR = ../shared
 
-.PHONY: build_packages bump_version build_zip clean
+.PHONY: build_packages bump_version build_zip clean build
+
+default: build
+
+build: db_handlers/models.py
+
+db_handlers/models.py: $(SHARED_DIR)/types.ts
+	typescript-json-schema $(SHARED_DIR)/types.ts "*" --propOrder --required --out $(SHARED_DIR)/types.schema.json 
+	datamodel-codegen --input $(SHARED_DIR)/types.schema.json --input-file-type jsonschema  --output-model-type pydantic_v2.BaseModel --output db_handlers/models.py
+
 
 build_packages:
 	$(MAKE) -C $(SPEECH_CLIENT_DIR) build

@@ -9,10 +9,11 @@ from azure.cosmos import CosmosClient, PartitionKey
 from azure.storage.blob import BlobServiceClient, ContentSettings, generate_blob_sas, BlobSasPermissions
 from db_handlers.user_handler import UserHandler
 from db_handlers.recording_handler import RecordingHandler
-from db_handlers.transcription_handler import TranscriptionHandler, TranscribingStatus
+from db_handlers.transcription_handler import TranscriptionHandler
+from db_handlers.models import TranscriptionStatus
 import uuid
 from datetime import datetime, timedelta, UTC
-from routes.transcription_routes import transcription_bp
+#from routes.transcription_routes import transcription_bp
 from routes.az_transcription_routes import az_transcription_bp, check_in_progress_transcription
 from blob_util import store_recording, generate_recording_sas_url
 from api_version import API_VERSION
@@ -47,9 +48,9 @@ logging.basicConfig(level=logging.INFO)
 logging.getLogger('azure.core.pipeline.policies.http_logging_policy').setLevel(logging.WARNING)
 logging.info("Starting QuickScribe Web App")
 
-TRANSCRIPTION_IN_PROGRESS_TIMEOUT_SECONDS = 60 * 15 # 5 minutes
+TRANSCRIPTION_IN_PROGRESS_TIMEOUT_SECONDS = 24 * 60 * 60 * 30 # 30 days
 
-app.register_blueprint(transcription_bp, url_prefix='/transcription')
+#app.register_blueprint(transcription_bp, url_prefix='/transcription')
 app.register_blueprint(az_transcription_bp, url_prefix='/az_transcription')
 # Initialize the BlobServiceClient
 blob_service_client = BlobServiceClient.from_connection_string(config.AZURE_STORAGE_CONNECTION_STRING)
@@ -125,9 +126,10 @@ def upload():
             recording_handler = get_recording_handler()
             user = get_user(request)
 
-            recording = recording_handler.create_recording(user['id'], original_filename, unique_filename)
+            recording = recording_handler.create_recording(user.id, original_filename, unique_filename)
+            recording.upload_timestamp = datetime.now(UTC).isoformat()
             # determine the duration of the recording
-            recording['duration'] = get_recording_duration_in_seconds(mp3_file_path)
+            recording.duration = get_recording_duration_in_seconds(mp3_file_path)
             recording_handler.update_recording(recording)
 
             #remove the file(s) from the tmp directory
@@ -135,7 +137,7 @@ def upload():
             if mp3_file_path != file_path:
                 os.remove(mp3_file_path)
 
-            return jsonify({'message': 'File uploaded successfully!', 'filename': original_filename, 'recording_id': recording['id']}), 200
+            return jsonify({'message': 'File uploaded successfully!', 'filename': original_filename, 'recording_id': recording.id}), 200
 
         except Exception as e:
             logging.error(f"error uploading file: {e}")
@@ -154,52 +156,58 @@ def recordings():
         user = get_user(request)
         # Get all file metadata from Cosmos DB
         recording_handler = get_recording_handler()
-        recordings = recording_handler.get_user_recordings(user['id'])
+        recordings = recording_handler.get_user_recordings(user.id)
         transcription_handler = get_transcription_handler()
 
         recording_data = []
         for recording in recordings:
-            unique_filename = recording['unique_filename']
+            error_message = ""
+            unique_filename = recording.unique_filename
 
-            if not 'transcription_status' in recording:
-                recording['transcription_status'] = TranscribingStatus.NOT_STARTED.value
+            if not recording.transcription_status:
+                recording.transcription_status = TranscriptionStatus.not_started
                 recording_handler.update_recording(recording)
 
             # if the transcription status is in progress, then check how long it has been in progress
-            if recording['transcription_status'] == TranscribingStatus.IN_PROGRESS.value:
-                logging.info(f"transcription status is in progress for recording {recording['id']}")
+            if recording.transcription_status == TranscriptionStatus.in_progress:
+                logging.info(f"transcription status is in progress for recording {recording.id}")
                 # if the transcription status updated at is not in the recording, then set it to the current timestamp
                 # and eventually the transcription status will be updated to either failed or completed
-                if not 'transcription_status_updated_at' in recording:
-                    recording['transcription_status_updated_at'] = datetime.now(UTC).timestamp()
+                if not recording.transcription_status_updated_at:
+                    recording.transcription_status_updated_at = datetime.now(UTC).isoformat()
                 
                 # if the recording is in progress, then it better have an az_transcription_id
-                if 'az_transcription_id' in recording:
-                    status = check_in_progress_transcription(recording['az_transcription_id'])
+                if recording.az_transcription_id:
+                    status, az_error_message = check_in_progress_transcription(recording)
                     if status == "Succeeded":
-                        recording['transcription_status'] = TranscribingStatus.COMPLETED.value
-                        recording['transcription_status_updated_at'] = datetime.now(UTC).timestamp()
+                        recording.transcription_status = TranscriptionStatus.completed
+                        recording.transcription_error_message = ""   
                         recording_handler.update_recording(recording)
                     if status == "Failed":
-                        recording['transcription_status'] = TranscribingStatus.FAILED.value
-                        recording['transcription_status_updated_at'] = datetime.now(UTC).timestamp()
+                        recording.transcription_status = TranscriptionStatus.failed
+                        recording.transcription_error_message = az_error_message
+                        error_message = f"Transcription failed: {az_error_message}"
+                        logging.error(error_message)
                         recording_handler.update_recording(recording)
-
                     
+
                 else:
-                    logging.warning(f"recording {recording['id']} is in progress but does not have an az_transcription_id")
+                    logging.warning(f"recording {recording.id} is in progress but does not have an az_transcription_id")
                 
-                
-                duration_in_progress = datetime.now(UTC) - datetime.fromtimestamp(recording['transcription_status_updated_at'])
+
+                transcription_time = datetime.fromisoformat(recording.transcription_status_updated_at)
+                # check if transcription time is offset-aware and fix it if it is not
+                if transcription_time.tzinfo is None:
+                    transcription_time = transcription_time.replace(tzinfo=UTC)
+                duration_in_progress = datetime.now(UTC) - transcription_time
                 if duration_in_progress.total_seconds() > TRANSCRIPTION_IN_PROGRESS_TIMEOUT_SECONDS:
                     logging.info(f"duration in progress is greater than {TRANSCRIPTION_IN_PROGRESS_TIMEOUT_SECONDS} seconds, setting transcription status to failed")
-                    recording['transcription_status'] = TranscribingStatus.FAILED.value
-                    recording['transcription_status_updated_at'] = datetime.now(UTC).timestamp()
+                    recording.transcription_status = TranscriptionStatus.failed
                     recording_handler.update_recording(recording)
 
 
-            if 'duration' in recording:
-                duration_str = format_duration(recording['duration'])
+            if recording.duration:
+                duration_str = format_duration(recording.duration)
             else:
                 duration_str = "unknown"
 
@@ -207,21 +215,22 @@ def recordings():
             blob_client = blob_service_client.get_blob_client(container=config.AZURE_RECORDING_BLOB_CONTAINER, blob=unique_filename)
             blob_properties = blob_client.get_blob_properties()
 
-            transcription = transcription_handler.get_transcription_by_recording(recording['id'])
+            transcription = transcription_handler.get_transcription_by_recording(recording.id)
             
-            text = transcription['diarized_transcript'] if transcription and 'diarized_transcript' in transcription else transcription['text'] if transcription else ""
+            text = transcription.diarized_transcript if transcription and transcription.diarized_transcript else transcription.text if transcription else ""
             # Prepare the data for rendering
             recording_info = {
-                'transcription_status': recording['transcription_status'] if 'transcription_status' in recording else TranscribingStatus.NOT_STARTED.value,
-                'original_filename': recording['original_filename'],
+                'transcription_status': recording.transcription_status.value,
+                'original_filename': recording.original_filename,
                 'unique_filename': unique_filename,
                 'file_size': blob_properties.size,  # Get file size in bytes
                 'download_url': generate_recording_sas_url(unique_filename),
-                'recording_id': recording['id'],
-                'transcription_id': transcription['id'] if transcription else -1,
-                'speaker_names_inferred':True if transcription and 'speaker_mapping' in transcription else False,
+                'recording_id': recording.id,
+                'transcription_id': transcription.id if transcription else -1,
+                'speaker_names_inferred':True if transcription and transcription.speaker_mapping else False,
                 'duration': duration_str,
-                'transcription_text': text
+                'transcription_text': text,
+                'transcription_error_message': recording.transcription_error_message if recording.transcription_error_message else ""
             }
             recording_data.append(recording_info)
 
@@ -242,11 +251,11 @@ def recordings():
 def infer_speaker_names(transcription_id):
     transcription_handler = get_transcription_handler()
     transcription = transcription_handler.get_transcription(transcription_id)
-    if transcription and "diarized_transcript" in transcription:
-        if not "speaker_mapping" in transcription:
-            speaker_mapping = get_speaker_mapping(transcription['diarized_transcript'])
-            transcription['speaker_mapping'] = speaker_mapping
-            transcription['diarized_transcript'] = speaker_mapping['transcript_text']
+    if transcription and transcription.diarized_transcript:
+        if True: # TODO - uncomment this when we don't want to allow inferring multiple times... not transcription.speaker_mapping:
+            speaker_mapping, diarized_text = get_speaker_mapping(transcription.diarized_transcript)
+            transcription.speaker_mapping = speaker_mapping
+            transcription.diarized_transcript = diarized_text
             transcription_handler.update_transcription(transcription)
             flash("Speaker names successfully inferred", "success")
         else:
@@ -261,10 +270,12 @@ def view_transcription(transcription_id):
     """View the transcription for a given transcription ID."""
     transcription_handler = get_transcription_handler()
     transcription = transcription_handler.get_transcription(transcription_id)
+    recording_handler = get_recording_handler()
+    recording = recording_handler.get_recording(transcription.recording_id)
     
     if transcription:
         # Render a template to display the transcription text
-        return render_template('view_transcription.html', transcription=transcription)
+        return render_template('view_transcription.html', transcription=transcription, recording=recording)
     else:
         return "Transcription not found", 404
         
@@ -277,8 +288,11 @@ def delete_recording(recording_id):
     transcription = transcription_handler.get_transcription_by_recording(recording_id)
     if transcription:
         #delete the transcription
-        transcription_handler.delete_transcription(transcription['id'])
+        transcription_handler.delete_transcription(transcription.id)
         flash("Transcription deleted successfully", "success")
+        if recording:
+            recording.transcription_status = TranscriptionStatus.not_started
+            recording_handler.update_recording(recording)
     elif recording:
         recording_handler.delete_recording(recording_id)
         flash("Recording deleted successfully", "success")

@@ -27,12 +27,12 @@
                     {% elif recording.transcription_status == 'not_started' %}
                         <span>Not Started</span>
                     {% else %}
-                        <span>Unknown Status ({{ recording.transcription_status }})</span>
+                        <span>Unknown Status ({{ recording.transcription_status }}) {{ recording.transcription_error_message }}</span>
                     {% endif %}
                 </td>
 
                 <td class="actions">
-                    <span class="icon {% if recording.transcription_status != 'not_started' %}disabled{% endif %}" data-tooltip="Start Transcription">
+                    <span class="icon {% if recording.transcription_status == 'completed' %}disabled{% endif %}" data-tooltip="Start Transcription">
                         <a href="{{ url_for('az_transcription_bp.start_transcription', recording_id=recording.recording_id) }}">
                             <i class="fas fa-microphone"></i>
                         </a>
@@ -44,7 +44,7 @@
                         </a>
                     </span>
                 
-                    <span class="icon {% if recording.transcription_status != 'completed' or recording.speaker_names_inferred %}disabled{% endif %}" data-tooltip="Infer Speaker Names">
+                    <span class="icon {% if recording.transcription_status != 'completed' %}disabled{% endif %}" data-tooltip="Infer Speaker Names">
                         <a href="{{ url_for('infer_speaker_names', transcription_id=recording.transcription_id) }}">
                             <i class="fas fa-users"></i>
                         </a>

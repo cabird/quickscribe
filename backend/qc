@@ -1,0 +1,4 @@
+#!/bin/bash
+
+# call manage.py with the provided arguments
+python manage.py "$@"

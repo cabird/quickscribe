@@ -3,20 +3,18 @@
 {% block title %}Transcription{% endblock %}
 
 {% block content %}
-<h1>Transcription for {{ transcription.id }}</h1>
+<h1>Transcription for {{ recording.original_filename }}</h1>
 
-<h3>Status: {{ transcription.transcription_status }}</h3>
-
-{% if transcription.transcription_status == "completed" %}
+{% if recording.transcription_status.value == "completed" %}
     <h3>Transcription Text:</h3>
     <button onclick="copyToClipboard()">📋 Copy to Clipboard</button>
-    {% if 'diarized_transcript' in transcription %}
+    {% if transcription.diarized_transcript %}
         <div id="transcription-text">
             {% for segment in transcription.diarized_transcript.split('\n\n') %}
                 <p>{{ segment }}</p>
             {% endfor %}
         </div>
-    {% elif 'text' in transcription %}
+    {% elif transcription.text %}
         <div id="transcription-text">
             <p>{{ transcription.text }}</p>
         </div>

@@ -54,6 +54,7 @@ def get_speaker_mapping(transcript_text):
     prompt = infer_speaker_prompt.replace("__TRANSCRIPT__", transcript_text)
     payload["messages"][1]["content"][0]["text"] = prompt
     response = send_prompt_to_llm(prompt)
+    updated_transcript_text = ""
     #extract the json portion and validate it
     try:
         logging.info(response)
@@ -63,10 +64,10 @@ def get_speaker_mapping(transcript_text):
         logging.info(json.dumps(response_json, indent=4))
 
         #now get the list of all speakers from the transcript_text. they look like this:
-        # Speaker A: some stuff
-        # Speaker B: I said another thing
-        # Speaker C: lots of stuff
-        # Speaker D: etc.
+        # Speaker 1: some stuff
+        # Speaker 2: I said another thing
+        # Speaker 3: lots of stuff
+        # Speaker 2: blah blah blah
         speakers = set()
         for line in transcript_text.split("\n"):
             if line.startswith("Speaker"):
@@ -80,11 +81,12 @@ def get_speaker_mapping(transcript_text):
         # now replace the speaker names in the transcript_text with the speaker mapping
         for speaker in speakers:
             transcript_text = transcript_text.replace(speaker, response_json[speaker]["name"])
-        response_json["transcript_text"] = transcript_text
+        updated_transcript_text = transcript_text
+        
 
     except json.JSONDecodeError:
         raise ValueError("Invalid JSON response from the LLM")
-    return response_json
+    return response_json, updated_transcript_text
 
 def send_prompt_to_llm(prompt):
     payload["messages"][1]["content"][0]["text"] = prompt

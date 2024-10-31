@@ -1,7 +1,7 @@
 
 from config import config
 from db_handlers.handler_factory import create_recording_handler, create_transcription_handler, create_user_handler
-from db_handlers.transcription_handler import TranscribingStatus
+from db_handlers.models import TranscriptionStatus
 from datetime import datetime, UTC
 from azure.storage.blob import BlobServiceClient
 from util import get_recording_duration_in_seconds
@@ -18,8 +18,8 @@ logging.getLogger('azure.core.pipeline.policies.http_logging_policy').setLevel(l
 def fixup_recording(recording):
     changed = False
     if not 'transcription_status' in recording:
-        logging.info(f"fixup_recording: setting transcription_status to {TranscribingStatus.NOT_STARTED.value} for recording {recording['id']}")
-        recording['transcription_status'] = TranscribingStatus.NOT_STARTED.value
+        logging.info(f"fixup_recording: setting transcription_status to {TranscriptionStatus.not_started} for recording {recording['id']}")
+        recording['transcription_status'] = TranscriptionStatus.not_started
         changed = True
     
     if not 'transcription_status_updated_at' in recording:
@@ -59,14 +59,75 @@ def fixup_recording(recording):
 
     return changed
 
-def main():
+def fixup_2():
     recording_handler = create_recording_handler()
-    recordings = recording_handler.get_all_recordings()
-    for recording in recordings:
-        logging.info(f"fixup_cosmos_data: processing recording {recording['id']}")
-        changed = fixup_recording(recording)
+    container = recording_handler.container
+    query = "SELECT * FROM c"
+    for item in container.query_items(query=query, partition_key="recording"):
+        logging.info(f"fixup_cosmos_data: processing item {item['id']}")
+        if "transcription_status_updated_at" in item:
+            value = item["transcription_status_updated_at"]
+            if isinstance(value, float):
+                item["transcription_status_updated_at"] = datetime.fromtimestamp(value, UTC).isoformat()
+                container.upsert_item(item)
+                logging.info(f"fixup_cosmos_data: updated item {item['id']}")
+
+def fixup_remove_diarization_and_speaker_mapping():
+    transcription_handler = create_transcription_handler()
+    container = transcription_handler.container
+    query = "SELECT * FROM c"
+    for item in container.query_items(query=query, partition_key="transcription"):
+        changed = False 
+        if "callback_secret" in item:
+            del item["callback_secret"]
+            changed = True
+        if "aai_transcript_id" in item:
+            del item["aai_transcript_id"]
+            changed = True
+        if "diarized_transcript" in item:
+            del item["diarized_transcript"]
+            changed = True
         if changed:
-            recording_handler.update_recording(recording)
-            logging.info(f"fixup_cosmos_data: updated recording {recording['id']}")
+            container.upsert_item(item)
+            logging.info(f"fixup_cosmos_data: updated item {item['id']}")
+
+
+def fixup_transcriptions():
+    transcription_handler = create_transcription_handler()
+    container = transcription_handler.container
+    query = "SELECT * FROM c"
+    for item in container.query_items(query=query, partition_key="transcription"):
+        changed = False
+        if "transcription_status" in item:
+            del item["transcription_status"]
+            changed = True
+        if "transcription_progress" in item:
+            del item["transcription_progress"]
+            changed = True
+        if changed:
+            container.upsert_item(item)
+            logging.info(f"fixup_cosmos_data: updated item {item['id']}")
+        if item["id"].startswith("f798c"):
+            item["transcription_status"] = "in_progress"
+            container.upsert_item(item)
+            logging.info(f"fixup_cosmos_data: updated item {item['id']}")
+
+def fixup_item():
+    transcription_handler = create_transcription_handler()
+    container = transcription_handler.container
+    query = "SELECT * FROM c"
+    items = container.query_items(
+        query=query, 
+        partition_key="recording", 
+    )
+    for item in items:
+        logging.info(f"fixup_cosmos_data: examining item {item['id']}")
+        if item["id"].startswith("f798c"):
+            item["transcription_status"] = "in_progress"
+            container.upsert_item(item)
+            logging.info(f"fixup_cosmos_data: updated item {item['id']}")
+
+def main():
+    fixup_item()
 if __name__ == "__main__":
     main()
