@@ -13,8 +13,8 @@ from db_handlers.transcription_handler import TranscriptionHandler
 from db_handlers.models import TranscriptionStatus
 import uuid
 from datetime import datetime, timedelta, UTC
-#from routes.transcription_routes import transcription_bp
 from routes.az_transcription_routes import az_transcription_bp, check_in_progress_transcription
+from routes.api import api_bp
 from blob_util import store_recording, generate_recording_sas_url
 from api_version import API_VERSION
 import logging
@@ -50,8 +50,9 @@ logging.info("Starting QuickScribe Web App")
 
 TRANSCRIPTION_IN_PROGRESS_TIMEOUT_SECONDS = 24 * 60 * 60 * 30 # 30 days
 
-#app.register_blueprint(transcription_bp, url_prefix='/transcription')
 app.register_blueprint(az_transcription_bp, url_prefix='/az_transcription')
+app.register_blueprint(api_bp, url_prefix='/api')
+
 # Initialize the BlobServiceClient
 blob_service_client = BlobServiceClient.from_connection_string(config.AZURE_STORAGE_CONNECTION_STRING)
 
