@@ -4,6 +4,11 @@ import requests
 import json
 from dotenv import load_dotenv
 import sys
+import re
+
+def clean_output(output):
+    # Remove non-printable characters
+    return re.sub(r'[^\x20-\x7E]', '', output)
 
 load_dotenv()
 
@@ -62,11 +67,11 @@ def send_prompt_to_llm(prompt):
 
 def get_current_diff():
     """Get the current diff for the repository."""
-    result = subprocess.run(["git", "diff", "--cached"], capture_output=True, text=True)
-    diff = result.stdout
-    result = subprocess.run(["git", "diff"], capture_output=True, text=True)
+    result = subprocess.run(["git", "diff", "--cached", "--no-color"], capture_output=True, text=True, encoding="utf-8")
+    diff = clean_output(result.stdout)
+    result = subprocess.run(["git", "diff", "--no-color"], capture_output=True, text=True, encoding="utf-8")
     diff += "\n\n"
-    diff += result.stdout
+    diff += clean_output(result.stdout)
     return diff
 
 def main():

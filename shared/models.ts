@@ -15,6 +15,7 @@ export interface User {
 export interface Recording {
     id: string; // Unique identifier for the recording
     user_id: string; // References the user who uploaded the recording
+    transcription_id: string; // References the transcription id for this recording if one exists
     original_filename: string; // Original filename of the uploaded file
     unique_filename: string; // Unique filename assigned to the uploaded file
     duration?: number; // Duration of the recording in seconds (may be unknown)
