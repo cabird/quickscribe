@@ -10,6 +10,7 @@ import argparse
 import tiktoken
 import hashlib
 from typing import List, Dict
+from datetime import datetime
 
 load_dotenv()
 
@@ -192,11 +193,22 @@ def fixup_index(main_index_file: str):
 
 def get_relevant_files(query: str, index: Dict[str, dict]) -> str:
     prompt = relevant_files_prompt.replace("__QUERY__", query)
+    # remove the md5sum from the index
+    for file in index:
+        index[file].pop("md5sum", None)
     prompt = prompt.replace("__FILES__", json.dumps(index, indent=2))
     value = send_prompt_to_llm(prompt)
     relevant_files = extract_json_from_llm_response(value)
     print(f"Relevant files: {json.dumps(relevant_files, indent=2)}")
     return [file["file"] for file in relevant_files["files"]]
+
+def write_output_to_md_file(query: str, result: str):
+    """Writes the result of a query to a uniquely named .md file."""
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"query_result_{timestamp}.md"
+    with open(filename, 'w') as file:
+        file.write(f"# Query Result\n\n**Query:** {query}\n\n**Result:**\n\n{result}")
+    print(f"Results have been written to {filename}")
 
 
 def answer_query(query: str, index_file: str) -> str:
@@ -205,7 +217,11 @@ def answer_query(query: str, index_file: str) -> str:
     prompt = query_prompt.replace("__QUERY__", query)
     relevant_file_contents = "\n".join([f"\n\n*** CONTENTS OF {file} ***\n\n{read_file_content(file)}\n\n*** END OF {file} ***\n\n" for file in relevant_files])
     prompt = prompt.replace("__RELEVANT_FILES__", relevant_file_contents)
-    return send_prompt_to_llm(prompt)
+    # Write the result to a markdown file
+    result = send_prompt_to_llm(prompt)
+    write_output_to_md_file(query, result)
+    
+    return result
 
 
 def main():
@@ -236,6 +252,8 @@ def main():
     print(f"Input tokens: {token_counter.input_tokens}")
     print(f"Output tokens: {token_counter.output_tokens}")
     print(f"Total cost: {token_counter.total_cost_str()}")
+
+
 index_file_prompt = """
 You are an AI specialized in analyzing project files. I will provide the contents of a file, which 
 may be in Python, HTML, JavaScript, Makefile, JSON, or another format. Please analyze the file and 
@@ -254,15 +272,21 @@ only with JSON, with no additional text.
 Please return the information in the following JSON format:
 
 {
-    "file_type": "<file type>",
+    "type": "<file type>",
     "purpose": "<brief purpose of the file>",
-    "core_elements": {
-        "classes": [{"name": "<class name>", "description": "<role of the class>"}],
-        "functions": [{"name": "<function name>", "description": "<role of the function>"}],
-        "structures": [{"name": "<structure name>", "description": "<role of the structure>"}]
-    },
-    "dependencies": ["<other files/modules used>"],
-    "related_files": [{"file": "<related file>", "relationship": "<brief explanation>"}]
+    "elements": [
+        "class:<name1> - <description of the class>",
+        "class:<name2> - <description of the class>",
+        "function:<name1> - <description of the function>",
+        "function:<name2> - <description of the function>",
+        "structure:<name1> - <description of the structure>",
+        "structure:<name2> - <description of the structure>"
+    ],
+    "deps": ["<other files/modules used>"],
+    "related": [
+        "<related file> - <brief explanation>",
+        "<related file> - <brief explanation>"
+    ]
 }
 
 Respond strictly in JSON format with nothing else.
