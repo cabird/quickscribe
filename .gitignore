@@ -1,6 +1,8 @@
 # Ignore all dotfiles
 .*
 
+*.llm_update
+
 # But don't ignore .gitignore
 !.gitignore
 
