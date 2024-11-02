@@ -3,6 +3,10 @@ from flask import Blueprint, request, jsonify
 from db_handlers.handler_factory import get_user_handler, get_recording_handler, get_transcription_handler
 from user_util import get_user
 from db_handlers.models import User, Recording, Transcription
+from util import update_diarized_transcript
+import logging
+from llms import get_speaker_summaries_via_llm
+
 
 api_bp = Blueprint('api', __name__)
 
@@ -141,3 +145,34 @@ def update_transcription(transcription_id):
         updated_transcription = transcription_handler.update_transcription(transcription)
         return jsonify(updated_transcription.model_dump()), 200
     return jsonify({'error': 'Transcription not found'}), 404
+
+@api_bp.route('/get_speaker_summaries/<transcription_id>', methods=['GET'])
+def get_speaker_summaries(transcription_id):
+    logging.info(f"get_speaker_summaries: transcription_id {transcription_id}")
+    transcription_handler = get_transcription_handler()
+    transcription = transcription_handler.get_transcription(transcription_id)
+    if transcription and transcription.diarized_transcript:
+        logging.info(f"get_speaker_summaries: found diarized transcript")
+        summaries = get_speaker_summaries_via_llm(transcription.diarized_transcript)    
+        logging.info(f"get_speaker_summaries: summaries {summaries}")
+        return jsonify(summaries), 200
+    return jsonify({'error': 'Transcription not found or does not have a diarized transcript'}), 404
+
+@api_bp.route('/update_speaker_labels/<transcription_id>', methods=['POST'])
+def update_speaker_labels(transcription_id):
+    logging.info(f"update_speaker_labels: transcription_id {transcription_id}")
+    #output the request json
+    logging.info(f"update_speaker_labels: request json {request.json}")
+    transcription_handler = get_transcription_handler()
+    transcription = transcription_handler.get_transcription(transcription_id)
+    if transcription and transcription.diarized_transcript:
+        speaker_labels = request.json
+        # TODO - update the speaker labels... do we need them?
+        updated_transcript = update_diarized_transcript(transcription.diarized_transcript, speaker_labels)
+        transcription.diarized_transcript = updated_transcript
+
+        #transcription.speaker_mapping = speaker_labels
+        logging.info(f"update_speaker_labels: updated_transcript")
+        transcription_handler.update_transcription(transcription)
+        return jsonify({'message': 'Speaker labels updated successfully'}), 200
+    return jsonify({'error': 'Transcription not found or does not have a diarized transcript'}), 404

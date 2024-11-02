@@ -2,7 +2,7 @@ import jinja2
 from mutagen.mp3 import MP3
 from mutagen.mp4 import MP4
 from pydub import AudioSegment
-
+from typing import Dict
 _js_escapes = {
         '\\': '\\u005C',
         '\'': '\\u0027',
@@ -64,3 +64,8 @@ def convert_to_mp3(file_path):
     mp3_file_path = file_path.rsplit('.', 1)[0] + '.mp3'
     audio.export(mp3_file_path, format="mp3", bitrate="128k")
     return mp3_file_path
+
+def update_diarized_transcript(diarized_transcript: str, speaker_labels: Dict[str, str]) -> str:
+    for original_speaker, new_label in speaker_labels.items():
+        diarized_transcript = diarized_transcript.replace(original_speaker, new_label)
+    return diarized_transcript

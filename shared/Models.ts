@@ -15,12 +15,12 @@ export interface User {
 export interface Recording {
     id: string; // Unique identifier for the recording
     user_id: string; // References the user who uploaded the recording
-    transcription_id: string; // References the transcription id for this recording if one exists
     original_filename: string; // Original filename of the uploaded file
     unique_filename: string; // Unique filename assigned to the uploaded file
     duration?: number; // Duration of the recording in seconds (may be unknown)
     transcription_status: "not_started" | "in_progress" | "completed" | "failed"; // Transcription status with specific values
     transcription_status_updated_at?: string; // ISO timestamp for when transcription status last updated
+    transcription_id?: string; // References the transcription id for this recording if one exists
     az_transcription_id?: string; // Azure transcription ID if in progress or completed
     upload_timestamp?: string; // DateTime of when the recording was uploaded
     transcription_error_message?: string; // Error message if transcription fails

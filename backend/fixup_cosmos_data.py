@@ -59,18 +59,20 @@ def fixup_recording(recording):
 
     return changed
 
-def fixup_2():
+def fixup_recordings_for_transcription_id():
     recording_handler = create_recording_handler()
+    transcription_handler = create_transcription_handler()
     container = recording_handler.container
     query = "SELECT * FROM c"
-    for item in container.query_items(query=query, partition_key="recording"):
-        logging.info(f"fixup_cosmos_data: processing item {item['id']}")
-        if "transcription_status_updated_at" in item:
-            value = item["transcription_status_updated_at"]
-            if isinstance(value, float):
-                item["transcription_status_updated_at"] = datetime.fromtimestamp(value, UTC).isoformat()
-                container.upsert_item(item)
-                logging.info(f"fixup_cosmos_data: updated item {item['id']}")
+    for recording in container.query_items(query=query, partition_key="recording"):
+        transcription = transcription_handler.get_transcription_by_recording(recording['id'])
+        if recording.get("transcription_id", "") != transcription.id:
+            recording["transcription_id"] = transcription.id
+            container.upsert_item(recording)
+            logging.info(f"fixup_cosmos_data: updated recording {recording['id']} with transcription {transcription.id}")
+        
+        
+
 
 def fixup_remove_diarization_and_speaker_mapping():
     transcription_handler = create_transcription_handler()
@@ -128,6 +130,7 @@ def fixup_item():
             logging.info(f"fixup_cosmos_data: updated item {item['id']}")
 
 def main():
-    fixup_item()
+    fixup_recordings_for_transcription_id()
+
 if __name__ == "__main__":
     main()

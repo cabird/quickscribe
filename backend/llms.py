@@ -5,6 +5,7 @@ import json
 from config import config
 import yaml
 import logging
+from typing import Dict, List
 
 # Configuration
 API_KEY = config.AZURE_OPENAI_API_KEY
@@ -49,6 +50,7 @@ with open("prompts.yaml", 'r') as stream:
     prompts = yaml.safe_load(stream)
 
 infer_speaker_prompt = prompts['prompts']['infer_speaker_names']['prompt']
+get_speaker_summaries_prompt = prompts['prompts']['get_speaker_summaries']['prompt']
 
 def get_speaker_mapping(transcript_text):
     prompt = infer_speaker_prompt.replace("__TRANSCRIPT__", transcript_text)
@@ -87,6 +89,35 @@ def get_speaker_mapping(transcript_text):
     except json.JSONDecodeError:
         raise ValueError("Invalid JSON response from the LLM")
     return response_json, updated_transcript_text
+
+def extract_json_from_response(response: str) -> Dict:
+    """
+    Extracts the JSON from the response string even if there are other parts in the response.
+    """
+    json_start = response.find("{")
+    json_end = response.rfind("}") + 1
+    return json.loads(response[json_start:json_end])
+
+
+def get_speaker_summaries_via_llm(transcript_text: str) -> Dict[str, str]:
+    prompt = get_speaker_summaries_prompt.replace("__TRANSCRIPT__", transcript_text)
+    response = send_prompt_to_llm(prompt)
+    # Parse the response to extract speaker summaries
+    summaries = parse_speaker_summaries(response)
+    return summaries
+
+
+def parse_speaker_summaries(response: str) -> Dict[str, str]:
+    """
+    Parses the response to extract the speaker summaries.  Assumes the response is in the format specified in the prompts.yaml file.
+    { "speaker_summaries": {
+        "Speaker Name 1": "<one-sentence summary>",
+        "Speaker Name 2": "<one-sentence summary>"
+      }
+    }
+    """
+    response_json = extract_json_from_response(response)
+    return response_json["speaker_summaries"]
 
 def send_prompt_to_llm(prompt):
     payload["messages"][1]["content"][0]["text"] = prompt

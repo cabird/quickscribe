@@ -1,7 +1,7 @@
 # Makefile in the frontend directory
 
-MODELS_SRC = ../shared/models.ts
-MODELS_DEST = ./src/interfaces/models.ts
+MODELS_SRC = ../shared/Models.ts
+MODELS_DEST = ./src/interfaces/Models.ts
 
 # The target file depends on the source file, so Make will only copy if necessary
 $(MODELS_DEST): $(MODELS_SRC)

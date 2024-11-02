@@ -9,8 +9,8 @@ default: build
 
 build: db_handlers/models.py
 
-db_handlers/models.py: $(SHARED_DIR)/models.ts
-	typescript-json-schema $(SHARED_DIR)/models.ts "*" --propOrder --required --out $(SHARED_DIR)/models.schema.json 
+db_handlers/models.py: $(SHARED_DIR)/Models.ts
+	typescript-json-schema $(SHARED_DIR)/Models.ts "*" --propOrder --required --out $(SHARED_DIR)/models.schema.json 
 	datamodel-codegen --input $(SHARED_DIR)/models.schema.json --input-file-type jsonschema  --output-model-type pydantic_v2.BaseModel --output db_handlers/models.py
 
 build_packages:

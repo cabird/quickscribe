@@ -82,6 +82,7 @@ def main():
     and a bullet list of the changes.  Example:  
     
     Added logging and authorization
+    
     - Added feature X
     - Fixed bug Y
     - Changed API Z

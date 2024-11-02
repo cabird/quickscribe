@@ -111,7 +111,7 @@ def get_file_md5(content: str) -> str:
 
 
 skips = ["node_modules", "azure_speech", "venv", "pycache", ".git", "scratch"]
-extensions = ["py", "html", "js", "ts", "css", "tsx", "tsconfig"]
+extensions = ["py", "html", "js", "ts", "css", "tsx", "tsconfig", "yaml"]
 keep_files = ["Makefile", "package.json"]
 def get_all_files_in_tree_rec(dir: str, files: List[str] = []) -> List[str]:
     for file in os.listdir(dir):

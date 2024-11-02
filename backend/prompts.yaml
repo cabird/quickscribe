@@ -27,3 +27,25 @@ prompts:
         }
 
         __TRANSCRIPT__
+  get_speaker_summaries:
+    description: "This prompt is used to get the summary for each speaker in a diarized transcript."
+    prompt: |
+        I have a transcript labeled with speaker tags. I want to show a summary for each speaker to the user
+        so that they can label the speakers.  Please provide a one-sentence summary for each speaker.
+
+        Please output in the following format:
+
+        
+        *** JSON ***
+        { "speaker_summaries": {
+            "Speaker Name 1": "<one-sentence summary>",
+            "Speaker Name 2": "<one-sentence summary>",
+            "Speaker Name 3": "<one-sentence summary>"
+          }
+        }
+
+        Here is the transcript: 
+
+        __TRANSCRIPT__
+        
+        
