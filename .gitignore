@@ -2,6 +2,7 @@
 .*
 
 *.llm_update
+*.log
 
 # But don't ignore .gitignore
 !.gitignore

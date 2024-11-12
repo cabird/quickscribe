@@ -1,0 +1,323 @@
+{
+  "./vitest.setup.mjs": {
+    "type": "JavaScript",
+    "purpose": "Setup file for configuring the testing environment, particularly for mocking browser APIs.",
+    "elements": [
+      "class:ResizeObserver - A mock implementation of the ResizeObserver API with empty methods.",
+      "function:window.getComputedStyle - Overrides the default getComputedStyle function to use the original implementation.",
+      "function:window.HTMLElement.prototype.scrollIntoView - A no-op function to mock scrollIntoView.",
+      "function:window.matchMedia - A mock implementation of the matchMedia function using vitest's mocking capabilities."
+    ],
+    "deps": [
+      "@testing-library/jest-dom/vitest",
+      "vitest"
+    ],
+    "related": [
+      "./vitest.setup.mjs - This file is likely used to set up the testing environment for the project."
+    ],
+    "filepath": "./vitest.setup.mjs",
+    "md5sum": "26c72aa26043a33b8f0b1f4d8a026f2b"
+  },
+  "./.prettierrc.mjs": {
+    "type": "JavaScript",
+    "purpose": "Configuration file for Prettier, a code formatting tool, with specific settings and import sorting rules.",
+    "elements": [
+      "structure:config - Prettier configuration object containing formatting rules and import order settings."
+    ],
+    "deps": [
+      "@ianvs/prettier-plugin-sort-imports"
+    ],
+    "related": [
+      "./.prettierrc.mjs - This file is the Prettier configuration file for the project, which may be used by other files for consistent code formatting."
+    ],
+    "filepath": "./.prettierrc.mjs",
+    "md5sum": "c578b0b1b71382736ca2f45a37feff33"
+  },
+  "./package.json": {
+    "type": "JSON",
+    "purpose": "This file is a package.json file used for managing the project's dependencies, scripts, and metadata for a JavaScript/TypeScript project.",
+    "elements": [
+      "structure:name - The name of the project.",
+      "structure:private - Indicates if the project is private.",
+      "structure:type - The module type of the project.",
+      "structure:version - The version of the project.",
+      "structure:scripts - A set of scripts for building, testing, and running the project.",
+      "structure:dependencies - Lists runtime dependencies required by the project.",
+      "structure:devDependencies - Lists development dependencies required for building and testing the project.",
+      "structure:packageManager - Specifies the package manager and its version used for the project."
+    ],
+    "deps": [
+      "@mantine/core",
+      "@mantine/hooks",
+      "react",
+      "react-dom",
+      "react-router-dom",
+      "@eslint/js",
+      "@ianvs/prettier-plugin-sort-imports",
+      "@storybook/react",
+      "@storybook/react-vite",
+      "@testing-library/dom",
+      "@testing-library/jest-dom",
+      "@testing-library/react",
+      "@testing-library/user-event",
+      "@types/react",
+      "@types/react-dom",
+      "@vitejs/plugin-react",
+      "eslint",
+      "eslint-config-mantine",
+      "eslint-plugin-jsx-a11y",
+      "eslint-plugin-react",
+      "identity-obj-proxy",
+      "jsdom",
+      "postcss",
+      "postcss-preset-mantine",
+      "postcss-simple-vars",
+      "prettier",
+      "prop-types",
+      "storybook",
+      "storybook-dark-mode",
+      "stylelint",
+      "stylelint-config-standard-scss",
+      "typescript",
+      "typescript-eslint",
+      "vite",
+      "vite-tsconfig-paths",
+      "vitest"
+    ],
+    "related": [
+      "./vitest.setup.mjs - Related to testing setup as vitest is used in scripts.",
+      "./.prettierrc.mjs - Related to code formatting as prettier is used in scripts.",
+      "./.storybook/main.ts - Related to Storybook setup as Storybook is used in scripts.",
+      "./.storybook/preview.tsx - Related to Storybook setup as Storybook is used in scripts.",
+      "./vite.config.mjs - Related to Vite configuration as Vite is used in scripts.",
+      "./postcss.config.cjs - Related to PostCSS configuration as PostCSS is a devDependency.",
+      "./eslint.config.js - Related to ESLint configuration as ESLint is used in scripts."
+    ],
+    "filepath": "./package.json",
+    "md5sum": "b6523759c80124962fc56eda9ef8d77b"
+  },
+  "./.storybook/main.ts": {
+    "type": "TypeScript",
+    "purpose": "Configuration file for setting up Storybook with React and Vite.",
+    "elements": [
+      "structure:config - Configuration object for Storybook setup."
+    ],
+    "deps": [
+      "@storybook/react-vite",
+      "storybook-dark-mode"
+    ],
+    "related": [
+      "../src/**/*.mdx - Story files for Storybook.",
+      "../src/**/*.story.@(js|jsx|ts|tsx) - Story files for Storybook."
+    ],
+    "filepath": "./.storybook/main.ts",
+    "md5sum": "6ec5d1a24cd64f97db71e5a3e9f02802"
+  },
+  "./.storybook/preview.tsx": {
+    "type": "JavaScript",
+    "purpose": "This file sets up Storybook preview configurations, including layout parameters and decorators for theme and color scheme management.",
+    "elements": [
+      "function:ColorSchemeWrapper - A wrapper component that manages the color scheme based on Storybook's dark mode events."
+    ],
+    "deps": [
+      "@mantine/core/styles.css",
+      "react",
+      "@storybook/preview-api",
+      "storybook-dark-mode",
+      "@mantine/core",
+      "../src/theme"
+    ],
+    "related": [
+      "./.storybook/preview.tsx - This file is part of the Storybook configuration and likely works with other Storybook files to define the preview setup.",
+      "./src/theme.ts - Provides the theme object used in the MantineProvider decorator."
+    ],
+    "filepath": "./.storybook/preview.tsx",
+    "md5sum": "4fe3dd4c106bf2e1627ebd0abb16a3fb"
+  },
+  "./index.html": {
+    "type": "HTML",
+    "purpose": "The main HTML file for the Vite + Mantine application, serving as the entry point for the web application.",
+    "elements": [],
+    "deps": [
+      "/src/main.tsx"
+    ],
+    "related": [
+      "./src/main.tsx - This is the main entry point script for the application, referenced in the HTML file."
+    ],
+    "filepath": "./index.html",
+    "md5sum": "724ccf1c79b2f79c62b3923ec2309997"
+  },
+  "./src/vite-env.d.ts": {
+    "type": "TypeScript Declaration",
+    "purpose": "Provides TypeScript type definitions for Vite client-side code.",
+    "elements": [],
+    "deps": [
+      "vite/client"
+    ],
+    "related": [
+      "./vite.config.mjs - Configuration file for Vite, which may use these type definitions.",
+      "./src/main.tsx - Main entry point for the application, potentially utilizing Vite client features."
+    ],
+    "filepath": "./src/vite-env.d.ts",
+    "md5sum": "0352474ba2918efe13895edbc3780d94"
+  },
+  "./src/components/Welcome/Welcome.module.css": {
+    "type": "CSS",
+    "purpose": "Defines styling for a title element, including color, font size, weight, and responsive design.",
+    "elements": [],
+    "deps": [],
+    "related": [
+      "./src/components/Welcome/Welcome.module.css - This file likely contains styles for the Welcome component, which may include the .title class."
+    ],
+    "filepath": "./src/components/Welcome/Welcome.module.css",
+    "md5sum": "3d6e7cbb6d16640665334ed48cce4849"
+  },
+  "./src/components/Welcome/Welcome.story.tsx": {
+    "type": "JavaScript",
+    "purpose": "This file is a Storybook story configuration for the Welcome component.",
+    "elements": [
+      "function:Usage - A Storybook story function that renders the Welcome component."
+    ],
+    "deps": [
+      "./Welcome"
+    ],
+    "related": [
+      "./src/components/Welcome/Welcome.tsx - The Welcome component being rendered in the story.",
+      "./.storybook/main.ts - The main configuration file for Storybook.",
+      "./.storybook/preview.tsx - The preview configuration file for Storybook."
+    ],
+    "filepath": "./src/components/Welcome/Welcome.story.tsx",
+    "md5sum": "7b06607b65d1414babf9ea97759f47a8"
+  },
+  "./src/components/Welcome/Welcome.test.tsx": {
+    "type": "JavaScript",
+    "purpose": "This file contains a test suite for the Welcome component, verifying its functionality.",
+    "elements": [
+      "function:describe - Defines a test suite for the Welcome component.",
+      "function:it - Specifies a test case to check if the Welcome component has the correct Vite guide link."
+    ],
+    "deps": [
+      "@test-utils",
+      "./Welcome"
+    ],
+    "related": [
+      "./src/components/Welcome/Welcome.tsx - The component being tested.",
+      "./test-utils/index.ts - Provides utility functions for testing."
+    ],
+    "filepath": "./src/components/Welcome/Welcome.test.tsx",
+    "md5sum": "9347a3fc23f1026decec1859fb3b44c1"
+  },
+  "./src/components/Welcome/Welcome.tsx": {
+    "type": "JavaScript",
+    "purpose": "Defines a React component that displays a welcome message with styling and links.",
+    "elements": [
+      "function:Welcome - A React functional component that renders a welcome message using Mantine UI components."
+    ],
+    "deps": [
+      "@mantine/core",
+      "./Welcome.module.css"
+    ],
+    "related": [
+      "./src/components/Welcome/Welcome.module.css - Provides CSS styling for the Welcome component.",
+      "./src/pages/Home.page.tsx - Mentioned in the welcome message as a file to edit to get started."
+    ],
+    "filepath": "./src/components/Welcome/Welcome.tsx",
+    "md5sum": "c2b837657974acd1dad93680f00e118c"
+  },
+  "./src/components/ColorSchemeToggle/ColorSchemeToggle.tsx": {
+    "type": "JavaScript",
+    "purpose": "This file defines a React component for toggling the color scheme of the application.",
+    "elements": [
+      "function:ColorSchemeToggle - A React component that provides buttons to toggle between light, dark, and auto color schemes."
+    ],
+    "deps": [
+      "@mantine/core"
+    ],
+    "related": [
+      "./src/components/ColorSchemeToggle/ColorSchemeToggle.tsx - This file likely contains the implementation of the ColorSchemeToggle component."
+    ],
+    "filepath": "./src/components/ColorSchemeToggle/ColorSchemeToggle.tsx",
+    "md5sum": "089857ad078e4680dc7de8e8152ec0c6"
+  },
+  "./src/Router.tsx": {
+    "type": "JavaScript",
+    "purpose": "Defines the routing configuration for the application using React Router.",
+    "elements": [
+      "function:Router - Provides the RouterProvider component with the defined router configuration."
+    ],
+    "deps": [
+      "react-router-dom",
+      "./pages/Home.page"
+    ],
+    "related": [
+      "./src/pages/Home.page.tsx - Contains the HomePage component used in the routing configuration."
+    ],
+    "filepath": "./src/Router.tsx",
+    "md5sum": "49035474e4f86b8ba08c290239b18ded"
+  },
+  "./src/theme.ts": {
+    "type": "JavaScript",
+    "purpose": "Defines a custom theme using Mantine's createTheme function.",
+    "elements": [
+      "function:createTheme - Creates a theme object that can be used to customize the appearance of a Mantine application."
+    ],
+    "deps": [
+      "@mantine/core"
+    ],
+    "related": [
+      "./src/App.tsx - Likely uses the theme for styling the application components.",
+      "./src/main.tsx - May import and apply the theme to the application."
+    ],
+    "filepath": "./src/theme.ts",
+    "md5sum": "b1a8d7ea0f425b092f882c85714fa5b5"
+  },
+  "./src/main.tsx": {
+    "type": "JavaScript",
+    "purpose": "This file serves as the entry point for the React application, rendering the main App component into the root DOM element.",
+    "elements": [],
+    "deps": [
+      "react-dom/client",
+      "./App"
+    ],
+    "related": [
+      "./src/App.tsx - Contains the main App component that is rendered by this file."
+    ],
+    "filepath": "./src/main.tsx",
+    "md5sum": "e14df66fcbb1a30045a54c3fa2c912de"
+  },
+  "./src/pages/Home.page.tsx": {
+    "type": "JavaScript",
+    "purpose": "Defines the HomePage component which renders the Welcome and ColorSchemeToggle components.",
+    "elements": [
+      "function:HomePage - Renders the Welcome and ColorSchemeToggle components."
+    ],
+    "deps": [
+      "../components/ColorSchemeToggle/ColorSchemeToggle",
+      "../components/Welcome/Welcome"
+    ],
+    "related": [
+      "./src/components/Welcome/Welcome.tsx - Contains the Welcome component used in HomePage.",
+      "./src/components/ColorSchemeToggle/ColorSchemeToggle.tsx - Contains the ColorSchemeToggle component used in HomePage."
+    ],
+    "filepath": "./src/pages/Home.page.tsx",
+    "md5sum": "719c19bc2c8646f0d67f5ea7a4ad12d5"
+  },
+  "./src/App.tsx": {
+    "type": "JavaScript",
+    "purpose": "Defines the main application component that sets up the theme and routing using Mantine and a custom Router.",
+    "elements": [
+      "function:App - Main application component that wraps the Router with a MantineProvider for theming."
+    ],
+    "deps": [
+      "@mantine/core",
+      "./Router",
+      "./theme"
+    ],
+    "related": [
+      "./src/Router.tsx - Provides the routing functionality used in the App component.",
+      "./src/theme.ts - Supplies the theme configuration for the MantineProvider."
+    ],
+    "filepath": "./src/App.tsx",
+    "md5sum": "52a53e659eeac50ba0c6eebfda2fb6c2"
+  }
+}

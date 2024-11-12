@@ -11,5 +11,7 @@ routes/*.py
 templates/*.html
 prompts.yaml
 static/*
+frontend-dist/*
+frontend-dist/assets/*
 local_packages/*
 startup.sh

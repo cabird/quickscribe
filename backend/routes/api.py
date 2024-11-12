@@ -3,16 +3,26 @@ from flask import Blueprint, request, jsonify
 from db_handlers.handler_factory import get_user_handler, get_recording_handler, get_transcription_handler
 from user_util import get_user
 from db_handlers.models import User, Recording, Transcription
-from util import update_diarized_transcript
+from util import update_diarized_transcript, convert_to_mp3, get_recording_duration_in_seconds
 import logging
-from llms import get_speaker_summaries_via_llm
-
+from llms import get_speaker_summaries_via_llm, get_speaker_mapping
+import uuid
+import os
+from werkzeug.utils import secure_filename
+from datetime import datetime, UTC
+import time
+from blob_util import store_recording
+from api_version import API_VERSION
 
 api_bp = Blueprint('api', __name__)
 
 # Helper function to get current user
 def get_current_user():
     return get_user(request)
+
+@api_bp.route('/get_api_version', methods=['GET'])
+def get_api_version():
+    return jsonify({'version': API_VERSION}), 200
 
 # Route to get a user by ID
 @api_bp.route('/user/<user_id>', methods=['GET'])
@@ -100,7 +110,7 @@ def delete_user(user_id):
     user_handler.delete_user(user_id)
     return jsonify({'message': 'User deleted successfully'}), 200
 
-@api_bp.route('/deleterecording/<recording_id>', methods=['GET'])
+@api_bp.route('/delete_recording/<recording_id>', methods=['GET'])
 def delete_recording(recording_id):
     recording_handler = get_recording_handler()
     recording_handler.delete_recording(recording_id)
@@ -176,3 +186,84 @@ def update_speaker_labels(transcription_id):
         transcription_handler.update_transcription(transcription)
         return jsonify({'message': 'Speaker labels updated successfully'}), 200
     return jsonify({'error': 'Transcription not found or does not have a diarized transcript'}), 404
+
+
+@api_bp.route("/infer_speaker_names/<transcription_id>")
+def infer_speaker_names(transcription_id):
+    transcription_handler = get_transcription_handler()
+    transcription = transcription_handler.get_transcription(transcription_id)
+    if transcription and transcription.diarized_transcript:
+        if True: # TODO - uncomment this when we don't want to allow inferring multiple times... not transcription.speaker_mapping:
+            speaker_mapping, diarized_text = get_speaker_mapping(transcription.diarized_transcript)
+            transcription.speaker_mapping = speaker_mapping
+            transcription.diarized_transcript = diarized_text
+            transcription_handler.update_transcription(transcription)
+            return jsonify({'message': 'Speaker names successfully inferred'}), 200
+        else:
+            return jsonify({'message': 'Speaker names already inferred'}), 200
+    else:
+        return jsonify({'error': 'Transcription not found'}), 404
+
+
+# File upload form route
+@api_bp.route('/upload', methods=['POST'])
+def upload():
+    #TODO - allow all kinds of audio files
+    logging.info("upload endpoint called")
+    if 'file' not in request.files:
+        return jsonify({'error': 'No file part'}), 400
+
+    file = request.files['file']
+
+    if file.filename == '':
+        return jsonify({'error': 'No selected file'}), 400
+
+    if file: # and (file.filename.endswith('.mp3') or file.filename.endswith('.m4a')):
+        logging.info("file found")
+        try:
+            logging.info(f"handling upload of file: {file}")
+            original_filename = secure_filename(file.filename)
+            #get the file extension
+            file_extension = file.filename.split(".")[-1]
+            orig_file_path = os.path.join('/tmp', uuid.uuid4().hex + "." + file_extension)
+            file.save(orig_file_path)
+            logging.info(f"file saved to {orig_file_path}")
+            #if the file is an m4a, convert it to mp3
+            converted_file_path = os.path.join('/tmp', uuid.uuid4().hex + ".mp3")
+
+            #do this for all files
+            logging.info("converting to valid mp3")
+            start_time = time.time()
+            try:
+                convert_to_mp3(orig_file_path, converted_file_path)
+            except Exception as e:
+                logging.error(f"error converting to mp3: {e}")
+                return jsonify({'error': str(e)}), 500
+            end_time = time.time()
+            logging.info(f"converted to mp3 and saved to /tmp/{converted_file_path} in {end_time - start_time} seconds")
+
+            converted_filename = os.path.basename(converted_file_path)
+            store_recording(converted_file_path, converted_filename)
+            recording_handler = get_recording_handler()
+            user = get_user(request)
+
+            recording = recording_handler.create_recording(user.id, original_filename, converted_filename)
+            recording.upload_timestamp = datetime.now(UTC).isoformat()
+            # determine the duration of the recording
+            recording.duration = get_recording_duration_in_seconds(converted_file_path)
+            recording_handler.update_recording(recording)
+
+            #remove the file(s) from the tmp directory
+            #os.remove(orig_file_path)
+            #os.remove(converted_file_path)
+
+            return jsonify({'message': 'File uploaded successfully!', 'filename': original_filename, 'recording_id': recording.id}), 200
+
+        except Exception as e:
+            logging.error(f"error uploading file: {e}")
+            #print the stack trace
+            import traceback
+            traceback.print_exc()
+            return jsonify({'error': str(e)}), 500
+
+    return jsonify({'error': 'Only .mp3 and .m4a files are allowed'}), 400

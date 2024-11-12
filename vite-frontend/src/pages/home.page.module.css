@@ -1,0 +1,68 @@
+/* Main title styling */
+.title {
+  color: var(--mantine-color-black);
+  font-size: 4rem; /* Adjust size if needed */
+  font-weight: 900;
+  letter-spacing: -2px;
+  text-align: center;
+}
+
+/* Gradient text effect with animation for "QuickScribe" */
+.gradientText {
+  display: inline-block;
+  background: linear-gradient(45deg, #ff7e5f, #feb47b);
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  animation: gradientAnimation 5s ease-in-out infinite;
+  font-size: 4.5rem; /* Larger size for emphasis */
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .title {
+    font-size: 2rem; /* Responsive size for smaller screens */
+  }
+  .gradientText {
+    font-size: 2.5rem; /* Adjust gradient text size accordingly */
+  }
+}
+
+/* Animation for gradient movement */
+@keyframes gradientAnimation {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 100% 50%; }
+}
+
+/* Button styles for interactive effect */
+button {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.75rem 1.25rem;
+  font-size: 1rem;
+  font-weight: 500;
+  color: #fff;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+/* Button colors and hover effects */
+button.primary {
+  background-color: #1e90ff;
+}
+button.primary:hover {
+  background-color: #0073e6;
+  box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+button.secondary {
+  background-color: #28a745;
+}
+button.secondary:hover {
+  background-color: #218838;
+  box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+

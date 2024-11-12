@@ -1,7 +1,7 @@
 from flask import Blueprint, request, redirect, jsonify, flash, url_for
-from db_handlers.transcription_handler import TranscriptionHandler, TranscriptionStatus
+from db_handlers.transcription_handler import TranscriptionHandler
 from db_handlers.recording_handler import RecordingHandler
-from db_handlers.models import TranscriptionStatus
+from db_handlers.models import TranscriptionStatus, Recording
 from user_util import get_user
 from blob_util import generate_recording_sas_url
 from azure.storage.blob import BlobServiceClient
@@ -63,8 +63,7 @@ def start_transcription(recording_id):
         recording.transcription_status = TranscriptionStatus.in_progress
         recording.az_transcription_id = az_transcription_id
         recording_handler.update_recording(recording)
-        flash("Transcription started", "success")
-        return redirect(url_for('recordings'))
+        return jsonify({'message': 'Transcription started'}), 200
 
     except Exception as e:
         logging.error(f"An error occurred: {str(e)}")
@@ -76,38 +75,61 @@ def start_transcription(recording_id):
 
 @az_transcription_bp.route("/transcription_hello_world", methods=["GET"])
 def transcription_hello_world():
-    flash("Hello World", "success")
-    return redirect(url_for('recordings'))
-    
     return "<html><body><h1>Hello World</h1></body></html>", 200
 
-def check_in_progress_transcription(recording):
+@az_transcription_bp.route("/check_transcription_status/<recording_id>", methods=["GET"])
+def check_transcription_status(recording_id):
+    logging.info(f"Checking transcription status: {recording_id}")
+    recording = recording_handler.get_recording(recording_id)
+    status, error = check_in_progress_transcription(recording)
+    return jsonify({'status': status, 'error': error}), 200
+
+def check_in_progress_transcription(recording: Recording) -> tuple[str, str]:
     client = get_speech_api_client()
     api = swagger_client.CustomSpeechTranscriptionsApi(api_client=client)
     az_transcription_id = recording.az_transcription_id
+    if not az_transcription_id:
+        return TranscriptionStatus.not_started.value, ""
     az_transcription = api.transcriptions_get(az_transcription_id)
-    logging.info(f"AZ Transcription: {az_transcription}")
-    # valid statuses are "NotStarted", "Running", "Succeeded", "Failed"
-    status = az_transcription.status
+    logging.info(f" got transcription for {az_transcription_id}")
+
+    # valid statuses are "NotStarted", "Running", "Succeeded", "Failed" - these are different than the TranscriptionStatus enum
+    az_status_map = {
+        "NotStarted": TranscriptionStatus.not_started.value,
+        "Running": TranscriptionStatus.in_progress.value,
+        "Succeeded": TranscriptionStatus.completed.value,
+        "Failed": TranscriptionStatus.failed.value
+    }
+    status = az_status_map[az_transcription.status]
     logging.info(f"AZ Transcription status: {status}")
     error_message = ""
-    if status == "Succeeded":
+    if status == TranscriptionStatus.completed.value:
         logging.info(f"Transcription succeeded: {az_transcription_id}")
         transcription = transcription_handler.get_transcription_by_recording(recording.id)
         if not transcription:
+            logging.info(f"No transcription found, creating new transcription")
             transcription = transcription_handler.create_transcription(recording.user_id, recording.id)
         transcription.az_transcription_id = az_transcription_id
         transcription.az_raw_transcription = str(az_transcription)
-        logging.info(f"raw transcription: {transcription.az_raw_transcription}")
-        az_transcript = az_get_transcript(az_transcription_id)
-        transcription.transcript_json = az_transcript
-        logging.info(f"transcript json: {transcription.transcript_json}")
-        json_data = json.loads(az_transcript)
+        
+        logging.info(f"Getting transcript: {az_transcription_id}")
+        transcription.transcript_json = az_get_transcript(az_transcription_id)
+        json_data = json.loads(transcription.transcript_json)        
+        
         transcription.diarized_transcript = az_get_diarized_transcript(json_data)
-        logging.info(f"diarized transcript: {transcription.diarized_transcript}")
+
+        logging.info(f"Updating transcription: {transcription.id}")
         transcription_handler.update_transcription(transcription)
-    if status == "Failed" and az_transcription.properties.error:
+
+        recording.transcription_status = TranscriptionStatus.completed
+        recording.transcription_id = transcription.id
+        recording_handler.update_recording(recording)
+
+    elif status == TranscriptionStatus.failed.value and az_transcription.properties.error:
+        logging.info(f"Transcription failed: {az_transcription.properties.error}")
         error_message = str(az_transcription.properties.error.code) + ": " + str(az_transcription.properties.error.message)
+    elif status == TranscriptionStatus.in_progress.value:
+        logging.info(f"Transcription is still running: {az_transcription_id}")
     return status, error_message
 
   
@@ -191,7 +213,7 @@ def az_get_transcript(az_transcription_id):
             results_url = file_data.links.content_url
             logging.info(f"Results URL: {results_url}")
             results = requests.get(results_url)
-            logging.info(f"Results for {az_transcription_id}:\n{results.content.decode('utf-8')}")
+            #logging.info(f"Results for {az_transcription_id}:\n{results.content.decode('utf-8')}")
             return results.content.decode('utf-8')
     return None
 
@@ -219,9 +241,5 @@ def az_get_diarized_transcript(json_data):
     # Append the last speaker's text after the loop
     if last_text:
         transcript.append(f"Speaker {last_speaker}: " + " ".join(last_text) + "\n")
-
-    # Print the formatted transcript
-    for line in transcript:
-        print(line)
     
     return "\n".join(transcript)

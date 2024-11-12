@@ -93,7 +93,16 @@ def list_recordings():
     recording_handler = create_recording_handler()
     recordings = recording_handler.get_all_recordings()
     for recording in recordings:
-        click.echo(f"- {recording['id']}: {recording['original_filename']} {recording['unique_filename']}")
+        click.echo(f"- {recording.id}: {recording.original_filename} {recording.unique_filename}")
+
+@cli.command()
+@click.argument('recording_id')
+def show_recording(recording_id):
+    recording_handler = create_recording_handler()
+    recordings = recording_handler.get_all_recordings()
+    for curRecording in recordings:
+        if curRecording.id.startswith(recording_id):
+            click.echo(json.dumps(curRecording.model_dump(exclude_unset=False), indent=4))
 
 
 # Command to delete a Cosmos DB entry and its associated blob

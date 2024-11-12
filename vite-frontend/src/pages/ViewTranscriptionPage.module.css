@@ -1,0 +1,47 @@
+/* Title Styling */
+.title {
+    font-size: 2.5rem;
+    font-weight: bold;
+    margin-bottom: 1rem;
+}
+
+.subtitle {
+    font-size: 1.5rem;
+    color: #555;
+    margin-bottom: 1.5rem;
+}
+
+/* Dialogue Styling */
+.dialogue {
+    padding: 1rem;
+    border-radius: 8px;
+    margin-bottom: 0.5rem;
+    display: flex;
+}
+
+.dialogue.odd {
+    background-color: #f9f9f9;
+}
+
+.dialogue.even {
+    background-color: #ffffff;
+}
+
+/* Speaker Styling */
+.speaker {
+    font-weight: bold;
+    color: #333;
+    margin-right: 0.5rem;
+}
+
+/* Dialogue Text */
+.dialogue-text {
+    color: #444;
+    line-height: 1.5;
+}
+
+/* Hover Effect */
+.dialogue:hover {
+    background-color: #e0f7fa;
+    transition: background-color 0.3s ease;
+}

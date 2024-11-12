@@ -54,16 +54,17 @@ def ellide(text, max_length):
 
 AudioSegment.ffmpeg = "/usr/bin/ffmpeg"
 valid_file_extensions = ["mp3", "m4a"] # TODO - are there other valid file extensions?
-def convert_to_mp3(file_path):
-    extension = file_path.lower().split(".")[-1]
+def convert_to_mp3(source_file_path: str, target_file_path: str):
+    extension = source_file_path.lower().split(".")[-1]
     if extension not in valid_file_extensions:
         raise ValueError(f"Unsupported file type. Only {', '.join(valid_file_extensions)} files are supported.")
     if extension == "m4a":
-        audio = AudioSegment.from_file(file_path, format="m4a")
-    #ensure that we only replace the extension, not the entire filename
-    mp3_file_path = file_path.rsplit('.', 1)[0] + '.mp3'
-    audio.export(mp3_file_path, format="mp3", bitrate="128k")
-    return mp3_file_path
+        audio = AudioSegment.from_file(source_file_path, format="m4a")
+    elif extension == "mp3":
+        audio = AudioSegment.from_file(source_file_path, format="mp3")
+    else:
+        raise ValueError(f"Unsupported file type. Only {', '.join(valid_file_extensions)} files are supported.")
+    audio.export(target_file_path, format="mp3", bitrate="128k", parameters=["-ac", "1"])
 
 def update_diarized_transcript(diarized_transcript: str, speaker_labels: Dict[str, str]) -> str:
     for original_speaker, new_label in speaker_labels.items():

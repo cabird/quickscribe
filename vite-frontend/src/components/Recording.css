@@ -1,0 +1,79 @@
+/* src/components/Recording.css */
+
+.recording-row {
+    position: relative;
+}
+
+.icon-buttons {
+    display: flex;
+    gap: 0.5rem; /* Space between icons */
+    visibility: hidden; /* Initially hidden */
+    align-items: center;
+}
+
+.icon-button {
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    min-width: 36px; /* Ensures uniform size */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.spinning_icon {
+    animation: spin 2s linear infinite;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+
+/* General table styling */
+.table-container {
+    background-color: #f8f9fa; /* Light background */
+    border-radius: 8px;
+    padding: 20px;
+    margin-top: 20px;
+  }
+  
+  .recording-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  
+  .recording-table th,
+  .recording-table td {
+    padding: 10px 12px;
+    text-align: left;
+  }
+  
+  .recording-table th {
+    background-color: #e9ecef; /* Header background */
+    color: #495057;
+    font-weight: 600;
+  }
+  
+  .recording-table tr:nth-child(even) {
+    background-color: #f1f3f5; /* Alternate row colors */
+  }
+  
+  /* Action icons */
+  .icon-buttons {
+    display: flex;
+    gap: 8px;
+    visibility: hidden; /* Hidden by default */
+  }
+  
+  .recording-row:hover .icon-buttons {
+    visibility: visible; /* Show on hover */
+  }
+  
+  .icon-button {
+    font-size: 1rem;
+    color: #007bff; /* Font awesome icon color */
+    padding: 4px;
+  }
+  

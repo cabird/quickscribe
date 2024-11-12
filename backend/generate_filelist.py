@@ -24,7 +24,7 @@ def collect_files(include_patterns, exclude_patterns):
     all_files = set()
     current_path = Path('.')
 
-    # Iterate through include patterns and add matching files
+    # Iterate through include patterns and add matching files. 
     for pattern in include_patterns:
         # Find all files matching the pattern in the current directory
         all_files.update(current_path.glob(pattern))

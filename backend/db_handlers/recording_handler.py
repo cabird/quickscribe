@@ -28,7 +28,6 @@ class Recording(models.Recording):
     @field_validator('transcription_status')
     @classmethod
     def validate_transcription_status(cls, value):
-        print(f"validate_transcription_status: {value}")
         # Convert string value back to TranscriptionStatus Enum
         if isinstance(value, str):
             return models.TranscriptionStatus(value)
