@@ -3,6 +3,10 @@
 
 *.llm_update
 *.log
+*.bak
+__pycache__
+
+query_result*
 
 # But don't ignore .gitignore
 !.gitignore

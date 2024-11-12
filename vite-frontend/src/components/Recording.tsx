@@ -84,11 +84,14 @@ const Recording: React.FC<RecordingProps> = ({ recording, refreshTrigger }) => {
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify(speakerLabels),
-        }).then((response) => response.json())
-        .then((data) => {
-                console.log(data);
-                alert('Speaker labels updated');
-            }).then(fetchUpdatedRecording);
+        }).then((response) => {
+            response.json()
+        }).then((data) => {
+            console.log(data);
+            alert('Speaker labels updated');
+        }).then(() => {
+            fetchUpdatedRecording();
+        });
     };
 
     useEffect(() => {
@@ -183,13 +186,12 @@ const Recording: React.FC<RecordingProps> = ({ recording, refreshTrigger }) => {
                             onClick={() => startTranscription(recording.id)
                                 .then((response) => {
                                     showNotificationFromApiResponse(response);
+                                    fetchUpdatedRecording();
                                 })  
                                 .catch((error) => {
-                                    showNotificationFromApiResponse({   
-                                        status: 'error',
-                                        error: 'Failed to start transcription: ' + error
-                                    });
-                                })}
+                                    showNotificationFromError('Failed to start transcription: ' + error);
+                                })
+                            }
                             disabled={transcriptionStatus === 'completed'}
                             variant="subtle"
                             className="icon-button"
