@@ -6,6 +6,8 @@ from dotenv import load_dotenv
 import sys
 import re
 
+os.environ["GIT_EDITOR"] = "true"
+
 def clean_output(output):
     # Remove non-printable characters
     return re.sub(r'[^\x20-\x7E]', '', output)
