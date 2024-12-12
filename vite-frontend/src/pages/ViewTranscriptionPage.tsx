@@ -3,8 +3,10 @@ import React, { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { Transcription } from '../interfaces/Models';
 import { Container, Title, Text, Button, Group } from '@mantine/core';
+import { notifications } from '@mantine/notifications';
 import styles from './ViewTranscriptionPage.module.css';
-import { IconFileText, IconHome } from '@tabler/icons-react';
+import { IconFileText, IconCopy } from '@tabler/icons-react';
+import { faCopy } from '@fortawesome/free-regular-svg-icons';
 
 const ViewTranscriptionPage: React.FC = () => {
     const { transcriptionId } = useParams<{ transcriptionId: string }>();
@@ -23,6 +25,27 @@ const ViewTranscriptionPage: React.FC = () => {
         return <Text>Loading...</Text>;
     }
 
+
+    const copyTranscriptionToClipboard = async () => {
+        if (transcription && transcription.diarized_transcript) {
+            try {
+                await navigator.clipboard.writeText(transcription.diarized_transcript);
+                notifications.show({
+                    title: 'Success',
+                    message: 'Transcription copied to clipboard',
+                    position: 'top-right',
+                });
+            } catch (error) {
+                notifications.show({
+                    title: 'Error',
+                    message: `Error copying transcription to clipboard: ${error}`,
+                    color: 'red',
+                    position: 'top-right',
+                });
+            }
+        }
+    };
+
     return (
         <Container>
             <Title order={1} className="title">Transcription</Title>
@@ -34,6 +57,9 @@ const ViewTranscriptionPage: React.FC = () => {
                     leftSection={<IconFileText size={16} />}
                 >
                     Back to Recordings
+                </Button>
+                <Button leftSection={<IconCopy size={16} />} onClick={copyTranscriptionToClipboard}>
+                    Copy Transcription
                 </Button>
             </Group>
             {transcription.diarized_transcript ? (

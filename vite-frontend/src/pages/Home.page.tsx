@@ -3,7 +3,7 @@ import { ColorSchemeToggle } from '../components/ColorSchemeToggle/ColorSchemeTo
 import { Container, Title, Text, Button, Group } from '@mantine/core';
 import { Link } from 'react-router-dom';
 import classes from './home.page.module.css';
-import { IconFileText, IconUpload } from '@tabler/icons-react';
+import { IconFileText, IconMicrophone, IconUpload } from '@tabler/icons-react';
 import { getApiVersion } from '@/api/util';
 
 export function HomePage() {
@@ -32,7 +32,7 @@ export function HomePage() {
         position: 'relative'
     }}>
       <Container style={{ textAlign: 'center' }}>
-        <Title className={classes.title} ta="center" mt={100}>
+        <Title className={classes.title} ta="center" mt={50}>
           Welcome to{' '}
           <Text
             inherit
@@ -77,6 +77,20 @@ export function HomePage() {
             onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#28a745'}
           >
             Upload a New Recording
+          </Button>
+          <Button
+            component={Link}
+            to="/audio_stream"
+            leftSection={<IconMicrophone size={18} />}
+            style={{
+              backgroundColor: '#8a2be2',
+              color: '#fff',
+              boxShadow: '0px 4px 12px rgba(0, 0, 0, 0.1)',
+            }}
+            onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#7325c1'}
+            onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#8a2be2'}
+          >
+            Record Audio
           </Button>
         </Group>
       </Container>

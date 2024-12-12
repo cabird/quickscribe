@@ -14,6 +14,9 @@ from datetime import datetime
 import logging
 import io
 
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import threading
+
 log_buffer = io.StringIO()
 
 # Clear any existing handlers on the root logger
@@ -41,6 +44,11 @@ API_KEY = os.getenv("AZURE_OPENAI_API_KEY")
 ENDPOINT = os.getenv("AZURE_OPENAI_API_ENDPOINT")
 DEPLOYMENT_NAME = os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME")
 API_VERSION = os.getenv("AZURE_OPENAI_API_VERSION")
+
+logging.info(f"Using endpoint: {ENDPOINT}")
+logging.info(f"Using deployment name: {DEPLOYMENT_NAME}")
+logging.info(f"Using API version: {API_VERSION}")
+
 
 ENDPOINT = f"{ENDPOINT}/openai/deployments/{DEPLOYMENT_NAME}/chat/completions?api-version={API_VERSION}"
 headers = {
@@ -118,6 +126,7 @@ def send_prompt_to_llm(prompt):
     except requests.RequestException as e:
         raise SystemExit(f"Failed to make the request. Error: {e}")
     
+    
     returned_content = response.json()["choices"][0]["message"]["content"]
     token_counter.count_output_tokens(returned_content)
     return returned_content
@@ -137,12 +146,26 @@ def get_directory_md5(directory_path: str, index: Dict[str, dict]) -> str:
     files.sort()
     return hashlib.md5(("\n".join(files)).encode()).hexdigest()
 
-skips = ["node_modules", "azure_speech", "venv", "pycache", 
-    ".git", "scratch", "defunct", ".yarn", "dist"]
-extensions = ["py", "html", "js", "ts", "css", "tsx", "tsconfig", "yaml", "mjs", "cjs"]
-keep_files = ["Makefile", "package.json", "tsconfig.json"]
+if os.getcwd().endswith("code4llm"):
+    skips = ["node_modules", "azure_speech", "venv", "pycache", 
+        ".git", "scratch", "defunct", ".yarn", "dist", "analysis.py"]
+    extensions = ["py", "js", "md", "yaml"]
+    keep_files = []
+else:
+    skips = ["node_modules", "azure_speech", "venv", "pycache", 
+        ".git", "scratch", "defunct", ".yarn", "dist"]
+    extensions = ["py", "html", "js", "ts", "css", "tsx", "tsconfig", "yaml", "mjs", "cjs"]
+    keep_files = ["Makefile", "package.json", "tsconfig.json"]
+
+print("skips:", skips)
+print("extensions:", extensions)
+print("keep_files:", keep_files)
+
 def get_all_files_in_tree_rec(dir: str, files: List[str] = []) -> List[str]:
     for file in os.listdir(dir):
+
+        if any(skip in file for skip in skips):
+            continue
         if os.path.isfile(os.path.join(dir, file)):
             extension = file.split(".")[-1]
             if extension in extensions or file in keep_files:
@@ -156,10 +179,18 @@ def get_all_files_in_tree_rec(dir: str, files: List[str] = []) -> List[str]:
 def extract_json_from_llm_response(response: str):
     """ LLM responses are often wrapped in other text, so we need to extract the JSON """
     json_text = response[response.find('{'):response.rfind('}')+1]
-    return json.loads(json_text)
+    try:
+        return json.loads(json_text)
+    except json.JSONDecodeError as e:
+        logging.error(f"Error parsing JSON: {e}")
+        logging.error(f"Response: {response}")
+        raise e
 
 def index_file(filepath: str, all_files: List[str]) -> dict:
     content = read_file_content(filepath)
+    if content.strip() == "":
+        logging.warning(f"Skipping {filepath} - empty file")
+        return None
     md5sum = get_file_md5(content)
     
     prompt = index_file_prompt.replace("__FILE_CONTENTS__", content)
@@ -222,6 +253,25 @@ def load_index_file(filepath: str) -> Dict[str, dict]:
 def save_index_file(filepath: str, index: Dict[str, dict]):
     with open(filepath, "w") as file:
         json.dump(index, file, indent=2)
+
+
+lock = threading.Lock()
+
+def thread_safe_update_index(file, all_files, main_index, main_index_file):
+    
+    content = read_file_content(file)
+    current_md5 = get_file_md5(content)
+    
+    with lock:
+        if file in main_index and main_index[file].get("md5sum") == current_md5:
+            logging.info(f"Skipping {file} - unchanged")
+            return
+    
+    logging.info(f"Indexing file: {file}")
+    info = index_file(file, all_files)
+    with lock:
+        main_index[file] = info
+        save_index_file(main_index_file, main_index)
 
 def update_index(main_index_file: str):
     if os.path.exists(main_index_file):

@@ -3,10 +3,11 @@ import subprocess
 import tempfile
 import os
 from typing import List
+import logging
 
-def combine_mp3_chunks(chunks: List[bytes], output_file: str) -> None:
+def combine_mp3_chunks_into_one_channel_file(chunks: List[bytes], output_file: str) -> None:
     """
-    Combines a list of MP3 chunks into a single MP3 file using ffmpeg.
+    Combines a list of MP3 chunks into a single MP3 that has just one audio channel using ffmpeg.
     
     Parameters:
         chunks (List[bytes]): A list of MP3 audio chunks as byte objects.
@@ -30,7 +31,7 @@ def combine_mp3_chunks(chunks: List[bytes], output_file: str) -> None:
         # Use ffmpeg to concatenate all chunks into one output file
         ffmpeg_command = [
             'ffmpeg', '-f', 'concat', '-safe', '0', '-i', list_file_path,
-            '-c', 'copy', output_file
+            '-c:a', 'libmp3lame', '-q:a', '1', '-ac', '1', output_file
         ]
 
         # Run the ffmpeg command

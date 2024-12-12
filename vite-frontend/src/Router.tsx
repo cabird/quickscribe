@@ -1,9 +1,9 @@
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import { HomePage } from './pages/Home.page';
-import RecordingsPage from './pages/RecordingsPage';
 import UploadPage from './pages/UploadPage';
 import ViewTranscriptionPage from './pages/ViewTranscriptionPage';
 import RecordingCardsPage from './pages/RecordingCardsPage';
+import AudioStreamPage from './pages/AudioStreamPage';
 const router = createBrowserRouter([
   {
     path: '/',
@@ -20,6 +20,10 @@ const router = createBrowserRouter([
   {
     path: '/view_transcription/:transcriptionId',
     element: <ViewTranscriptionPage />,
+  },
+  {
+    path: '/audio_stream',
+    element: <AudioStreamPage />,
   },
 ]);
 

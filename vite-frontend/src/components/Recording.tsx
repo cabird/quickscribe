@@ -12,9 +12,11 @@ import './Recording.css';  // Import the new CSS file
 import { checkTranscriptionStatus, deleteRecording, deleteTranscription, fetchRecording, startTranscription } from '../api/recordings';
 import { notifications } from '@mantine/notifications';
 import { IconAlertCircle, IconCheck, IconFileText, IconLoader } from '@tabler/icons-react';
+import { faFileAudio } from '@fortawesome/free-regular-svg-icons';
 import { formatDuration } from '../util';
 import { showNotificationFromApiResponse, showNotificationFromError } from '@/Common';
 import { Link } from 'react-router-dom';
+import { IconProp } from '@fortawesome/fontawesome-svg-core';
 
 interface RecordingProps {
     recording: RecordingModel;
@@ -196,7 +198,7 @@ const Recording: React.FC<RecordingProps> = ({ recording, refreshTrigger }) => {
                             variant="subtle"
                             className="icon-button"
                         >
-                            <FontAwesomeIcon icon={faPlay} />
+                            <FontAwesomeIcon icon={faFileAudio as IconProp} />
                         </Button>
                     </Tooltip>
                     <Tooltip label="View Transcription">

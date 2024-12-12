@@ -13,5 +13,6 @@ prompts.yaml
 static/*
 frontend-dist/*
 frontend-dist/assets/*
+audiostream_api/*
 local_packages/*
 startup.sh

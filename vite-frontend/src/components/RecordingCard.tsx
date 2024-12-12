@@ -5,7 +5,8 @@ import { Recording as RecordingModel } from '../interfaces/Models';
 import SpeakerLabelDialog from './SpeakerLabelDialog';
 import { Card, Group, Text, Button, Tooltip, Stack, stylesToString } from '@mantine/core';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faPlay, faEye, faUserTag, faDownload, faCopy, faTrashAlt, faTag } from '@fortawesome/free-solid-svg-icons';
+import { faFileLines, faUserTag, faDownload, faTrashAlt, faTag } from '@fortawesome/free-solid-svg-icons';
+import { faCopy, faFileAudio } from '@fortawesome/free-regular-svg-icons';
 import { checkTranscriptionStatus, deleteRecording, deleteTranscription, startTranscription } from '../api/recordings';
 import { notifications } from '@mantine/notifications';
 import { IconAlertCircle, IconCheck, IconLoader } from '@tabler/icons-react';
@@ -13,6 +14,7 @@ import { formatDuration } from '../util';
 import { showNotificationFromApiResponse } from '@/Common';
 import { Link } from 'react-router-dom';
 import styles from './RecordingCard.module.css';
+import { IconProp } from '@fortawesome/fontawesome-svg-core';
 
 interface RecordingProps {
     recording: RecordingModel;
@@ -112,9 +114,9 @@ const RecordingCard: React.FC<RecordingProps> = ({ recording, onDelete }) => {
                             onClick={() => startTranscription(recording.id).then(showNotificationFromApiResponse)}
                             disabled={transcriptionStatus === 'completed'}
                             variant="subtle"
-                            size="xs"
+                            size="sm"
                         >
-                            <FontAwesomeIcon icon={faPlay} />
+                            <FontAwesomeIcon icon={faFileAudio as IconProp} />
                         </Button>
                     </Tooltip>
                     <Tooltip label="View Transcription">
@@ -123,9 +125,9 @@ const RecordingCard: React.FC<RecordingProps> = ({ recording, onDelete }) => {
                             to={`/view_transcription/${transcriptionStatus === 'completed' ? recording.transcription_id : -1}`}
                             disabled={transcriptionStatus !== 'completed'}
                             variant="subtle"
-                            size="xs"
+                            size="sm"
                         >
-                            <FontAwesomeIcon icon={faEye} />
+                            <FontAwesomeIcon icon={faFileLines} />
                         </Button>
                     </Tooltip>
                     <Tooltip label="Infer Speaker Names">
@@ -134,28 +136,28 @@ const RecordingCard: React.FC<RecordingProps> = ({ recording, onDelete }) => {
                             href={`/infer_speaker_names/${recording.id}`}
                             disabled={transcriptionStatus !== 'completed'}
                             variant="subtle"
-                            size="xs"
+                            size="sm"
                         >
                             <FontAwesomeIcon icon={faUserTag} />
                         </Button>
                     </Tooltip>
                     <Tooltip label="Download">
-                        <Button onClick={handleDownload} disabled={transcriptionStatus === 'not_started'} variant="subtle" size="xs">
+                        <Button onClick={handleDownload} disabled={transcriptionStatus === 'not_started'} variant="subtle" size="sm">
                             <FontAwesomeIcon icon={faDownload} />
                         </Button>
                     </Tooltip>
                     <Tooltip label="Copy Transcript">
                         <Button onClick={() => copyTranscriptToClipboard("dummy text")} disabled={transcriptionStatus !== 'completed'} variant="subtle" size="xs">
-                            <FontAwesomeIcon icon={faCopy} />
+                            <FontAwesomeIcon icon={faCopy as IconProp} />
                         </Button>
                     </Tooltip>
                     <Tooltip label="Delete">
-                        <Button onClick={handleDelete} variant="subtle" size="xs" color="red">
+                        <Button onClick={handleDelete} variant="subtle" size="sm" color="red">
                             <FontAwesomeIcon icon={faTrashAlt} />
                         </Button>
                     </Tooltip>
                     <Tooltip label="Label Speakers">
-                        <Button onClick={handleLabelSpeakers} disabled={transcriptionStatus !== 'completed'} variant="subtle" size="xs">
+                        <Button onClick={handleLabelSpeakers} disabled={transcriptionStatus !== 'completed'} variant="subtle" size="sm">
                             <FontAwesomeIcon icon={faTag} />
                         </Button>
                     </Tooltip>

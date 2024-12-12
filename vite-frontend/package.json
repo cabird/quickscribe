@@ -4,7 +4,7 @@
   "type": "module",
   "version": "0.0.0",
   "scripts": {
-    "dev": "vite",
+    "dev": "vite --logLevel=info",
     "build": "tsc && vite build",
     "deploy_local": "npm run build && rm -rf ../backend/frontend-dist && mkdir -p ../backend/frontend-dist && cp -r dist/* ../backend/frontend-dist",
     "preview": "vite preview",
@@ -21,7 +21,10 @@
     "storybook:build": "storybook build"
   },
   "dependencies": {
+    "@breezystack/lamejs": "^1.2.7",
+    "@emotion/react": "^11.13.3",
     "@fortawesome/fontawesome-svg-core": "^6.6.0",
+    "@fortawesome/free-regular-svg-icons": "^6.7.0",
     "@fortawesome/free-solid-svg-icons": "^6.6.0",
     "@fortawesome/react-fontawesome": "^0.2.2",
     "@mantine/core": "^7.13.4",
@@ -30,10 +33,14 @@
     "@mantine/notifications": "^7.13.4",
     "@tabler/icons-react": "^3.21.0",
     "axios": "^1.7.7",
+    "extendable-media-recorder": "^9.2.17",
+    "extendable-media-recorder-wav-encoder": "^7.0.121",
+    "idb": "^8.0.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.27.0",
-    "styled-components": "^6.1.13"
+    "styled-components": "^6.1.13",
+    "uuid": "^11.0.3"
   },
   "devDependencies": {
     "@eslint/js": "^9.12.0",

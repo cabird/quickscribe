@@ -69,20 +69,50 @@ def main(mp3_path):
     logging.info(f"Splitting audio file into chunks of {CHUNK_DURATION} seconds")
     chunks = split_audio(mp3_path)
     logging.info(f"Audio file split into {len(chunks)} chunks")
-    
+
     # Step 2: Upload each chunk to the server
     for i, chunk in enumerate(chunks):
         logging.info(f"Uploading chunk {i} to server")
         #TODO - randomly fail some chunks
+        if i % 4 == 0:
+            logging.info(f"intentionally failing chunk {i}")
+            continue
         success = upload_chunk(session_id, chunk, chunk_id=i)
         if not success:
             logging.error(f"Stopping due to failure on chunk {i}")
             return
 
-    logging.info(f"All chunks uploaded successfully")
+    logging.info(f"All chunks uploaded")
     # Step 3: Notify the server that the recording is finished
     finish_recording(session_id, len(chunks))
-    logging.info(f"Recording finished successfully")
+    logging.info(f"Recording finished")
+
+    # Step 4: check for missing chunks
+    while True: 
+        response = requests.get(f"{API_BASE_URL}/check_missing", params={"session_id": session_id})
+        if response.status_code == 200:
+            missing_chunks = response.json().get("missing_chunks", [])
+            if len(missing_chunks) == 0:
+                logging.info(f"No missing chunks found, success!")
+                break
+            else:
+                logging.info(f"Missing chunks: {missing_chunks}")
+                #send the missing chunks to the server
+                chunks_attempted = 0
+                for chunk_id in missing_chunks:
+                    if chunks_attempted % 3 == 2:
+                        logging.info(f"intentionally failing chunk {chunk_id}")
+                        chunks_attempted += 1
+                        continue
+                    success = upload_chunk(session_id, chunks[chunk_id], chunk_id)
+                    if not success:
+                        logging.error(f"Stopping due to failure on chunk {chunk_id}")
+                        return
+                    chunks_attempted += 1
+        else:
+            logging.error(f"Failed to check for missing chunks: {response.text}")
+            break
+
     
     # Step 4: Retrieve the full audio file
     output_file = "combined_audio.mp3"
