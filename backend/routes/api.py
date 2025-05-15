@@ -13,6 +13,7 @@ from datetime import datetime, UTC
 import time
 from blob_util import store_recording
 from api_version import API_VERSION
+import sys
 
 api_bp = Blueprint('api', __name__)
 
@@ -204,6 +205,92 @@ def infer_speaker_names(transcription_id):
     else:
         return jsonify({'error': 'Transcription not found'}), 404
 
+#support upload from iphone share context menu
+@api_bp.route("/upload_from_ios_share", methods=['POST'])
+def upload_from_ios_share():
+    logging.info("upload_from_ios_share endpoint called")
+    #output the request json, but if a field is too big, truncate it
+    logging.info("test")
+    
+    filenames = [request.files[key].filename for key in request.files.keys()]
+    #output the list of files in the request
+    for file in request.files.values():
+        #output all the fields in the file:
+        logging.info(f"upload_from_ios_share: file {file}")
+        logging.info(f"upload_from_ios_share: file.filename {file.filename}")
+        logging.info(f"upload_from_ios_share: file.content_type {file.content_type}")
+        logging.info(f"upload_from_ios_share: file.mimetype {file.mimetype}")
+        logging.info(f"upload_from_ios_share: file.content_length {file.content_length}")
+        logging.info(f"upload_from_ios_share: file.headers {file.headers}")
+        
+    logging.info(f"upload_from_ios_share: request files {filenames}")
+
+    if 'audio_file' not in request.files:
+        return jsonify({'error': 'No audio file part'}), 400
+
+    audio_file = request.files['audio_file']
+    if audio_file.filename == '':
+        return jsonify({'error': 'No selected file'}), 400
+
+    if audio_file:
+        logging.info(f"handling upload of audio file: {audio_file}")
+        #read the file into memory
+        #audio_file_data = audio_file.read()
+        #size = len(audio_file_data)
+        #logging.info(f"upload_from_ios_share: audio_file_data size {size}")
+
+        file = request.files['audio_file']
+
+        try:
+            logging.info(f"handling upload of file: {file}")
+            original_filename = secure_filename(file.filename)
+            #get the file extension
+            file_extension = file.filename.split(".")[-1]
+            orig_file_path = os.path.join('/tmp', uuid.uuid4().hex + "." + file_extension)
+            file.save(orig_file_path)
+            logging.info(f"file saved to {orig_file_path}")
+            #if the file is an m4a, convert it to mp3
+            converted_file_path = os.path.join('/tmp', uuid.uuid4().hex + ".mp3")
+
+            #do this for all files
+            logging.info("converting to valid mp3")
+            start_time = time.time()
+            try:
+                convert_to_mp3(orig_file_path, converted_file_path)
+            except Exception as e:
+                logging.error(f"error converting to mp3: {e}")
+                return jsonify({'error': str(e)}), 500
+            end_time = time.time()
+            logging.info(f"converted to mp3 and saved to /tmp/{converted_file_path} in {end_time - start_time} seconds")
+
+            converted_filename = os.path.basename(converted_file_path)
+            store_recording(converted_file_path, converted_filename)
+            recording_handler = get_recording_handler()
+            user = get_user(request)
+
+            recording = recording_handler.create_recording(user.id, original_filename, converted_filename)
+            recording.upload_timestamp = datetime.now(UTC).isoformat()
+            # determine the duration of the recording
+            recording.duration = get_recording_duration_in_seconds(converted_file_path)
+            recording_handler.update_recording(recording)
+
+            #remove the file(s) from the tmp directory
+            #os.remove(orig_file_path)
+            #os.remove(converted_file_path)
+
+            return jsonify({'success': 'File uploaded successfully!', 'filename': original_filename, 'recording_id': recording.id}), 200
+
+        except Exception as e:
+            logging.error(f"error uploading file: {e}")
+            #print the stack trace
+            import traceback
+            traceback.print_exc()
+            return jsonify({'error': str(e)}), 500
+
+
+    return jsonify({'success': 'Audio file uploaded successfully'}), 200
+        
+
 
 # File upload form route
 @api_bp.route('/upload', methods=['POST'])
@@ -267,3 +354,31 @@ def upload():
             return jsonify({'error': str(e)}), 500
 
     return jsonify({'error': 'Only .mp3 and .m4a files are allowed'}), 400
+
+# File upload form route
+@api_bp.route('/transcoding_callback', methods=['POST'])
+# this should be a POST request in json format with the following fields:
+# user_id, original_filename, blob_filename, duration_in_seconds
+def transcoding_callback():
+    logging.info("transcoding_callback endpoint called")
+    logging.info(f"transcoding_callback: request json {request.json}")
+
+    data = request.json()
+    if "test" in data:
+        logging.info("transcoding_callback: test mode")
+        return jsonify({'message': 'Transcoding callback received'}), 200
+    
+    #get the user_id from the request
+    user_id = data.get('user_id')
+    original_filename = data.get('original_filename')
+    blob_filename = data.get('blob_filename')
+    duration_in_seconds = data.get('duration_in_seconds')
+
+    recording_handler = get_recording_handler()
+    recording = recording_handler.create_recording(user_id, original_filename, blob_filename)
+    recording.upload_timestamp = datetime.now(UTC).isoformat()
+    # determine the duration of the recording
+    recording.duration = duration_in_seconds
+    recording_handler.update_recording(recording)
+
+    return jsonify({'message': 'Transcoding callback received'}), 200

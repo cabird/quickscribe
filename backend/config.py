@@ -13,6 +13,8 @@ class Config:
     COSMOS_CONTAINER_NAME = os.getenv("COSMOS_CONTAINER_NAME")
     KEY_VAULT_NAME = os.getenv("KEY_VAULT_NAME")
     AZURE_STORAGE_ACCOUNT_KEY = os.getenv("AZURE_STORAGE_ACCOUNT_KEY")
+
+    TRANSCODING_QUEUE_NAME = os.getenv("TRANSCODING_QUEUE")
     
     # this is a workaround to determine if we're running in a container
     # https://stackoverflow.com/questions/71411665/how-to-determine-if-a-python-flask-application-is-running-in-a-container

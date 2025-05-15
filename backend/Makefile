@@ -7,6 +7,9 @@ SHARED_DIR = ../shared
 
 default: build
 
+repo2file:
+	repo2file . repo.txt repo2file.exclusion .py 
+
 build: db_handlers/models.py
 
 db_handlers/models.py: $(SHARED_DIR)/Models.ts
