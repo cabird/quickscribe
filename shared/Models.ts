@@ -1,5 +1,7 @@
 // shared/types.ts
 
+type integer = number;
+
 // Represents a user in the system
 export interface User {
     id: string; // Unique identifier for the user
@@ -18,12 +20,23 @@ export interface Recording {
     original_filename: string; // Original filename of the uploaded file
     unique_filename: string; // Unique filename assigned to the uploaded file
     duration?: number; // Duration of the recording in seconds (may be unknown)
+    
+    // Transcription related fields
     transcription_status: "not_started" | "in_progress" | "completed" | "failed"; // Transcription status with specific values
     transcription_status_updated_at?: string; // ISO timestamp for when transcription status last updated
     transcription_id?: string; // References the transcription id for this recording if one exists
     az_transcription_id?: string; // Azure transcription ID if in progress or completed
-    upload_timestamp?: string; // DateTime of when the recording was uploaded
     transcription_error_message?: string; // Error message if transcription fails
+    
+    // Transcoding related fields
+    transcoding_status: "not_started" | "queued" | "in_progress" | "completed" | "failed"; // Transcoding status with specific values
+    transcoding_started_at?: string; // ISO timestamp for when transcoding started
+    transcoding_completed_at?: string; // ISO timestamp for when transcoding completed
+    transcoding_error_message?: string; // Error message if transcoding fails
+    transcoding_retry_count: integer; // Number of times transcoding has been retried (default: 0)
+    transcoding_token?: string // token used in the callback once the transcoding has completed
+    
+    upload_timestamp?: string; // DateTime of when the recording was uploaded
     partitionKey: string;
 }
 

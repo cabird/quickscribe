@@ -9,11 +9,13 @@ from typing import Optional, List, Any
 
 class Recording(models.Recording):
     transcription_status: models.TranscriptionStatus = Field(default=models.TranscriptionStatus.not_started)
-    transcription_status_updated_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
-    
+    transcription_status_updated_at: str = Field(default_factory=lambda: datetime.now(UTC).isoformat())
+    transcoding_status: models.TranscodingStatus = Field(default=models.TranscodingStatus.not_started)
+
     def __init__(self, **data):
         super().__init__(**data)
         self._transcription_status = data.get('transcription_status', models.TranscriptionStatus.not_started)
+        self._transcoding_status = data.get('transcoding_status', models.TranscodingStatus.not_started)
 
     @property
     def transcription_status(self) -> models.TranscriptionStatus:
@@ -25,6 +27,21 @@ class Recording(models.Recording):
             self._transcription_status = value
             self.transcription_status_updated_at = datetime.now(UTC).isoformat()
 
+    @property
+    def transcoding_status(self) -> models.TranscodingStatus:
+        return self._transcoding_status
+    
+    @transcoding_status.setter
+    def transcoding_status(self, value: models.TranscodingStatus):
+        if value != self._transcoding_status: 
+            self._transcoding_status = value
+            # Update timestamps based on status
+            if value == models.TranscodingStatus.in_progress and not self.transcoding_started_at:
+                self.transcoding_started_at = datetime.now(UTC).isoformat()
+            elif value in [models.TranscodingStatus.completed, models.TranscodingStatus.failed]:
+                if not self.transcoding_completed_at:
+                    self.transcoding_completed_at = datetime.now(UTC).isoformat()
+    
     @field_validator('transcription_status')
     @classmethod
     def validate_transcription_status(cls, value):
@@ -33,10 +50,19 @@ class Recording(models.Recording):
             return models.TranscriptionStatus(value)
         return value
     
+    @field_validator('transcoding_status')
+    @classmethod
+    def validate_transcoding_status(cls, value):
+        if isinstance(value, str):
+            return models.TranscodingStatus(value)
+        return value
+    
+    
     def model_dump(self, *args: Any, **kwargs: Any) -> dict:
         data = super().model_dump(*args, **kwargs)
         # Convert Enum to string for JSON serialization
         data['transcription_status'] = data['transcription_status'].value
+        data['transcoding_status'] = data['transcoding_status'].value
         return data
 
 class RecordingHandler:
@@ -46,7 +72,9 @@ class RecordingHandler:
         self.container = self.database.get_container_client(container_name)
         self.transcription_handler = TranscriptionHandler(cosmos_url, cosmos_key, database_name, container_name)
 
-    def create_recording(self, user_id: str, original_filename: str, unique_filename: str, transcription_status: models.TranscriptionStatus = models.TranscriptionStatus.not_started) -> Recording:
+    def create_recording(self, user_id: str, original_filename: str, unique_filename: str, 
+                         transcription_status: models.TranscriptionStatus = models.TranscriptionStatus.not_started,
+                         transcoding_status: models.TranscodingStatus = models.TranscodingStatus.not_started) -> Recording:
         """Create a new recording entry in Cosmos DB and return as a Recording model."""
         recording_id = str(uuid.uuid4())
         recording_item = {
@@ -55,6 +83,8 @@ class RecordingHandler:
             "original_filename": original_filename,
             "unique_filename": unique_filename,
             "transcription_status": transcription_status.value,
+            "transcoding_status": transcoding_status.value,
+            "transcoding_retry_count": 0,
             "partitionKey": "recording"
         }
         item = self.container.create_item(body=recording_item)

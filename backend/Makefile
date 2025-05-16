@@ -8,7 +8,7 @@ SHARED_DIR = ../shared
 default: build
 
 repo2file:
-	repo2file . repo.txt repo2file.exclusion .py 
+	repo2file . repo.txt repo2file.exclusion .py .ts Makefile
 
 build: db_handlers/models.py
 

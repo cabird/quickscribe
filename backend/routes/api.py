@@ -1,8 +1,8 @@
 # api.py
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, url_for
 from db_handlers.handler_factory import get_user_handler, get_recording_handler, get_transcription_handler
 from user_util import get_user
-from db_handlers.models import User, Recording, Transcription
+from db_handlers.models import User, Recording, Transcription, TranscodingStatus, TranscriptionStatus
 from util import update_diarized_transcript, convert_to_mp3, get_recording_duration_in_seconds
 import logging
 from llms import get_speaker_summaries_via_llm, get_speaker_mapping
@@ -11,9 +11,8 @@ import os
 from werkzeug.utils import secure_filename
 from datetime import datetime, UTC
 import time
-from blob_util import store_recording
+from blob_util import store_recording_as_blob, send_to_transcoding_queue
 from api_version import API_VERSION
-import sys
 
 api_bp = Blueprint('api', __name__)
 
@@ -209,9 +208,8 @@ def infer_speaker_names(transcription_id):
 @api_bp.route("/upload_from_ios_share", methods=['POST'])
 def upload_from_ios_share():
     logging.info("upload_from_ios_share endpoint called")
-    #output the request json, but if a field is too big, truncate it
-    logging.info("test")
-    
+
+    # log file details
     filenames = [request.files[key].filename for key in request.files.keys()]
     #output the list of files in the request
     for file in request.files.values():
@@ -234,51 +232,49 @@ def upload_from_ios_share():
 
     if audio_file:
         logging.info(f"handling upload of audio file: {audio_file}")
-        #read the file into memory
-        #audio_file_data = audio_file.read()
-        #size = len(audio_file_data)
-        #logging.info(f"upload_from_ios_share: audio_file_data size {size}")
-
-        file = request.files['audio_file']
 
         try:
-            logging.info(f"handling upload of file: {file}")
-            original_filename = secure_filename(file.filename)
+            logging.info(f"handling upload of file: {audio_file}")
+            original_filename = secure_filename(audio_file.filename)
+
             #get the file extension
-            file_extension = file.filename.split(".")[-1]
-            orig_file_path = os.path.join('/tmp', uuid.uuid4().hex + "." + file_extension)
-            file.save(orig_file_path)
-            logging.info(f"file saved to {orig_file_path}")
-            #if the file is an m4a, convert it to mp3
-            converted_file_path = os.path.join('/tmp', uuid.uuid4().hex + ".mp3")
+            file_extension = os.path.splitext(audio_file.filename)[1]
+            unique_original_filename = uuid.uuid4().hex + file_extension
+            unique_transcoded_filename = uuid.uuid4().hex + ".mp3"
 
-            #do this for all files
-            logging.info("converting to valid mp3")
-            start_time = time.time()
-            try:
-                convert_to_mp3(orig_file_path, converted_file_path)
-            except Exception as e:
-                logging.error(f"error converting to mp3: {e}")
-                return jsonify({'error': str(e)}), 500
-            end_time = time.time()
-            logging.info(f"converted to mp3 and saved to /tmp/{converted_file_path} in {end_time - start_time} seconds")
+            temp_path = os.path.join('/tmp', unique_original_filename)
+            audio_file.save(temp_path)
+            logging.info(f"file saved to {temp_path}")
 
-            converted_filename = os.path.basename(converted_file_path)
-            store_recording(converted_file_path, converted_filename)
+            #store the original file in blob storage
+            store_recording_as_blob(temp_path, unique_original_filename)
+            logging.info(f"stored original file in blob storage as {unique_original_filename}")
+
             recording_handler = get_recording_handler()
             user = get_user(request)
 
-            recording = recording_handler.create_recording(user.id, original_filename, converted_filename)
+            recording = recording_handler.create_recording(user.id, original_filename, unique_original_filename,
+                                                           transcoding_status=TranscodingStatus.queued)
             recording.upload_timestamp = datetime.now(UTC).isoformat()
-            # determine the duration of the recording
-            recording.duration = get_recording_duration_in_seconds(converted_file_path)
+            recording.duration = get_recording_duration_in_seconds(temp_path)
             recording_handler.update_recording(recording)
 
-            #remove the file(s) from the tmp directory
-            #os.remove(orig_file_path)
-            #os.remove(converted_file_path)
+            send_to_transcoding_queue(recording.id,
+                                      unique_original_filename,
+                                      unique_transcoded_filename,
+                                      original_filename,
+                                      user.id)
 
-            return jsonify({'success': 'File uploaded successfully!', 'filename': original_filename, 'recording_id': recording.id}), 200
+            logging.info(f"sent to transcoding queue: {recording.id}, {unique_original_filename}, {unique_transcoded_filename}, {original_filename}, {user.id}")
+
+            os.remove(temp_path)
+
+            return jsonify({'success': 'File uploaded successfully!', 
+                            'filename': original_filename, 
+                            'recording_id': recording.id, 
+                            'transcoding_status': 'queued'}), 200
+
+
 
         except Exception as e:
             logging.error(f"error uploading file: {e}")
@@ -286,16 +282,22 @@ def upload_from_ios_share():
             import traceback
             traceback.print_exc()
             return jsonify({'error': str(e)}), 500
-
-
-    return jsonify({'success': 'Audio file uploaded successfully'}), 200
         
+    return jsonify({'error': 'No valid audio file provided'}), 400
 
+
+def generate_callbacks(request, callback_token):
+    callbacks = []
+    # Generate callback URL
+    callbacks.append( { "url": url_for('api.transcoding_callback', _external=True), "token": callback_token })
+    # TODO - move this to config or something
+    callbacks.append( { "url": "https://eo6nc88rnfy4hyx.m.pipedream.net/", "token": callback_token })
+    return callbacks
+   
 
 # File upload form route
 @api_bp.route('/upload', methods=['POST'])
 def upload():
-    #TODO - allow all kinds of audio files
     logging.info("upload endpoint called")
     if 'file' not in request.files:
         return jsonify({'error': 'No file part'}), 400
@@ -305,55 +307,86 @@ def upload():
     if file.filename == '':
         return jsonify({'error': 'No selected file'}), 400
 
-    if file: # and (file.filename.endswith('.mp3') or file.filename.endswith('.m4a')):
-        logging.info("file found")
+    if file:
         try:
             logging.info(f"handling upload of file: {file}")
             original_filename = secure_filename(file.filename)
-            #get the file extension
-            file_extension = file.filename.split(".")[-1]
-            orig_file_path = os.path.join('/tmp', uuid.uuid4().hex + "." + file_extension)
-            file.save(orig_file_path)
-            logging.info(f"file saved to {orig_file_path}")
-            #if the file is an m4a, convert it to mp3
-            converted_file_path = os.path.join('/tmp', uuid.uuid4().hex + ".mp3")
-
-            #do this for all files
-            logging.info("converting to valid mp3")
-            start_time = time.time()
-            try:
-                convert_to_mp3(orig_file_path, converted_file_path)
-            except Exception as e:
-                logging.error(f"error converting to mp3: {e}")
-                return jsonify({'error': str(e)}), 500
-            end_time = time.time()
-            logging.info(f"converted to mp3 and saved to /tmp/{converted_file_path} in {end_time - start_time} seconds")
-
-            converted_filename = os.path.basename(converted_file_path)
-            store_recording(converted_file_path, converted_filename)
+            
+            # Generate unique filename for the original upload
+            file_extension = os.path.splitext(original_filename)[1]
+            unique_original_filename = str(uuid.uuid4()) + file_extension
+            
+            # Generate target filename for transcoded version (always .mp3)
+            unique_transcoded_filename = str(uuid.uuid4()) + ".mp3"
+            
+            # Save original file to temporary location
+            temp_path = os.path.join('/tmp', unique_original_filename)
+            file.save(temp_path)
+            logging.info(f"file saved to {temp_path}")
+            
+            # Store original file in blob storage
+            store_recording_as_blob(temp_path, unique_original_filename)
+            logging.info(f"stored original file in blob storage as {unique_original_filename}")
+            
+            # Create recording in database with transcoding status "queued"
             recording_handler = get_recording_handler()
             user = get_user(request)
-
-            recording = recording_handler.create_recording(user.id, original_filename, converted_filename)
+            
+            recording = recording_handler.create_recording(
+                user.id, 
+                original_filename, 
+                unique_original_filename,  # This will be the final transcoded filename
+                transcoding_status=TranscodingStatus.queued
+            )
             recording.upload_timestamp = datetime.now(UTC).isoformat()
-            # determine the duration of the recording
-            recording.duration = get_recording_duration_in_seconds(converted_file_path)
+            recording.transcoding_token = str(uuid.uuid4())
             recording_handler.update_recording(recording)
-
-            #remove the file(s) from the tmp directory
-            #os.remove(orig_file_path)
-            #os.remove(converted_file_path)
-
-            return jsonify({'message': 'File uploaded successfully!', 'filename': original_filename, 'recording_id': recording.id}), 200
+            
+            # Queue transcoding job
+            send_to_transcoding_queue(
+                recording.id,
+                unique_original_filename,  # Source file
+                unique_transcoded_filename,  # Target file
+                original_filename,
+                user.id,
+                generate_callbacks(request, recording.transcoding_token)
+            )
+            logging.info(f"queued transcoding job for recording {recording.id}")
+            
+            # Clean up temporary file
+            os.remove(temp_path)
+            
+            return jsonify({
+                'message': 'File uploaded successfully and queued for transcoding!', 
+                'filename': original_filename, 
+                'recording_id': recording.id,
+                'transcoding_status': 'queued'
+            }), 200
 
         except Exception as e:
             logging.error(f"error uploading file: {e}")
-            #print the stack trace
             import traceback
             traceback.print_exc()
             return jsonify({'error': str(e)}), 500
 
-    return jsonify({'error': 'Only .mp3 and .m4a files are allowed'}), 400
+    return jsonify({'error': 'Only supported audio files are allowed'}), 400
+
+@api_bp.route('/transcoding_status/<recording_id>', methods=['GET'])
+def get_transcoding_status(recording_id):
+    recording_handler = get_recording_handler()
+    recording = recording_handler.get_recording(recording_id)
+    
+    if not recording:
+        return jsonify({'error': 'Recording not found'}), 404
+    
+    return jsonify({
+        'recording_id': recording_id,
+        'transcoding_status': recording.transcoding_status.value,
+        'transcoding_started_at': recording.transcoding_started_at,
+        'transcoding_completed_at': recording.transcoding_completed_at,
+        'transcoding_error_message': recording.transcoding_error_message,
+        'transcoding_retry_count': recording.transcoding_retry_count
+    }), 200
 
 # File upload form route
 @api_bp.route('/transcoding_callback', methods=['POST'])

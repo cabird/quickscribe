@@ -2,3 +2,5 @@ __pycache__
 azure_speech
 venv
 functions
+.venv
+audiostream_api
