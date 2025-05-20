@@ -12,10 +12,36 @@ from azure.storage.queue import QueueClient
 from container_app_version import CONTAINER_APP_VERSION
 import time
 import requests
+import traceback
+
+from dotenv import load_dotenv
+# Load environment variables from .env file
+load_dotenv()
+
+#define the application namespace for logging
+app_namespace = "quickscribe.transcoder"  # Replace with your application's name
+
+#write all environment variables to the console
+for key in ["APPLICATIONINSIGHTS_CONNECTION_STRING", 
+                   "APPLICATIONINSIGHTS_USE_OPENCENSUS", 
+                   ]:
+    print(f"{key}: {os.environ.get(key)}")
+
+# Configure logging for Azure
+# Import Azure Monitor OpenTelemetry integration
+from opencensus.ext.azure.log_exporter import AzureLogHandler
 
 # Configure logging for Azure
 def setup_azure_logging():
-    """Configure logging optimized for Azure Container Apps/Instances"""
+    """Configure logging optimized for Azure Container Apps/Instances with Application Insights integration"""
+    
+    
+    # Configure Azure Monitor with your application's namespace
+    # This will use the APPLICATIONINSIGHTS_CONNECTION_STRING environment variable
+    #if 'APPLICATIONINSIGHTS_CONNECTION_STRING' in os.environ:
+    #    configure_azure_monitor(
+    #        logger_name=app_namespace,  # Only collect logs from your application namespace
+    #    )
     
     # Create custom formatter with JSON output for structured logs
     class JSONFormatter(logging.Formatter):
@@ -37,28 +63,67 @@ def setup_azure_logging():
                 log_obj['action'] = record.action
             if hasattr(record, 'user_id'):
                 log_obj['user_id'] = record.user_id
+            
+            # If record has custom_dimensions (for App Insights), include them
+            if hasattr(record, 'custom_dimensions'):
+                for key, value in record.custom_dimensions.items():
+                    log_obj[key] = value
                 
             return json.dumps(log_obj)
+        
+        # Custom filter to move additional attributes into custom_dimensions
+    class MetadataFilter(logging.Filter):
+        def filter(self, record):
+            # Initialize custom_dimensions if not present
+            if not hasattr(record, 'custom_dimensions'):
+                record.custom_dimensions = {}
+
+            record.custom_dimensions['service'] = "quickscribe"
+            record.custom_dimensions['app_namespace'] = app_namespace
+            record.custom_dimensions['container_version'] = CONTAINER_APP_VERSION
+            
+            # Add specific attributes to custom_dimensions if they exist
+            for attr in ['recording_id', 'action', 'user_id']:
+                if hasattr(record, attr):
+                    record.custom_dimensions[attr] = getattr(record, attr)
+                    # Optionally: remove from record to prevent it from appearing in other formatters
+                    # delattr(record, attr)
+            
+            return True  # Always include the record
     
-    # Configure root logger
-    root_logger = logging.getLogger()
-    root_logger.setLevel(logging.INFO)
+    # Configure app logger (not root logger, to avoid SDK logs)
+    logger = logging.getLogger(app_namespace)
+    logger.setLevel(logging.INFO)
+    logger.propagate = False  # Don't propagate to root logger
+
+    # Add the filter that will process metadata
+    logger.addFilter(MetadataFilter())
     
     # Remove default handlers
-    for handler in root_logger.handlers[:]:
-        root_logger.removeHandler(handler)
+    for handler in logger.handlers[:]:
+        logger.removeHandler(handler)
     
     # Create console handler with JSON formatting
     console_handler = logging.StreamHandler(sys.stdout)
     console_handler.setFormatter(JSONFormatter())
-    root_logger.addHandler(console_handler)
+    logger.addHandler(console_handler)
     
     # Set Azure-specific log level from environment
     log_level = os.environ.get('LOG_LEVEL', 'INFO').upper()
-    root_logger.setLevel(getattr(logging, log_level, logging.INFO))
+    logger.setLevel(getattr(logging, log_level, logging.INFO))
     
-    return root_logger
+    # If App Insights connection string is available but we're using the older SDK approach
+    # as a fallback, add the AzureLogHandler explicitly
+    if 'APPLICATIONINSIGHTS_CONNECTION_STRING' in os.environ:        
+        # Add Azure Application Insights handler
+        azure_handler = AzureLogHandler(
+            connection_string=os.environ.get('APPLICATIONINSIGHTS_CONNECTION_STRING')
+        )
 
+        azure_handler.setFormatter(logging.Formatter('%(message)s'))  # Use default formatter for Azure logs
+        logger.addHandler(azure_handler)
+    
+    return logger
 
 logger = setup_azure_logging()
 
@@ -145,7 +210,7 @@ class TranscodingProcessor:
             logger.error(f"Error extracting metadata: {e}")
             return {}
     
-    async def convert_to_mp3(self, source_file_path: str, target_file_path: str) -> None:
+    def convert_to_mp3(self, source_file_path: str, target_file_path: str) -> None:
         """Convert audio file to MP3 format using ffmpeg"""
         # Valid file extensions (from original code)
         valid_extensions = ["mp3", "m4a"]
@@ -154,6 +219,7 @@ class TranscodingProcessor:
         if extension not in valid_extensions:
             raise ValueError(f"Unsupported file type. Only {', '.join(valid_extensions)} files are supported.")
         
+
         # Use ffmpeg to convert to MP3 with single channel and 128k bitrate
         cmd = [
             'ffmpeg', '-i', source_file_path,
@@ -162,7 +228,13 @@ class TranscodingProcessor:
         ]
         
         logger.info(f"Running ffmpeg command: {' '.join(cmd)}")
+        #start a timer
+        start_time = time.time()
+        # Run ffmpeg command
         process = subprocess.run(cmd, capture_output=True, text=True)
+        #get elapsed time
+        elapsed_time = time.time() - start_time
+        logger.info(f"ffmpeg command completed in {elapsed_time:.2f} seconds")
         
         if process.returncode != 0:
             raise RuntimeError(f"ffmpeg failed: {process.stderr}")
@@ -263,13 +335,13 @@ class TranscodingProcessor:
             #get the extension from the original filename
             source_temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(original_filename)[1])
             
-            with requests.get(source_sas_url) as response:
-                if response.status_code != 200:
-                    raise RuntimeError(f"Failed to download source file: {response.status_code}")
-                    
-                content = response.read()
-                source_temp_file.write(content)
-                source_temp_file.close()
+            response = requests.get(source_sas_url)
+            if response.status_code != 200:
+                raise RuntimeError(f"Failed to download source file.  Status code: {response.status_code}")
+                
+            content = response.content
+            source_temp_file.write(content)
+            source_temp_file.close()
             
             # Get input metadata
             input_metadata = self.get_file_metadata(source_temp_file.name)
@@ -299,7 +371,18 @@ class TranscodingProcessor:
             ctx_logger.info(f"Uploading transcoded file to SAS URL")
             with open(target_temp_file.name, 'rb') as upload_file:
                 try:
-                    response = requests.put(target_sas_url, data=upload_file, timeout=300)  # 5 minute timeout
+                    # Adding the required x-ms-blob-type header for Azure Blob Storage
+                    headers = {
+                        'x-ms-blob-type': 'BlockBlob',
+                        'Content-Type': 'audio/mpeg'
+                    }
+                    ctx_logger.info(f"Uploading with headers: {headers}")
+                    response = requests.put(
+                        target_sas_url, 
+                        data=upload_file, 
+                        headers=headers,
+                        timeout=300
+                    )  # 5 minute timeout
                     response.raise_for_status()  # Raises exception for bad status codes
                     logger.info(f"Successfully uploaded transcoded file")
                 except requests.exceptions.RequestException as e:
@@ -341,12 +424,16 @@ class TranscodingProcessor:
             
         except Exception as e:
             ctx_logger.error(f"Transcoding failed for recording {recording_id}: {e}")
+            #get the traceback as a string
+            traceback_str = traceback.format_exc()
+            ctx_logger.error(f"Traceback: {traceback_str}")
             error_response = {
                 'action': 'transcode',
                 'recording_id': recording_id,
                 'status': 'failed',
                 'container_version': CONTAINER_APP_VERSION,
-                'error_message': str(e)
+                'error_message': str(e),
+                'traceback': traceback_str
             }
             self.send_callbacks(callbacks, error_response)
             
@@ -436,6 +523,7 @@ def main():
         logger.info("Shutting down gracefully...")
     except Exception as e:
         logger.error(f"Fatal error: {e}")
+        logger.exception("Traceback:")
         raise
 
 if __name__ == "__main__":

@@ -5,65 +5,34 @@ import uuid
 import db_handlers.models as models# Import the Pydantic Recording model
 from pydantic import Field, field_validator
 from db_handlers.util import filter_cosmos_fields  # Import the utility function
-from typing import Optional, List, Any
+from typing import Optional, List, Any, Dict, Union
+
+from logging_config import get_logger
+logger = get_logger('recording.handler')
 
 class Recording(models.Recording):
-    transcription_status: models.TranscriptionStatus = Field(default=models.TranscriptionStatus.not_started)
-    transcription_status_updated_at: str = Field(default_factory=lambda: datetime.now(UTC).isoformat())
-    transcoding_status: models.TranscodingStatus = Field(default=models.TranscodingStatus.not_started)
+    #transcription_status_updated_at: str = Field(default_factory=lambda: datetime.now(UTC).isoformat())
 
     def __init__(self, **data):
+        # Convert string values to enum objects if they are strings
+        if 'transcription_status' in data and isinstance(data['transcription_status'], str):
+            data['transcription_status'] = models.TranscriptionStatus(data['transcription_status'])
+        if 'transcoding_status' in data and isinstance(data['transcoding_status'], str):
+            data['transcoding_status'] = models.TranscodingStatus(data['transcoding_status'])
         super().__init__(**data)
-        self._transcription_status = data.get('transcription_status', models.TranscriptionStatus.not_started)
-        self._transcoding_status = data.get('transcoding_status', models.TranscodingStatus.not_started)
+    
+    def model_dump(self, **kwargs) -> Dict[str, Any]:
+        """Override model_dump to handle enum conversions properly"""
+        data = super().model_dump(**kwargs)
 
-    @property
-    def transcription_status(self) -> models.TranscriptionStatus:
-        return self._transcription_status  
-
-    @transcription_status.setter
-    def transcription_status(self, value: models.TranscriptionStatus):
-        if value != self._transcription_status: 
-            self._transcription_status = value
-            self.transcription_status_updated_at = datetime.now(UTC).isoformat()
-
-    @property
-    def transcoding_status(self) -> models.TranscodingStatus:
-        return self._transcoding_status
-    
-    @transcoding_status.setter
-    def transcoding_status(self, value: models.TranscodingStatus):
-        if value != self._transcoding_status: 
-            self._transcoding_status = value
-            # Update timestamps based on status
-            if value == models.TranscodingStatus.in_progress and not self.transcoding_started_at:
-                self.transcoding_started_at = datetime.now(UTC).isoformat()
-            elif value in [models.TranscodingStatus.completed, models.TranscodingStatus.failed]:
-                if not self.transcoding_completed_at:
-                    self.transcoding_completed_at = datetime.now(UTC).isoformat()
-    
-    @field_validator('transcription_status')
-    @classmethod
-    def validate_transcription_status(cls, value):
-        # Convert string value back to TranscriptionStatus Enum
-        if isinstance(value, str):
-            return models.TranscriptionStatus(value)
-        return value
-    
-    @field_validator('transcoding_status')
-    @classmethod
-    def validate_transcoding_status(cls, value):
-        if isinstance(value, str):
-            return models.TranscodingStatus(value)
-        return value
-    
-    
-    def model_dump(self, *args: Any, **kwargs: Any) -> dict:
-        data = super().model_dump(*args, **kwargs)
-        # Convert Enum to string for JSON serialization
-        data['transcription_status'] = data['transcription_status'].value
-        data['transcoding_status'] = data['transcoding_status'].value
+        # Ensure enums are converted to their string values for serialization
+        if 'transcription_status' in data and isinstance(data['transcription_status'], models.TranscriptionStatus):
+            data['transcription_status'] = data['transcription_status'].value
+        if 'transcoding_status' in data and isinstance(data['transcoding_status'], models.TranscodingStatus):
+            data['transcoding_status'] = data['transcoding_status'].value
+            
         return data
+
 
 class RecordingHandler:
     def __init__(self, cosmos_url: str, cosmos_key: str, database_name: str, container_name: str):
@@ -104,13 +73,19 @@ class RecordingHandler:
         query = "SELECT * FROM c WHERE c.user_id = @user_id"
         parameters = [{"name": "@user_id", "value": user_id}]
         recordings = self.container.query_items(query=query, parameters=parameters, partition_key="recording")
-        return [Recording(**filter_cosmos_fields(rec)) for rec in recordings]
+        logger.info(f"Querying recordings for user {user_id}")
+        recordings = [Recording(**filter_cosmos_fields(rec)) for rec in recordings]
+        logger.info(f"Found {len(recordings)} recordings for user {user_id}")
+        return recordings
 
     def get_all_recordings(self) -> List[Recording]:
         """Get all recordings and return as Recording models."""
         query = "SELECT * FROM c WHERE c.partitionKey = 'recording'"
         recordings = self.container.query_items(query=query, partition_key="recording")
-        return [Recording(**filter_cosmos_fields(rec)) for rec in recordings]
+        logger.info("Querying all recordings")
+        recordings = [Recording(**filter_cosmos_fields(rec)) for rec in recordings]
+        logger.info(f"Found {len(recordings)} recordings")
+        return recordings   
 
     def delete_recording(self, recording_id: str) -> None:
         """Delete a recording by its ID."""
@@ -118,6 +93,9 @@ class RecordingHandler:
 
     def update_recording(self, recording: Recording) -> Recording:
         """Update a recording in Cosmos DB."""
-        recording_data = recording.model_dump(exclude_unset=True)   
+        recording_data = recording.model_dump(exclude_unset=True)
+        # Ensure ID is available for the replace_item operation
+        if 'id' not in recording_data:
+            recording_data['id'] = recording.id
         updated_record = self.container.replace_item(item=recording_data['id'], body=recording_data)
         return Recording(**filter_cosmos_fields(updated_record))

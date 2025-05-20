@@ -3,4 +3,3 @@ azure_speech
 venv
 functions
 .venv
-audiostream_api

@@ -7,7 +7,7 @@ import { Card, Group, Text, Button, Tooltip, Stack, stylesToString } from '@mant
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faFileLines, faUserTag, faDownload, faTrashAlt, faTag } from '@fortawesome/free-solid-svg-icons';
 import { faCopy, faFileAudio } from '@fortawesome/free-regular-svg-icons';
-import { checkTranscriptionStatus, deleteRecording, deleteTranscription, startTranscription } from '../api/recordings';
+import { checkTranscriptionStatus, deleteRecording, deleteTranscription, fetchRecording, startTranscription } from '../api/recordings';
 import { notifications } from '@mantine/notifications';
 import { IconAlertCircle, IconCheck, IconLoader } from '@tabler/icons-react';
 import { formatDuration } from '../util';
@@ -85,12 +85,37 @@ const RecordingCard: React.FC<RecordingProps> = ({ recording, onDelete }) => {
                     if (response.status !== 'in_progress') {
                         clearInterval(intervalId);
                         setTranscriptionStatus(response.status);
+                        
+                        // If transcription is complete, fetch the updated recording
+                        if (response.status === 'completed') {
+                            fetchRecording(recording.id)
+                                .then(updatedRecording => {
+                                    // Update the recording in-place by dispatching event
+                                    window.dispatchEvent(new CustomEvent('recordingUpdated', { 
+                                        detail: { recording: updatedRecording } 
+                                    }));
+                                    
+                                    notifications.show({
+                                        title: 'Transcription Complete',
+                                        message: 'Your recording has been successfully transcribed',
+                                        color: 'green'
+                                    });
+                                })
+                                .catch(error => {
+                                    console.error('Failed to fetch updated recording:', error);
+                                    notifications.show({
+                                        title: 'Error',
+                                        message: 'Failed to fetch updated recording details',
+                                        color: 'red'
+                                    });
+                                });
+                        }
                     }
                 });
-            }, 60000);
+            }, 15000); // Check every 15 seconds instead of 60 seconds
         }
         return () => clearInterval(intervalId);
-    }, []);
+    }, [recording.id]);
 
     return (
         <Card shadow="sm" padding="lg" radius="md" withBorder className={styles.recordingCard}>

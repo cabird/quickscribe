@@ -44,7 +44,7 @@ def main(message_content=None):
         "content": message_content,
         "callbacks": [
             {
-                "url": "https://eo6nc88rnfy4hyx.m.pipedream.net/",  # Replace with your webhook URL
+                "url": "https://quickscribe-containerized-webapp.azurewebsites.net/api/transcoding_callback",  # Replace with your webhook URL
                 "token": f"test-token-{datetime.utcnow().strftime('%Y%m%d-%H%M%S')}"
             }
         ]

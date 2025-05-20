@@ -32,6 +32,21 @@ const RecordingCardsPage: React.FC = () => {
         };
 
         loadRecordings();
+        
+        // Listen for recording update events (this is triggered by the RecordingCard component, when the transcription is complete, for instance)
+        const handleRecordingUpdated = (event: CustomEvent) => {
+            const updatedRecording = event.detail.recording;
+            // Update the recording in-place to maintain order
+            setRecordings(prev => 
+                prev.map(rec => rec.id === updatedRecording.id ? updatedRecording : rec)
+            );
+        };
+        
+        window.addEventListener('recordingUpdated', handleRecordingUpdated as EventListener);
+        
+        return () => {
+            window.removeEventListener('recordingUpdated', handleRecordingUpdated as EventListener);
+        };
     }, []);
 
     const handleDeleteRecording = (id: string) => {

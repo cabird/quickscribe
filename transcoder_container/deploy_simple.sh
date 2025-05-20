@@ -28,12 +28,12 @@ if az containerapp show --name quickscribetranscoder --resource-group QuickScrib
       --name quickscribetranscoder \
       --resource-group QuickScribeResourceGroup \
       --image $AZURE_ACR_LOGIN_SERVER/transcoder-container:$VERSION \
-      --replace-env-vars AZURE_STORAGE_CONNECTION_STRING="$AZURE_STORAGE_CONNECTION_STRING" \
-                         TRANSCODING_QUEUE_NAME="$TRANSCODING_QUEUE_NAME" \
-                         LOG_LEVEL="$LOG_LEVEL" \
-                         CONTAINER_VERSION="$VERSION" \
       --cpu 1.0 \
       --memory 2.0Gi
+      #--replace-env-vars AZURE_STORAGE_CONNECTION_STRING="$AZURE_STORAGE_CONNECTION_STRING" \
+      #                   TRANSCODING_QUEUE_NAME="$TRANSCODING_QUEUE_NAME" \
+      #                   LOG_LEVEL="$LOG_LEVEL" \
+      #                   CONTAINER_VERSION="$VERSION" \
     
    
     echo "? Container app updated successfully!"

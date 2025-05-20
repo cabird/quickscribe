@@ -5,6 +5,9 @@ from datetime import datetime, timedelta
 from config import config
 import json
 
+import logging
+logging.basicConfig(level=logging.INFO)
+
 def store_recording_as_blob(file_path, blob_filename):
     blob_client = BlobServiceClient.from_connection_string(config.AZURE_STORAGE_CONNECTION_STRING).get_blob_client(container=config.AZURE_RECORDING_BLOB_CONTAINER, blob=blob_filename)
     with open(file_path, "rb") as data:
@@ -59,7 +62,8 @@ def generate_recording_sas_url(filename, read=True, write=False):
     return blob_sas_url
 
 def send_to_transcoding_queue(recording_id: str, source_blob_filename: str, target_blob_filename: str, original_filename: str, user_id: str, callbacks: List[Dict[str, str]]):
-    queue_client = QueueClient.from_connection_string(config.AZURE_STORAGE_CONNECTION_STRING, config.TRANSCODING_QUEUE_NAME)
+    logging.info(f"Sending transcoding request for recording ID: {recording_id} to queue: {config.TRANSCODING_QUEUE_NAME}")
+    queue_client = QueueClient.from_connection_string(config.AZURE_STORAGE_CONNECTION_STRING, queue_name=config.TRANSCODING_QUEUE_NAME)
 
     source_sas_url = generate_recording_sas_url(source_blob_filename, read=True, write=False)
     target_sas_url = generate_recording_sas_url(target_blob_filename, read=True, write=True)

@@ -4,7 +4,6 @@ from db_handlers.handler_factory import get_user_handler, get_recording_handler,
 from user_util import get_user
 from db_handlers.models import User, Recording, Transcription, TranscodingStatus, TranscriptionStatus
 from util import update_diarized_transcript, convert_to_mp3, get_recording_duration_in_seconds
-import logging
 from llms import get_speaker_summaries_via_llm, get_speaker_mapping
 import uuid
 import os
@@ -13,6 +12,11 @@ from datetime import datetime, UTC
 import time
 from blob_util import store_recording_as_blob, send_to_transcoding_queue
 from api_version import API_VERSION
+
+from logging_config import get_logger
+# Initialize logger
+logger = get_logger('api', API_VERSION)
+logger.info(f"Starting QuickScribe API ({API_VERSION})")
 
 api_bp = Blueprint('api', __name__)
 
@@ -54,7 +58,12 @@ def get_recording_by_id(recording_id):
 def list_recordings():
     recording_handler = get_recording_handler()
     recordings = recording_handler.get_all_recordings()
-    return jsonify([recording.model_dump() for recording in recordings]), 200
+
+    logger.info(f"list_recordings: found {len(recordings)} recordings")
+    recording_list = [recording.model_dump() for recording in recordings]
+    logger.info(f"list_recordings done")
+
+    return jsonify(recording_list), 200
 
 # Route to get a transcription by ID
 @api_bp.route('/transcription/<transcription_id>', methods=['GET'])
@@ -158,21 +167,21 @@ def update_transcription(transcription_id):
 
 @api_bp.route('/get_speaker_summaries/<transcription_id>', methods=['GET'])
 def get_speaker_summaries(transcription_id):
-    logging.info(f"get_speaker_summaries: transcription_id {transcription_id}")
+    logger.info(f"get_speaker_summaries: transcription_id {transcription_id}")
     transcription_handler = get_transcription_handler()
     transcription = transcription_handler.get_transcription(transcription_id)
     if transcription and transcription.diarized_transcript:
-        logging.info(f"get_speaker_summaries: found diarized transcript")
-        summaries = get_speaker_summaries_via_llm(transcription.diarized_transcript)    
-        logging.info(f"get_speaker_summaries: summaries {summaries}")
+        logger.info(f"get_speaker_summaries: found diarized transcript")
+        summaries = get_speaker_summaries_via_llm(transcription.diarized_transcript)
+        logger.info(f"get_speaker_summaries: summaries {summaries}")
         return jsonify(summaries), 200
     return jsonify({'error': 'Transcription not found or does not have a diarized transcript'}), 404
 
 @api_bp.route('/update_speaker_labels/<transcription_id>', methods=['POST'])
 def update_speaker_labels(transcription_id):
-    logging.info(f"update_speaker_labels: transcription_id {transcription_id}")
+    logger.info(f"update_speaker_labels: transcription_id {transcription_id}")
     #output the request json
-    logging.info(f"update_speaker_labels: request json {request.json}")
+    logger.info(f"update_speaker_labels: request json {request.json}")
     transcription_handler = get_transcription_handler()
     transcription = transcription_handler.get_transcription(transcription_id)
     if transcription and transcription.diarized_transcript:
@@ -182,7 +191,7 @@ def update_speaker_labels(transcription_id):
         transcription.diarized_transcript = updated_transcript
 
         #transcription.speaker_mapping = speaker_labels
-        logging.info(f"update_speaker_labels: updated_transcript")
+        logger.info(f"update_speaker_labels: updated_transcript")
         transcription_handler.update_transcription(transcription)
         return jsonify({'message': 'Speaker labels updated successfully'}), 200
     return jsonify({'error': 'Transcription not found or does not have a diarized transcript'}), 404
@@ -207,21 +216,21 @@ def infer_speaker_names(transcription_id):
 #support upload from iphone share context menu
 @api_bp.route("/upload_from_ios_share", methods=['POST'])
 def upload_from_ios_share():
-    logging.info("upload_from_ios_share endpoint called")
+    logger.info("upload_from_ios_share endpoint called")
 
     # log file details
     filenames = [request.files[key].filename for key in request.files.keys()]
     #output the list of files in the request
     for file in request.files.values():
         #output all the fields in the file:
-        logging.info(f"upload_from_ios_share: file {file}")
-        logging.info(f"upload_from_ios_share: file.filename {file.filename}")
-        logging.info(f"upload_from_ios_share: file.content_type {file.content_type}")
-        logging.info(f"upload_from_ios_share: file.mimetype {file.mimetype}")
-        logging.info(f"upload_from_ios_share: file.content_length {file.content_length}")
-        logging.info(f"upload_from_ios_share: file.headers {file.headers}")
-        
-    logging.info(f"upload_from_ios_share: request files {filenames}")
+        logger.info(f"upload_from_ios_share: file {file}")
+        logger.info(f"upload_from_ios_share: file.filename {file.filename}")
+        logger.info(f"upload_from_ios_share: file.content_type {file.content_type}")
+        logger.info(f"upload_from_ios_share: file.mimetype {file.mimetype}")
+        logger.info(f"upload_from_ios_share: file.content_length {file.content_length}")
+        logger.info(f"upload_from_ios_share: file.headers {file.headers}")
+
+    logger.info(f"upload_from_ios_share: request files {filenames}")
 
     if 'audio_file' not in request.files:
         return jsonify({'error': 'No audio file part'}), 400
@@ -231,10 +240,10 @@ def upload_from_ios_share():
         return jsonify({'error': 'No selected file'}), 400
 
     if audio_file:
-        logging.info(f"handling upload of audio file: {audio_file}")
+        logger.info(f"handling upload of audio file: {audio_file}")
 
         try:
-            logging.info(f"handling upload of file: {audio_file}")
+            logger.info(f"handling upload of file: {audio_file}")
             original_filename = secure_filename(audio_file.filename)
 
             #get the file extension
@@ -244,11 +253,11 @@ def upload_from_ios_share():
 
             temp_path = os.path.join('/tmp', unique_original_filename)
             audio_file.save(temp_path)
-            logging.info(f"file saved to {temp_path}")
+            logger.info(f"file saved to {temp_path}")
 
             #store the original file in blob storage
             store_recording_as_blob(temp_path, unique_original_filename)
-            logging.info(f"stored original file in blob storage as {unique_original_filename}")
+            logger.info(f"stored original file in blob storage as {unique_original_filename}")
 
             recording_handler = get_recording_handler()
             user = get_user(request)
@@ -265,7 +274,7 @@ def upload_from_ios_share():
                                       original_filename,
                                       user.id)
 
-            logging.info(f"sent to transcoding queue: {recording.id}, {unique_original_filename}, {unique_transcoded_filename}, {original_filename}, {user.id}")
+            logger.info(f"sent to transcoding queue: {recording.id}, {unique_original_filename}, {unique_transcoded_filename}, {original_filename}, {user.id}")
 
             os.remove(temp_path)
 
@@ -277,7 +286,7 @@ def upload_from_ios_share():
 
 
         except Exception as e:
-            logging.error(f"error uploading file: {e}")
+            logger.error(f"error uploading file: {e}")
             #print the stack trace
             import traceback
             traceback.print_exc()
@@ -291,14 +300,14 @@ def generate_callbacks(request, callback_token):
     # Generate callback URL
     callbacks.append( { "url": url_for('api.transcoding_callback', _external=True), "token": callback_token })
     # TODO - move this to config or something
-    callbacks.append( { "url": "https://eo6nc88rnfy4hyx.m.pipedream.net/", "token": callback_token })
+    callbacks.append( { "url": "https://www.postb.in/1747433051215-4530967178288", "token": callback_token })
     return callbacks
    
 
 # File upload form route
 @api_bp.route('/upload', methods=['POST'])
 def upload():
-    logging.info("upload endpoint called")
+    logger.info("upload endpoint called")
     if 'file' not in request.files:
         return jsonify({'error': 'No file part'}), 400
 
@@ -309,7 +318,7 @@ def upload():
 
     if file:
         try:
-            logging.info(f"handling upload of file: {file}")
+            logger.info(f"handling upload of file: {file}")
             original_filename = secure_filename(file.filename)
             
             # Generate unique filename for the original upload
@@ -322,12 +331,12 @@ def upload():
             # Save original file to temporary location
             temp_path = os.path.join('/tmp', unique_original_filename)
             file.save(temp_path)
-            logging.info(f"file saved to {temp_path}")
-            
+            logger.info(f"file saved to {temp_path}")
+
             # Store original file in blob storage
             store_recording_as_blob(temp_path, unique_original_filename)
-            logging.info(f"stored original file in blob storage as {unique_original_filename}")
-            
+            logger.info(f"stored original file in blob storage as {unique_original_filename}")
+
             # Create recording in database with transcoding status "queued"
             recording_handler = get_recording_handler()
             user = get_user(request)
@@ -351,8 +360,8 @@ def upload():
                 user.id,
                 generate_callbacks(request, recording.transcoding_token)
             )
-            logging.info(f"queued transcoding job for recording {recording.id}")
-            
+            logger.info(f"queued transcoding job for recording {recording.id}")
+
             # Clean up temporary file
             os.remove(temp_path)
             
@@ -360,11 +369,12 @@ def upload():
                 'message': 'File uploaded successfully and queued for transcoding!', 
                 'filename': original_filename, 
                 'recording_id': recording.id,
-                'transcoding_status': 'queued'
+                'transcoding_status': 'queued',
+                'token': recording.transcoding_token
             }), 200
 
         except Exception as e:
-            logging.error(f"error uploading file: {e}")
+            logger.error(f"error uploading file: {e}")
             import traceback
             traceback.print_exc()
             return jsonify({'error': str(e)}), 500
@@ -388,30 +398,78 @@ def get_transcoding_status(recording_id):
         'transcoding_retry_count': recording.transcoding_retry_count
     }), 200
 
-# File upload form route
+# Transcoding callback route - handles callbacks from the transcoding container
 @api_bp.route('/transcoding_callback', methods=['POST'])
-# this should be a POST request in json format with the following fields:
-# user_id, original_filename, blob_filename, duration_in_seconds
 def transcoding_callback():
-    logging.info("transcoding_callback endpoint called")
-    logging.info(f"transcoding_callback: request json {request.json}")
+    logger.info("transcoding_callback endpoint called")
 
-    data = request.json()
-    if "test" in data:
-        logging.info("transcoding_callback: test mode")
-        return jsonify({'message': 'Transcoding callback received'}), 200
-    
-    #get the user_id from the request
-    user_id = data.get('user_id')
-    original_filename = data.get('original_filename')
-    blob_filename = data.get('blob_filename')
-    duration_in_seconds = data.get('duration_in_seconds')
+    try:
+        # Get the data from the request
+        data = request.get_json()
+        action = data.get('action', "None")
+        logger.info(f"transcoding_callback: '{action}' request json {data}")
 
-    recording_handler = get_recording_handler()
-    recording = recording_handler.create_recording(user_id, original_filename, blob_filename)
-    recording.upload_timestamp = datetime.now(UTC).isoformat()
-    # determine the duration of the recording
-    recording.duration = duration_in_seconds
-    recording_handler.update_recording(recording)
+        # Check if this is a test message
+        if data.get('action') == 'test':
+            logger.info(f"transcoding_callback: test message received - original content: {data.get('content', 'None')}, message from container: {data.get('message', 'None')}")
+            return jsonify({'message': 'Test callback received'}), 200
+        
+        # Validate required fields for transcoding callback
+        if data.get('action') != 'transcode' or 'recording_id' not in data or 'status' not in data:
+            logger.error(f"Invalid callback format: {data}")
+            return jsonify({'error': 'Invalid callback format'}), 400
+        
+        # Get necessary fields
+        recording_id = data.get('recording_id')
+        status = data.get('status')
+        callback_token = data.get('callback_token')
+        
+        # Retrieve the recording
+        recording_handler = get_recording_handler()
+        recording = recording_handler.get_recording(recording_id)
+        
+        if not recording:
+            logger.error(f"Recording not found: {recording_id}")
+            return jsonify({'error': f'Recording not found: {recording_id}'}), 404
+            
+        # Verify callback token
+        if recording.transcoding_token != callback_token:
+            logger.error(f"Invalid callback token for recording {recording_id}")
+            return jsonify({'error': 'Invalid callback token'}), 401
+        
+        # Update recording based on status
+        if status == 'in_progress':
+            recording.transcoding_status = TranscodingStatus.in_progress
+            
+        elif status == 'completed':
+            recording.transcoding_status = TranscodingStatus.completed
+            
+            # Update duration if available in the metadata
+            if 'output_metadata' in data and 'duration' in data['output_metadata']:
+                recording.duration = data['output_metadata']['duration']
+                
+            # Track processing time
+            if 'processing_time' in data:
+                logger.info(f"Transcoding completed in {data['processing_time']} seconds")
 
-    return jsonify({'message': 'Transcoding callback received'}), 200
+        elif status == 'failed':
+            recording.transcoding_status = TranscodingStatus.failed
+            
+            # Store error message
+            if 'error_message' in data:
+                recording.transcoding_error_message = data['error_message']
+                
+            # Increment retry count
+            if recording.transcoding_retry_count is None:
+                recording.transcoding_retry_count = 1
+            else:
+                recording.transcoding_retry_count += 1
+                
+        # Save the updated recording
+        recording_handler.update_recording(recording)
+        
+        return jsonify({'message': 'Transcoding callback processed successfully'}), 200
+        
+    except Exception as e:
+        logger.error(f"Error processing transcoding callback: {str(e)}")
+        return jsonify({'error': str(e)}), 500

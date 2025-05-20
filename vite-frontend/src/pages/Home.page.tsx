@@ -78,20 +78,6 @@ export function HomePage() {
           >
             Upload a New Recording
           </Button>
-          <Button
-            component={Link}
-            to="/audio_stream"
-            leftSection={<IconMicrophone size={18} />}
-            style={{
-              backgroundColor: '#8a2be2',
-              color: '#fff',
-              boxShadow: '0px 4px 12px rgba(0, 0, 0, 0.1)',
-            }}
-            onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#7325c1'}
-            onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#8a2be2'}
-          >
-            Record Audio
-          </Button>
         </Group>
       </Container>
 
