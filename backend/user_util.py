@@ -1,14 +1,25 @@
+import os
 from config import config
-from flask import request
+from flask import request, session
 from db_handlers.user_handler import UserHandler
 from db_handlers.models import User
 from typing import Optional
 
 def get_current_user() -> Optional[User]: 
+    user_handler = UserHandler(config.COSMOS_URL, config.COSMOS_KEY, config.COSMOS_DB_NAME, config.COSMOS_CONTAINER_NAME)
+    
+    # Check if local auth is enabled and we have a local user session
+    if os.getenv('LOCAL_AUTH_ENABLED') and 'local_user_id' in session:
+        local_user_id = session['local_user_id']
+        user = user_handler.get_user(local_user_id)
+        if user and user.is_test_user:
+            return user
+        # If local user not found or not a test user, clear the session
+        session.pop('local_user_id', None)
+    
+    # Original authentication logic for production
     # Try to get the user_id from cookies
     user_id = request.cookies.get('user_id')
-
-    user_handler = UserHandler(config.COSMOS_URL, config.COSMOS_KEY, config.COSMOS_DB_NAME, config.COSMOS_CONTAINER_NAME)
 
     if user_id:
         # Fetch user by ID if the user_id exists in the cookie

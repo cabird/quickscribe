@@ -83,9 +83,10 @@ make logs
 3. **Transcoder** → **Callback API** → **CosmosDB** update
 
 ### Shared Models
-- TypeScript models in `vite-frontend/src/api/models.ts`
+- Models shared amongst the backend, transcoding container, and frontend are stored in <repo>/shared/Models.ts
 - Generated Python models in `backend/src/models/api_models.py`
 - Build with `make build` in backend directory
+- TypeScript models in `vite-frontend/src/api/models.ts`
 
 ### Database Structure
 - **CosmosDB** containers: `recordings`, `users`, `transcripts`

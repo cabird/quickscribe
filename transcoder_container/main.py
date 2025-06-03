@@ -48,7 +48,7 @@ logger.info(f"TRANSCODING_QUEUE_NAME: {os.environ.get('TRANSCODING_QUEUE_NAME')}
 # Processing timeout (30 minutes)
 PROCESSING_TIMEOUT = 30 * 60  # seconds
 MAX_RETRIES = 3
-DAEMON_SLEEP_TIME = 15
+DAEMON_SLEEP_TIME = 60
 
 class TranscodingProcessor:
 

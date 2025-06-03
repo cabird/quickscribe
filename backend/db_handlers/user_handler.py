@@ -1,9 +1,35 @@
 from azure.cosmos import CosmosClient
-from datetime import datetime
+from datetime import datetime, UTC
 import uuid
-from db_handlers.models import User, Recording, Transcription, PlaudSettings  # Import the Pydantic models
+from db_handlers import models
+from db_handlers.models import User, Recording, Transcription  # Import the Pydantic models
 from db_handlers.util import filter_cosmos_fields  # Import the utility function
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
+from pydantic import field_validator
+
+class PlaudSettings(models.PlaudSettings):
+    """Extended PlaudSettings with datetime handling"""
+    
+    @field_validator('activeSyncStarted', mode='before')
+    def parse_datetime(cls, v):
+        if v is None:
+            return None
+        if isinstance(v, datetime):
+            return v
+        if isinstance(v, str):
+            return datetime.fromisoformat(v.replace('Z', '+00:00'))
+        raise ValueError(f"Cannot parse datetime from {type(v)}")
+    
+    def model_dump(self, **kwargs) -> Dict[str, Any]:
+        """Convert datetime back to ISO string for storage"""
+        data = super().model_dump(**kwargs)
+        if 'activeSyncStarted' in data and isinstance(data['activeSyncStarted'], datetime):
+            data['activeSyncStarted'] = data['activeSyncStarted'].isoformat()
+        return data
+
+class User(models.User):
+    """Extended User model with custom PlaudSettings"""
+    plaudSettings: Optional[PlaudSettings] = None
 
 class UserHandler:
     def __init__(self, cosmos_url: str, cosmos_key: str, database_name: str, container_name: str):
@@ -101,3 +127,9 @@ class UserHandler:
         parameters = [{"name": "@user_id", "value": user_id}]
         transcriptions = list(self.container.query_items(query=query, parameters=parameters, enable_cross_partition_query=True))
         return [Transcription(**filter_cosmos_fields(transcription)) for transcription in transcriptions]
+
+    def get_test_users(self) -> List[Dict[str, str]]:
+        """Get all test users from the database, returning only id and name."""
+        query = "SELECT c.id, c.name FROM c WHERE c.is_test_user = true AND c.partitionKey = 'user'"
+        users = list(self.container.query_items(query=query, enable_cross_partition_query=True))
+        return [{"id": user["id"], "name": user["name"]} for user in users]

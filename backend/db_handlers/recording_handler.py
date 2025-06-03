@@ -78,14 +78,38 @@ class RecordingHandler:
         logger.info(f"Found {len(recordings)} recordings for user {user_id}")
         return recordings
 
-    def get_all_recordings(self) -> List[Recording]:
+    def get_all_recordings(self, user_id: str = None) -> List[Recording]:
         """Get all recordings and return as Recording models."""
-        query = "SELECT * FROM c WHERE c.partitionKey = 'recording'"
-        recordings = self.container.query_items(query=query, partition_key="recording")
+        if user_id:
+            query = "SELECT * FROM c WHERE c.partitionKey = 'recording' AND c.user_id = @user_id"
+            parameters = [{"name": "@user_id", "value": user_id}]
+        else:
+            query = "SELECT * FROM c WHERE c.partitionKey = 'recording'"
+            parameters = []
+        recordings = self.container.query_items(query=query, parameters=parameters, partition_key="recording")
         logger.info("Querying all recordings")
         recordings = [Recording(**filter_cosmos_fields(rec)) for rec in recordings]
         logger.info(f"Found {len(recordings)} recordings")
         return recordings   
+
+    def get_user_plaud_ids(self, user_id: str) -> List[str]:
+        """Get all Plaud IDs that have been synced for a user."""
+        query = """
+        SELECT c.plaudMetadata.plaudId 
+        FROM c 
+        WHERE c.user_id = @user_id 
+        AND c.source = 'plaud' 
+        AND IS_DEFINED(c.plaudMetadata.plaudId)
+        """
+        parameters = [{"name": "@user_id", "value": user_id}]
+        results = self.container.query_items(
+            query=query, 
+            parameters=parameters, 
+            partition_key="recording"
+        )
+        plaud_ids = [item['plaudId'] for item in results if 'plaudId' in item]
+        logger.info(f"Found {len(plaud_ids)} Plaud IDs for user {user_id}")
+        return plaud_ids
 
     def delete_recording(self, recording_id: str) -> None:
         """Delete a recording by its ID."""

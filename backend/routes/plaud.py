@@ -1,11 +1,10 @@
-
-
 # Add these imports to the top of routes/api.py
 from azure.storage.queue import QueueClient
 from db_handlers.handler_factory import create_user_handler
 from datetime import datetime, UTC
 import uuid
 import json
+import os
 from flask import Blueprint, jsonify, request, url_for
 from user_util import get_current_user
 from config import config
@@ -124,22 +123,29 @@ def start_plaud_sync():
         sync_token = str(uuid.uuid4())
         
         # Prepare callback URLs
-        callback_url = url_for('api.plaud_callback', _external=True)
+        backend_base_url = os.getenv('BACKEND_BASE_URL')
+        if backend_base_url:
+            callback_url = f"{backend_base_url.rstrip('/')}/plaud/plaud_callback"
+        else:
+            callback_url = url_for('plaud.plaud_callback', _external=True)
+        
         callbacks = [{
             'url': callback_url,
             'token': sync_token
         }]
         
         # Get list of previously processed Plaud IDs
-        # This could be stored in user settings or a separate tracking system
-        processed_ids = []  # TODO: Implement proper tracking of processed recordings
+        recording_handler = get_recording_handler()
+        processed_ids = recording_handler.get_user_plaud_ids(user.id)
+        logger.info(f"Found {len(processed_ids)} previously synced Plaud recordings for user {user.id}")
         
         # Prepare sync message for queue
         sync_message = {
             'action': 'plaud_sync',
             'user_id': user.id,
-            'bearerToken': plaud_settings['bearerToken'],  # TODO: Move to Key Vault for security
-            'lastSyncTimestamp': plaud_settings.get('lastSyncTimestamp'),
+            'bearerToken': plaud_settings['bearerToken'], 
+            #what happens to recordings that didn't sync the last time and are before lastSyncTimestamp?
+            'lastSyncTimestamp': plaud_settings.get('lastSyncTimestamp'), 
             'processedPlaudIds': processed_ids,
             'callbacks': callbacks,
             'callback_token': sync_token,
@@ -159,8 +165,14 @@ def start_plaud_sync():
             logger.error(f"Failed to send Plaud sync message to queue: {queue_error}")
             return jsonify({'error': 'Failed to queue sync operation'}), 500
         
-        # Update user's sync status (you may want to add these fields to User model)
-        # For now, we'll just return success
+        # Update user's sync status with active sync token
+        user_handler = create_user_handler()
+        # Update the plaud settings with the new sync token
+        plaud_settings_dict = plaud_settings.copy()
+        plaud_settings_dict['activeSyncToken'] = sync_token
+        plaud_settings_dict['activeSyncStarted'] = datetime.now(UTC).isoformat()
+        user_handler.update_user(user.id, plaudSettings=plaud_settings_dict)
+        logger.info(f"Stored sync token for user {user.id}")
         
         return jsonify({
             'message': 'Plaud sync operation started',
@@ -187,11 +199,18 @@ def get_plaud_sync_status(user_id):
         if not current_user.plaudSettings:
             return jsonify({'error': 'Plaud settings not configured'}), 400
         
+        # Check if sync is currently active
+        sync_active = False
+        if current_user.plaudSettings.activeSyncToken and current_user.plaudSettings.activeSyncStarted:
+            # Check if sync hasn't expired
+            elapsed = datetime.now(UTC) - current_user.plaudSettings.activeSyncStarted
+            sync_active = elapsed.total_seconds() <= 3600  # 1 hour timeout
+        
         status = {
             'hasSettings': bool(current_user.plaudSettings.bearerToken),
             'syncEnabled': current_user.plaudSettings.enableSync,
             'lastSyncTimestamp': current_user.plaudSettings.lastSyncTimestamp,
-            'currentSyncActive': False,  # TODO: Implement active sync tracking
+            'currentSyncActive': sync_active,
         }
         
         return jsonify(status), 200
@@ -221,7 +240,32 @@ def plaud_callback():
         if not callback_token:
             return jsonify({'error': 'Missing callback token'}), 400
             
-        # TODO: Validate callback token against stored tokens
+        # Validate callback token against stored token
+        user_handler = create_user_handler()
+        user = user_handler.get_user(user_id)
+        
+        if not user or not user.plaudSettings:
+            logger.error(f"User not found or no Plaud settings for user {user_id}")
+            return jsonify({'error': 'Invalid user'}), 401
+            
+        stored_token = user.plaudSettings.activeSyncToken
+        sync_started = user.plaudSettings.activeSyncStarted
+        
+        # Check if token exists and matches
+        if not stored_token or stored_token != callback_token:
+            logger.error(f"Invalid callback token for user {user_id}")
+            return jsonify({'error': 'Invalid callback token'}), 401
+            
+        # Check if token has expired (1 hour timeout)
+        if sync_started:
+            elapsed = datetime.now(UTC) - sync_started
+            if elapsed.total_seconds() > 3600:  # 1 hour timeout
+                logger.error(f"Sync token expired for user {user_id} (started {elapsed.total_seconds():.0f}s ago)")
+                # Clear the expired token
+                user.plaudSettings.activeSyncToken = None
+                user.plaudSettings.activeSyncStarted = None
+                user_handler.update_user(user_id, plaudSettings=user.plaudSettings.model_dump())
+                return jsonify({'error': 'Sync token expired'}), 401
         
         # Handle different callback actions
         if action == 'register_plaud_recording':
@@ -388,14 +432,21 @@ def send_plaud_sync_to_queue(user_id: str, plaud_settings: dict, dry_run: bool =
     """Send a Plaud sync message to the transcoding queue"""
     sync_token = str(uuid.uuid4())
     
-    callback_url = url_for('api.plaud_callback', _external=True)
+    backend_base_url = os.getenv('BACKEND_BASE_URL')
+    if backend_base_url:
+        callback_url = f"{backend_base_url.rstrip('/')}/plaud/plaud_callback"
+    else:
+        callback_url = url_for('plaud.plaud_callback', _external=True)
+    
     callbacks = [{
         'url': callback_url,
         'token': sync_token
     }]
     
-    # TODO: Implement proper tracking of processed recording IDs
-    processed_ids = []
+    # Get list of previously processed Plaud IDs
+    recording_handler = get_recording_handler()
+    processed_ids = recording_handler.get_user_plaud_ids(user_id)
+    logger.info(f"Found {len(processed_ids)} previously synced Plaud recordings for user {user_id}")
     
     sync_message = {
         'action': 'plaud_sync',

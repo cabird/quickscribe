@@ -53,9 +53,10 @@ def get_recording_by_id(recording_id):
 @api_bp.route('/recordings', methods=['GET'])
 def list_recordings():
     recording_handler = get_recording_handler()
-    recordings = recording_handler.get_all_recordings()
+    user = get_current_user()
+    recordings = recording_handler.get_all_recordings(user.id)
 
-    logger.info(f"list_recordings: found {len(recordings)} recordings")
+    logger.info(f"list_recordings: found {len(recordings)} recordings for user {user.id}")
     recording_list = [recording.model_dump() for recording in recordings]
     logger.info(f"list_recordings done")
 
@@ -293,10 +294,20 @@ def upload_from_ios_share():
 
 def generate_callbacks(request, callback_token):
     callbacks = []
-    # Generate callback URL
-    callbacks.append( { "url": url_for('api.transcoding_callback', _external=True), "token": callback_token })
+    
+    # Use configured backend URL for Docker environments
+    backend_base_url = os.getenv('BACKEND_BASE_URL')
+    if backend_base_url:
+        callback_url = f"{backend_base_url.rstrip('/')}/api/transcoding_callback"
+    else:
+        callback_url = url_for('api.transcoding_callback', _external=True)
+    
+    callbacks.append( { "url": callback_url, "token": callback_token })
+    
     # TODO - move this to config or something
-    callbacks.append( { "url": "https://www.postb.in/1747433051215-4530967178288", "token": callback_token })
+    if os.getenv('ENVIRONMENT') != 'local':
+        callbacks.append( { "url": "https://www.postb.in/1747433051215-4530967178288", "token": callback_token })
+    
     return callbacks
    
 
@@ -468,4 +479,102 @@ def transcoding_callback():
         
     except Exception as e:
         logger.error(f"Error processing transcoding callback: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+# ============================================================================
+# Local Development Auth Endpoints
+# ============================================================================
+
+@api_bp.route('/local/users', methods=['GET'])
+def get_local_test_users():
+    """Get list of test users for local development"""
+    if not os.getenv('LOCAL_AUTH_ENABLED'):
+        return jsonify({'error': 'Local auth not enabled'}), 403
+        
+    try:
+        user_handler = get_user_handler()
+        test_users = user_handler.get_test_users()
+        return jsonify(test_users), 200
+    except Exception as e:
+        logger.error(f"Error getting test users: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@api_bp.route('/local/login', methods=['POST'])
+def local_login():
+    """Set current user session for local development"""
+    if not os.getenv('LOCAL_AUTH_ENABLED'):
+        return jsonify({'error': 'Local auth not enabled'}), 403
+        
+    try:
+        data = request.get_json()
+        if not data or 'user_id' not in data:
+            return jsonify({'error': 'user_id required'}), 400
+            
+        user_id = data['user_id']
+        
+        # Verify user exists and is a test user
+        user_handler = get_user_handler()
+        user = user_handler.get_user(user_id)
+        if not user or not user.is_test_user:
+            return jsonify({'error': 'Invalid test user'}), 400
+            
+        # Store user ID in session
+        from flask import session
+        session['local_user_id'] = user_id
+        
+        return jsonify({'message': 'Logged in successfully', 'user': {'id': user.id, 'name': user.name}}), 200
+        
+    except Exception as e:
+        logger.error(f"Error during local login: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@api_bp.route('/local/reset-user/<user_id>', methods=['POST'])
+def reset_test_user(user_id):
+    """Reset all data for a test user"""
+    if not os.getenv('LOCAL_AUTH_ENABLED'):
+        return jsonify({'error': 'Local auth not enabled'}), 403
+        
+    try:
+        # Verify user exists and is a test user
+        user_handler = get_user_handler()
+        user = user_handler.get_user(user_id)
+        if not user or not user.is_test_user:
+            return jsonify({'error': 'Invalid test user'}), 400
+            
+        recording_handler = get_recording_handler()
+        transcription_handler = get_transcription_handler()
+        
+        # Get all user's recordings
+        recordings = recording_handler.get_user_recordings(user_id)
+        
+        # Delete blob files from Azure Storage
+        from blob_util import delete_recording_blob
+        for recording in recordings:
+            try:
+                delete_recording_blob(recording.unique_filename)
+            except Exception as blob_error:
+                logger.warning(f"Failed to delete blob {recording.unique_filename}: {blob_error}")
+        
+        # Delete all recordings from database
+        for recording in recordings:
+            recording_handler.delete_recording(recording.id)
+            
+        # Delete all transcriptions from database
+        transcriptions = user_handler.get_user_transcriptions(user_id)
+        for transcription in transcriptions:
+            transcription_handler.delete_transcription(transcription.id)
+            
+        # Reset user's Plaud settings
+        user_handler.update_user(user_id, plaudSettings=None)
+        
+        logger.info(f"Reset test user {user_id}: deleted {len(recordings)} recordings and {len(transcriptions)} transcriptions")
+        
+        return jsonify({
+            'message': f'User data reset successfully',
+            'deleted_recordings': len(recordings),
+            'deleted_transcriptions': len(transcriptions)
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"Error resetting test user: {e}")
         return jsonify({'error': str(e)}), 500

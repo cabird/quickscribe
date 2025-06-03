@@ -7,6 +7,8 @@ export interface PlaudSettings {
     bearerToken: string;          // Authentication token for Plaud API
     lastSyncTimestamp?: string;   // ISO date of last successful sync
     enableSync?: boolean;         // Whether sync is enabled (for future automatic sync)
+    activeSyncToken?: string;     // Token for current active sync operation
+    activeSyncStarted?: string;   // ISO date when current sync started
 }
 
 // Metadata for a recording from Plaud
@@ -30,6 +32,7 @@ export interface User {
     last_login?: string; // DateTime of when the user last logged in
     plaudSettings?: PlaudSettings; // Plaud integration settings
     partitionKey: string;
+    is_test_user?: boolean; // Indicates if this is a test user for local development
 }
 
 // Represents a recording entity

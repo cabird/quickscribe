@@ -79,4 +79,13 @@ def send_to_transcoding_queue(recording_id: str, source_blob_filename: str, targ
         "callbacks": callbacks
     }
     queue_client.send_message(json.dumps(obj))
+
+def delete_recording_blob(filename):
+    """Delete a blob file from Azure Storage"""
+    blob_service_client = BlobServiceClient.from_connection_string(config.AZURE_STORAGE_CONNECTION_STRING)
+    blob_client = blob_service_client.get_blob_client(
+        container=config.AZURE_RECORDING_BLOB_CONTAINER, 
+        blob=filename
+    )
+    blob_client.delete_blob(delete_snapshots="include")
     
