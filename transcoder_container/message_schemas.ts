@@ -42,10 +42,20 @@ export interface CallbackInfo {
     source_sas_url: string;      // SAS URL to download the source file
     target_sas_url: string;      // SAS URL to upload the transcoded file
     user_id: string;             // ID of the user who owns the recording
+    dry_run?: boolean;           // Optional flag to indicate if this is a dry run
+  }
+
+  export interface PlaudSyncMessage extends BaseMessage {
+    action: "plaud_sync";
+    user_id: string;
+    bearerToken: string;
+    lastSyncTimestamp?: string;
+    processedPlaudIds?: string[];
+    dry_run?: boolean;
   }
   
   // Union type for all possible messages
-  export type ContainerMessage = TestMessage | TranscodeMessage;
+  export type ContainerMessage = TestMessage | TranscodeMessage | PlaudSyncMessage;
   
   // ============================================================================
   // Output Response Schemas
@@ -54,10 +64,11 @@ export interface CallbackInfo {
   // Base response interface - all responses have these fields
   export interface BaseResponse {
     action: string;
-    status: "in_progress" | "completed" | "failed";
+    status: "in_progress" | "completed" | "failed" | "recording_processed";
     callback_token: string;      // Token from the callback info
     container_version: string;   // Version of the container that processed the message
     timestamp?: string;          // ISO timestamp of when response was generated
+    dry_run?: boolean;           // Optional flag to indicate if this was a dry run
   }
   
   // Test action response
@@ -99,9 +110,49 @@ export interface CallbackInfo {
     | TranscodeInProgressResponse 
     | TranscodeCompletedResponse 
     | TranscodeFailedResponse;
+
+    export interface PlaudSyncInProgressResponse extends BaseResponse {
+      action: "plaud_sync";
+      status: "in_progress";
+      user_id: string;
+      message: string;
+    }
+    
+    export interface PlaudSyncRecordingProcessedResponse extends BaseResponse {
+      action: "plaud_sync";
+      status: "recording_processed";
+      user_id: string;
+      plaud_id: string;
+      recording_id: string;
+      original_filename: string;
+      duration: number;
+      original_timestamp: string;
+      processing_time: number;
+    }
+    
+    export interface PlaudSyncCompletedResponse extends BaseResponse {
+      action: "plaud_sync";
+      status: "completed";
+      user_id: string;
+      total_recordings_found: number;
+      new_recordings_processed: number;
+      skipped_recordings: number;
+      error_count: number;
+      errors: string[];
+      processing_time: number;
+      processed_recordings: Array<{
+        recording_id: string;
+        plaud_id: string;
+        original_filename: string;
+        duration: number;
+        original_timestamp: string;
+      }>;
+    }
+
+  export type PlaudSyncResponse = PlaudSyncInProgressResponse | PlaudSyncRecordingProcessedResponse | PlaudSyncCompletedResponse;
   
   // Union type for all possible responses
-  export type ContainerResponse = TestResponse | TranscodeResponse;
+  export type ContainerResponse = TestResponse | TranscodeResponse | PlaudSyncResponse;
   
   // ============================================================================
   // Type Guards (useful for TypeScript consumers)

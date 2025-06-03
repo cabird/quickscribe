@@ -12,8 +12,9 @@ from db_handlers.transcription_handler import TranscriptionHandler
 from datetime import datetime, UTC
 from routes.az_transcription_routes import az_transcription_bp, check_in_progress_transcription
 from routes.api import api_bp
+from routes.plaud import plaud_bp
 from api_version import API_VERSION
-from user_util import get_user
+from user_util import get_current_user
 from config import config
 import auth
 import logging
@@ -48,6 +49,8 @@ TRANSCRIPTION_IN_PROGRESS_TIMEOUT_SECONDS = 24 * 60 * 60 * 30 # 30 days
 
 app.register_blueprint(az_transcription_bp, url_prefix='/az_transcription')
 app.register_blueprint(api_bp, url_prefix='/api')
+app.register_blueprint(plaud_bp, url_prefix='/api/plaud')
+
 # Initialize the BlobServiceClient
 blob_service_client = BlobServiceClient.from_connection_string(config.AZURE_STORAGE_CONNECTION_STRING)
 

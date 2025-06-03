@@ -1,7 +1,10 @@
 from config import config
+from flask import request
 from db_handlers.user_handler import UserHandler
+from db_handlers.models import User
+from typing import Optional
 
-def get_user(request):
+def get_current_user() -> Optional[User]: 
     # Try to get the user_id from cookies
     user_id = request.cookies.get('user_id')
 

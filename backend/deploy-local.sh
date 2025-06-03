@@ -5,7 +5,7 @@ set -e  # Exit immediately if a command exits with a non-zero status
 IMAGE_NAME="quickscribe-backend"
 CONTAINER_NAME="quickscribe-local"
 PORT=8000
-LOCAL_ENV_FILE=".env"
+LOCAL_ENV_FILE=".env.local"
 TEMP_DEPLOY_DIR="./quickscribe_deploy_local"
 
 # Function for cleanup

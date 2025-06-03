@@ -3,6 +3,9 @@ set -e
 
 echo "Starting QuickScribe container..."
 
+echo "Current working directory: $(pwd)"
+echo "Contents of current directory:"
+ls -la
 # Python dependencies are already installed in the Dockerfile
 # This is just in case we're running in a development environment
 echo "Ensuring Python dependencies are installed..."
@@ -13,8 +16,16 @@ else
     echo "No .whl files found in local_packages"
 fi
 
-echo "Starting the Flask app"
-# Use the PORT environment variable if set (for Azure), otherwise default to 8000
-PORT=${PORT:-8000}
-echo "Using port: $PORT"
-gunicorn --bind=0.0.0.0:$PORT --timeout 600 app:app
+if [ "$ENVIRONMENT" = "local" ]; then
+    echo "Starting the Flask app on port"
+    cp -r /app/.env.local /app/.env
+    PORT=${PORT:-8000}
+    echo "Using port: $PORT"
+    python -m flask run --host=0.0.0.0 --port=$PORT
+else
+    echo "Starting the Flask app"
+    # Use the PORT environment variable if set (for Azure), otherwise default to 8000
+    PORT=${PORT:-8000}
+    echo "Using port: $PORT"
+    gunicorn --bind=0.0.0.0:$PORT --timeout 600 app:app
+fi

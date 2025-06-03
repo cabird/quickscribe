@@ -1,7 +1,7 @@
 # api.py
 from flask import Blueprint, request, jsonify, url_for
 from db_handlers.handler_factory import get_user_handler, get_recording_handler, get_transcription_handler
-from user_util import get_user
+from user_util import get_current_user
 from db_handlers.models import User, Recording, Transcription, TranscodingStatus, TranscriptionStatus
 from util import update_diarized_transcript, convert_to_mp3, get_recording_duration_in_seconds
 from llms import get_speaker_summaries_via_llm, get_speaker_mapping
@@ -19,10 +19,6 @@ logger = get_logger('api', API_VERSION)
 logger.info(f"Starting QuickScribe API ({API_VERSION})")
 
 api_bp = Blueprint('api', __name__)
-
-# Helper function to get current user
-def get_current_user():
-    return get_user(request)
 
 @api_bp.route('/get_api_version', methods=['GET'])
 def get_api_version():
@@ -260,7 +256,7 @@ def upload_from_ios_share():
             logger.info(f"stored original file in blob storage as {unique_original_filename}")
 
             recording_handler = get_recording_handler()
-            user = get_user(request)
+            user = get_current_user()
 
             recording = recording_handler.create_recording(user.id, original_filename, unique_original_filename,
                                                            transcoding_status=TranscodingStatus.queued)
@@ -339,7 +335,7 @@ def upload():
 
             # Create recording in database with transcoding status "queued"
             recording_handler = get_recording_handler()
-            user = get_user(request)
+            user = get_current_user()
             
             recording = recording_handler.create_recording(
                 user.id, 

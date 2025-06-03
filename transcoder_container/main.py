@@ -14,157 +14,46 @@ import time
 import requests
 import traceback
 
+from plaud_sync import handle_plaud_sync
+
 from dotenv import load_dotenv
-# Load environment variables from .env file
-load_dotenv()
+#check if "ENVIRONMENT" is set to "local"
+if os.environ.get('ENVIRONMENT') == "local":
+    #load the .env.local file
+    load_dotenv(".env.local", override=True)
+else:
+    #load the .env file
+    load_dotenv()
 
 #define the application namespace for logging
 app_namespace = "quickscribe.transcoder"  # Replace with your application's name
 
-#write all environment variables to the console
-for key in ["APPLICATIONINSIGHTS_CONNECTION_STRING", 
-                   "APPLICATIONINSIGHTS_USE_OPENCENSUS", 
-                   ]:
-    print(f"{key}: {os.environ.get(key)}")
-
-# Configure logging for Azure
-# Import Azure Monitor OpenTelemetry integration
-from opencensus.ext.azure.log_exporter import AzureLogHandler
-
-# Configure logging for Azure
-def setup_azure_logging():
-    """Configure logging optimized for Azure Container Apps/Instances with Application Insights integration"""
-    
-    
-    # Configure Azure Monitor with your application's namespace
-    # This will use the APPLICATIONINSIGHTS_CONNECTION_STRING environment variable
-    #if 'APPLICATIONINSIGHTS_CONNECTION_STRING' in os.environ:
-    #    configure_azure_monitor(
-    #        logger_name=app_namespace,  # Only collect logs from your application namespace
-    #    )
-    
-    # Create custom formatter with JSON output for structured logs
-    class JSONFormatter(logging.Formatter):
-        def format(self, record):
-            log_obj = {
-                'timestamp': datetime.utcnow().isoformat() + 'Z',
-                'level': record.levelname,
-                'logger': record.name,
-                'message': record.getMessage(),
-                'module': record.module,
-                'function': record.funcName,
-                'line': record.lineno
-            }
-            
-            # Add extra fields if present
-            if hasattr(record, 'recording_id'):
-                log_obj['recording_id'] = record.recording_id
-            if hasattr(record, 'action'):
-                log_obj['action'] = record.action
-            if hasattr(record, 'user_id'):
-                log_obj['user_id'] = record.user_id
-            
-            # If record has custom_dimensions (for App Insights), include them
-            if hasattr(record, 'custom_dimensions'):
-                for key, value in record.custom_dimensions.items():
-                    log_obj[key] = value
-                
-            return json.dumps(log_obj)
-        
-        # Custom filter to move additional attributes into custom_dimensions
-    class MetadataFilter(logging.Filter):
-        def filter(self, record):
-            # Initialize custom_dimensions if not present
-            if not hasattr(record, 'custom_dimensions'):
-                record.custom_dimensions = {}
-
-            record.custom_dimensions['service'] = "quickscribe"
-            record.custom_dimensions['app_namespace'] = app_namespace
-            record.custom_dimensions['container_version'] = CONTAINER_APP_VERSION
-            
-            # Add specific attributes to custom_dimensions if they exist
-            for attr in ['recording_id', 'action', 'user_id']:
-                if hasattr(record, attr):
-                    record.custom_dimensions[attr] = getattr(record, attr)
-                    # Optionally: remove from record to prevent it from appearing in other formatters
-                    # delattr(record, attr)
-            
-            return True  # Always include the record
-    
-    # Configure app logger (not root logger, to avoid SDK logs)
-    logger = logging.getLogger(app_namespace)
-    logger.setLevel(logging.INFO)
-    logger.propagate = False  # Don't propagate to root logger
-
-    # Add the filter that will process metadata
-    logger.addFilter(MetadataFilter())
-    
-    # Remove default handlers
-    for handler in logger.handlers[:]:
-        logger.removeHandler(handler)
-    
-    # Create console handler with JSON formatting
-    console_handler = logging.StreamHandler(sys.stdout)
-    console_handler.setFormatter(JSONFormatter())
-    logger.addHandler(console_handler)
-    
-    # Set Azure-specific log level from environment
-    log_level = os.environ.get('LOG_LEVEL', 'INFO').upper()
-    logger.setLevel(getattr(logging, log_level, logging.INFO))
-    
-    # If App Insights connection string is available but we're using the older SDK approach
-    # as a fallback, add the AzureLogHandler explicitly
-    if 'APPLICATIONINSIGHTS_CONNECTION_STRING' in os.environ:        
-        # Add Azure Application Insights handler
-        azure_handler = AzureLogHandler(
-            connection_string=os.environ.get('APPLICATIONINSIGHTS_CONNECTION_STRING')
-        )
-
-        azure_handler.setFormatter(logging.Formatter('%(message)s'))  # Use default formatter for Azure logs
-        logger.addHandler(azure_handler)
-    
-    return logger
-
-logger = setup_azure_logging()
+# Import logging setup from the separate module
+from logging_setup import setup_azure_logging
+logger = setup_azure_logging(app_namespace)
 
 # Configure logging
 #logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 #logger = logging.getLogger(__name__)
 
-# Enhanced logging with context
-class ContextLogger:
-    def __init__(self, base_logger, **context):
-        self.base_logger = base_logger
-        self.context = context
-    
-    def info(self, message, **extra):
-        self._log(logging.INFO, message, **extra)
-    
-    def error(self, message, **extra):
-        self._log(logging.ERROR, message, **extra)
-    
-    def warning(self, message, **extra):
-        self._log(logging.WARNING, message, **extra)
-    
-    def debug(self, message, **extra):
-        self._log(logging.DEBUG, message, **extra)
-    
-    def _log(self, level, message, **extra):
-        # Merge context with extra fields
-        combined = {**self.context, **extra}
-        self.base_logger.log(level, message, extra=combined)
 
 # Environment variables
 AZURE_STORAGE_CONNECTION_STRING = os.environ.get('AZURE_STORAGE_CONNECTION_STRING')
 TRANSCODING_QUEUE_NAME = os.environ.get('TRANSCODING_QUEUE_NAME')
 
+logger.info(f"ENVIRONMENT: {os.environ.get('ENVIRONMENT')}")
+logger.info(f"AZURE_STORAGE_CONNECTION_STRING: { 'present' if os.environ.get('AZURE_STORAGE_CONNECTION_STRING') != None else 'not present'}")
+logger.info(f"TRANSCODING_QUEUE_NAME: {os.environ.get('TRANSCODING_QUEUE_NAME')}")
+
 # Processing timeout (30 minutes)
 PROCESSING_TIMEOUT = 30 * 60  # seconds
 MAX_RETRIES = 3
+DAEMON_SLEEP_TIME = 15
 
 class TranscodingProcessor:
-    def __init__(self):
-        self.queue_client = QueueClient.from_connection_string(
+
+    def get_queue_client(self):
+        return QueueClient.from_connection_string(
             AZURE_STORAGE_CONNECTION_STRING, 
             TRANSCODING_QUEUE_NAME
         )
@@ -286,7 +175,7 @@ class TranscodingProcessor:
         # Send callbacks
         self.send_callbacks(callbacks, response_data)
         logger.info("Test action completed successfully")
-    
+
     def handle_transcode_action(self, message_content: dict) -> None:
         """Handle transcode action"""
         recording_id = message_content.get('recording_id')
@@ -295,21 +184,26 @@ class TranscodingProcessor:
         original_filename = message_content.get('original_filename')
         callbacks = message_content.get('callbacks', [])
         user_id = message_content.get('user_id')
+        dry_run = message_content.get('dry_run', False)
 
-        # Create context logger for this recording
-        ctx_logger = ContextLogger(
-            logger, 
-            original_filename=original_filename,
-            recording_id=recording_id,
-            action='transcode',
-            user_id=user_id
-        )
+        if dry_run:
+            self.handle_transcode_action_dry_run(message_content)
+            return
+        
+        # Import get_context_logger here to use context-specific logging
+        from logging_setup import get_context_logger
+        
+        # Create a context logger with recording_id and user_id
+        ctx_logger = get_context_logger(logger, {
+            'recording_id': recording_id,
+            'user_id': user_id
+        })
         
         ctx_logger.info(f"Processing transcode action for recording {recording_id}")
         
         # Validate required fields
         if not all([recording_id, source_sas_url, target_sas_url, callbacks]):
-            ctx_logger.error(f"Missing required fields in transcode message: {message_content}")
+            logger.error(f"Missing required fields in transcode message: {message_content}")
             return
         
         # Send initial in_progress callback
@@ -318,7 +212,8 @@ class TranscodingProcessor:
             'recording_id': recording_id,
             'original_filename': original_filename,
             'status': 'in_progress',
-            'container_version': CONTAINER_APP_VERSION
+            'container_version': CONTAINER_APP_VERSION,
+            'dry_run': dry_run
         }
         self.send_callbacks(callbacks, in_progress_response)
         
@@ -329,9 +224,8 @@ class TranscodingProcessor:
         try:
             # Start timeout timer
             start_time = time.time()
-            
             # Download source file
-            ctx_logger.info(f"Downloading source file from SAS URL: {source_sas_url}")
+            logger.info(f"Downloading source file from SAS URL: {source_sas_url}")
             #get the extension from the original filename
             source_temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(original_filename)[1])
             
@@ -345,8 +239,8 @@ class TranscodingProcessor:
             
             # Get input metadata
             input_metadata = self.get_file_metadata(source_temp_file.name)
-            ctx_logger.info(f"Input metadata: {input_metadata}")
-            
+            logger.info(f"Input metadata: {input_metadata}")
+
             # Check timeout
             if time.time() - start_time > PROCESSING_TIMEOUT:
                 raise TimeoutError("Processing timeout exceeded during download")
@@ -356,19 +250,19 @@ class TranscodingProcessor:
             target_temp_file.close()
             
             # Transcode the file
-            ctx_logger.info(f"Transcoding {source_temp_file.name} to {target_temp_file.name}")
+            logger.info(f"Transcoding {source_temp_file.name} to {target_temp_file.name}")
             self.convert_to_mp3(source_temp_file.name, target_temp_file.name)
             
             # Get output metadata
             output_metadata = self.get_file_metadata(target_temp_file.name)
-            ctx_logger.info(f"Output metadata: {output_metadata}")
-            
+            logger.info(f"Output metadata: {output_metadata}")
+
             # Check timeout
             if time.time() - start_time > PROCESSING_TIMEOUT:
                 raise TimeoutError("Processing timeout exceeded during transcoding")
             
             # Upload transcoded file
-            ctx_logger.info(f"Uploading transcoded file to SAS URL")
+            logger.info(f"Uploading transcoded file to SAS URL")
             with open(target_temp_file.name, 'rb') as upload_file:
                 try:
                     # Adding the required x-ms-blob-type header for Azure Blob Storage
@@ -376,7 +270,7 @@ class TranscodingProcessor:
                         'x-ms-blob-type': 'BlockBlob',
                         'Content-Type': 'audio/mpeg'
                     }
-                    ctx_logger.info(f"Uploading with headers: {headers}")
+                    logger.info(f"Uploading with headers: {headers}")
                     response = requests.put(
                         target_sas_url, 
                         data=upload_file, 
@@ -453,6 +347,14 @@ class TranscodingProcessor:
             self.handle_test_action(message_content)
         elif action == 'transcode':
             self.handle_transcode_action(message_content)
+        elif action == "plaud_sync":
+            handle_plaud_sync(
+                message_content,
+                logger,
+                self.convert_to_mp3,
+                self.send_callbacks,
+                CONTAINER_APP_VERSION
+            )
         else:
             logger.error(f"Unknown action: {action}")
             # If there are callbacks, notify them of the error
@@ -470,9 +372,10 @@ class TranscodingProcessor:
         """Main processing loop"""
         logger.info(f"Starting transcoding processor v{CONTAINER_APP_VERSION}...")
         
+        queue_client = self.get_queue_client()
         try:
             message_count = 0
-            for message in self.queue_client.receive_messages():
+            for message in queue_client.receive_messages():
                 message_count += 1
                 try:
                     # Parse message content
@@ -483,11 +386,11 @@ class TranscodingProcessor:
                     self.process_message(message_content)
                     
                     # Delete message from queue on success
-                    self.queue_client.delete_message(message)
+                    queue_client.delete_message(message)
                     
                 except json.JSONDecodeError as e:
                     logger.error(f"Invalid JSON in message: {e}")
-                    self.queue_client.delete_message(message)  # Remove invalid message
+                    queue_client.delete_message(message)  # Remove invalid message
                     
                 except Exception as e:
                     logger.error(f"Error processing message: {e}")
@@ -496,10 +399,23 @@ class TranscodingProcessor:
         except Exception as e:
             logger.error(f"Error in main processing loop: {e}")
             raise
-        
         finally:
             logger.info("Closing queue client")
-            self.queue_client.close()
+            queue_client.close()
+
+    def run_as_daemon(self):
+        """Run the transcoding processor as a daemon"""
+        logger.info("Starting transcoding processor as a daemon")
+        while True:
+            try:
+                self.run()
+            except Exception as e:
+                logger.error(f"Error in transcoding processor daemon: {e}")
+                #log the traceback
+                logger.error(traceback.format_exc())
+            #sleep for 15 seconds
+            time.sleep(DAEMON_SLEEP_TIME)
+        logger.info("Transcoding processor daemon completed")
 
 
 def main():
@@ -518,7 +434,10 @@ def main():
     processor = TranscodingProcessor()
     
     try:
-        processor.run()
+        if os.environ.get('ENVIRONMENT') == "local":
+            processor.run_as_daemon()
+        else:
+            processor.run()
     except KeyboardInterrupt:
         logger.info("Shutting down gracefully...")
     except Exception as e:

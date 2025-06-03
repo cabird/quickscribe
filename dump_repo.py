@@ -54,7 +54,7 @@ def find_config_files(start_dir: str, repo_root: str) -> List[str]:
     repo_abs = os.path.abspath(repo_root)
     
     while is_path_in_subtree(current, repo_abs):
-        config_path = os.path.join(current, "repo2file.cfg")
+        config_path = os.path.join(current, "dump_repo.cfg")
         if os.path.isfile(config_path):
             config_files.append(config_path)
         if current == repo_abs:
@@ -228,11 +228,16 @@ def scan_folder(repo_root: str, current_dir: str, output_file: str, config: Dict
         # Write file contents
         for file_path in final_files:
             rel_path = os.path.relpath(file_path, current_dir)
-            print(f"Processing: {rel_path}")
+
             if not os.path.exists(file_path):
                 print(f"File does not exist: {file_path}")
                 continue
+
+            file_size = os.path.getsize(file_path)
+            print(f"Processing: ({file_size} bytes) {rel_path}")
             
+            
+
             out_file.write(f"File: {rel_path}\n")
             out_file.write("-" * 50 + "\n")
             

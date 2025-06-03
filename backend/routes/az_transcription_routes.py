@@ -2,7 +2,7 @@ from flask import Blueprint, request, redirect, jsonify, flash, url_for
 from db_handlers.transcription_handler import TranscriptionHandler
 from db_handlers.recording_handler import RecordingHandler
 from db_handlers.models import TranscriptionStatus, Recording
-from user_util import get_user
+from user_util import get_current_user
 from blob_util import generate_recording_sas_url
 from azure.storage.blob import BlobServiceClient
 import assemblyai as aai
@@ -14,10 +14,11 @@ from datetime import datetime, UTC
 import swagger_client
 import requests
 from pprint import pprint
+from api_version import API_VERSION
 
 from logging_config import get_logger
 # Initialize our application logger with Azure Application Insights
-logger = get_logger('az_transcription', config.API_VERSION)
+logger = get_logger('az_transcription', API_VERSION)
 
 # Initialize the BlobServiceClient
 blob_service_client = BlobServiceClient.from_connection_string(config.AZURE_STORAGE_CONNECTION_STRING)
@@ -31,7 +32,7 @@ transcription_handler = TranscriptionHandler(config.COSMOS_URL, config.COSMOS_KE
 @az_transcription_bp.route("/start_transcription/<recording_id>", methods=["POST", "GET"])
 def start_transcription(recording_id):
     logger.info(f"Starting transcription: {recording_id}")
-    user = get_user(request)
+    user = get_current_user()
     # Get the recording details
     # TODO - check that the recording exists and belongs to the user
     recording = recording_handler.get_recording(recording_id)

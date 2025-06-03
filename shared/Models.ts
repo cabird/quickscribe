@@ -2,6 +2,24 @@
 
 type integer = number;
 
+// Plaud settings stored in user profile
+export interface PlaudSettings {
+    bearerToken: string;          // Authentication token for Plaud API
+    lastSyncTimestamp?: string;   // ISO date of last successful sync
+    enableSync?: boolean;         // Whether sync is enabled (for future automatic sync)
+}
+
+// Metadata for a recording from Plaud
+export interface PlaudMetadata {
+    plaudId: string;              // Original ID from Plaud (for deduplication)
+    originalTimestamp: string;    // When the recording was made according to Plaud
+    plaudFilename: string;        // Original filename in Plaud
+    plaudFileSize: number;        // Size in bytes of original file
+    plaudDuration: number;        // Duration in milliseconds from Plaud
+    plaudFileType: string;        // Original file type/extension
+    syncedAt: string;             // When this recording was imported to QuickScribe
+}
+
 // Represents a user in the system
 export interface User {
     id: string; // Unique identifier for the user
@@ -10,6 +28,7 @@ export interface User {
     role?: string; // Admin or user
     created_at?: string; // DateTime of when the user was created
     last_login?: string; // DateTime of when the user last logged in
+    plaudSettings?: PlaudSettings; // Plaud integration settings
     partitionKey: string;
 }
 
@@ -37,6 +56,8 @@ export interface Recording {
     transcoding_token?: string // token used in the callback once the transcoding has completed
     
     upload_timestamp?: string; // DateTime of when the recording was uploaded
+    source?: "upload" | "plaud" | "stream"; // Source of the recording
+    plaudMetadata?: PlaudMetadata;          // Plaud-specific metadata (only present for Plaud recordings)
     partitionKey: string;
 }
 

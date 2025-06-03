@@ -29,6 +29,7 @@ prompts.yaml
 requirements.txt
 routes/api.py
 routes/az_transcription_routes.py
+routes/plaud.py
 startup.sh
 static/styles.css
 templates/base.html

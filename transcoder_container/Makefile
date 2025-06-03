@@ -119,7 +119,7 @@ run: build
 		echo "TRANSCODING_QUEUE_NAME=transcoding-queue"; \
 		exit 1; \
 	fi
-	docker run -d \
+	docker run \
 		--name $(CONTAINER_NAME) \
 		--env-file $(ENV_FILE) \
 		--restart unless-stopped \

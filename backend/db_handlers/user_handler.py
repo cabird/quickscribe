@@ -1,7 +1,7 @@
 from azure.cosmos import CosmosClient
 from datetime import datetime
 import uuid
-from db_handlers.models import User, Recording, Transcription  # Import the Pydantic models
+from db_handlers.models import User, Recording, Transcription, PlaudSettings  # Import the Pydantic models
 from db_handlers.util import filter_cosmos_fields  # Import the utility function
 from typing import Optional, List
 
@@ -50,19 +50,27 @@ class UserHandler:
         ))
         return [User(**filter_cosmos_fields(user)) for user in users]
 
-    def update_user(self, user_id: str, email: Optional[str] = None, name: Optional[str] = None, role: Optional[str] = None) -> Optional[User]:
+    def update_user(self, user_id: str, email: Optional[str] = None, name: Optional[str] = None,
+                     role: Optional[str] = None,
+                     plaudSettingsDict: Optional[dict] = None) -> Optional[User]:
         """Update user details like email, name, and role, and return the updated User model."""
         try:
             user_item = self.get_user(user_id)
             if user_item:
-                user_data = user_item.model_dump()  
                 if email:
-                    user_data['email'] = email
+                    user_item.email = email
                 if name:
-                    user_data['name'] = name
+                    user_item.name = name
                 if role:
-                    user_data['role'] = role
-                user_data['updated_at'] = datetime.utcnow().isoformat()
+                    user_item.role = role
+                if plaudSettingsDict is not None:
+                    user_item.plaudSettings = PlaudSettings(**plaudSettingsDict)
+                
+                
+                user_item.updated_at = datetime.now(datetime.UTC).isoformat()
+
+                
+                user_data = user_item.model_dump(exclude_unset=True, exclude_none=True)
 
                 # Update item in Cosmos DB
                 updated_item = self.container.replace_item(item=user_id, body=user_data)
