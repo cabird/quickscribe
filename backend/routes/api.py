@@ -565,7 +565,10 @@ def reset_test_user(user_id):
             transcription_handler.delete_transcription(transcription.id)
             
         # Reset user's Plaud settings
-        user_handler.update_user(user_id, plaudSettings=None)
+        user = user_handler.get_user(user_id)
+        if user:
+            user.plaudSettings = None
+            user_handler.save_user(user)
         
         logger.info(f"Reset test user {user_id}: deleted {len(recordings)} recordings and {len(transcriptions)} transcriptions")
         

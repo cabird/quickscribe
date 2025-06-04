@@ -5,12 +5,17 @@ from db_handlers import models
 from db_handlers.models import User, Recording, Transcription  # Import the Pydantic models
 from db_handlers.util import filter_cosmos_fields  # Import the utility function
 from typing import Optional, List, Dict, Any
-from pydantic import field_validator
+from pydantic import field_validator, field_serializer
 
 class PlaudSettings(models.PlaudSettings):
     """Extended PlaudSettings with datetime handling"""
     
-    @field_validator('activeSyncStarted', mode='before')
+    # Override the datetime fields to use actual datetime objects
+    activeSyncStarted: Optional[datetime] = None
+    lastSyncTimestamp: Optional[datetime] = None
+    
+    @field_validator('activeSyncStarted', 'lastSyncTimestamp', mode='before')
+    @classmethod
     def parse_datetime(cls, v):
         if v is None:
             return None
@@ -20,16 +25,39 @@ class PlaudSettings(models.PlaudSettings):
             return datetime.fromisoformat(v.replace('Z', '+00:00'))
         raise ValueError(f"Cannot parse datetime from {type(v)}")
     
-    def model_dump(self, **kwargs) -> Dict[str, Any]:
-        """Convert datetime back to ISO string for storage"""
-        data = super().model_dump(**kwargs)
-        if 'activeSyncStarted' in data and isinstance(data['activeSyncStarted'], datetime):
-            data['activeSyncStarted'] = data['activeSyncStarted'].isoformat()
-        return data
+    @field_serializer('activeSyncStarted', 'lastSyncTimestamp')
+    def serialize_datetime(self, value) -> Optional[str]:
+        if value is None:
+            return None
+        if isinstance(value, datetime):
+            return value.isoformat()
+        return str(value)
 
 class User(models.User):
-    """Extended User model with custom PlaudSettings"""
+    """Extended User model with custom PlaudSettings and datetime handling"""
     plaudSettings: Optional[PlaudSettings] = None
+    created_at: Optional[datetime] = None
+    last_login: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+    
+    @field_validator('created_at', 'last_login', 'updated_at', mode='before')
+    @classmethod
+    def parse_user_datetime(cls, v):
+        if v is None:
+            return None
+        if isinstance(v, datetime):
+            return v
+        if isinstance(v, str):
+            return datetime.fromisoformat(v.replace('Z', '+00:00'))
+        raise ValueError(f"Cannot parse datetime from {type(v)}")
+    
+    @field_serializer('created_at', 'last_login', 'updated_at')
+    def serialize_user_datetime(self, value) -> Optional[str]:
+        if value is None:
+            return None
+        if isinstance(value, datetime):
+            return value.isoformat()
+        return str(value)
 
 class UserHandler:
     def __init__(self, cosmos_url: str, cosmos_key: str, database_name: str, container_name: str):
@@ -76,10 +104,26 @@ class UserHandler:
         ))
         return [User(**filter_cosmos_fields(user)) for user in users]
 
+    def save_user(self, user: User) -> Optional[User]:
+        """Save a user model to the database and return the updated model."""
+        try:
+            # Set updated timestamp
+            user.updated_at = datetime.now(UTC)
+            
+            # Convert to dict for storage, Pydantic handles serialization
+            user_data = user.model_dump(exclude_unset=True, exclude_none=True)
+            
+            # Update item in Cosmos DB
+            updated_item = self.container.replace_item(item=user.id, body=user_data)
+            return User(**filter_cosmos_fields(updated_item))
+        except Exception as e:
+            print(f"Error saving user: {e}")
+            return None
+    
     def update_user(self, user_id: str, email: Optional[str] = None, name: Optional[str] = None,
                      role: Optional[str] = None,
                      plaudSettingsDict: Optional[dict] = None) -> Optional[User]:
-        """Update user details like email, name, and role, and return the updated User model."""
+        """Legacy method - use save_user() for cleaner API"""
         try:
             user_item = self.get_user(user_id)
             if user_item:
@@ -92,15 +136,7 @@ class UserHandler:
                 if plaudSettingsDict is not None:
                     user_item.plaudSettings = PlaudSettings(**plaudSettingsDict)
                 
-                
-                user_item.updated_at = datetime.now(datetime.UTC).isoformat()
-
-                
-                user_data = user_item.model_dump(exclude_unset=True, exclude_none=True)
-
-                # Update item in Cosmos DB
-                updated_item = self.container.replace_item(item=user_id, body=user_data)
-                return User(**filter_cosmos_fields(updated_item))
+                return self.save_user(user_item)
             return None
         except Exception as e:
             print(f"Error updating user: {e}")

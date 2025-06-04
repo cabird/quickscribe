@@ -75,14 +75,12 @@ def update_plaud_settings():
             except ValueError:
                 return jsonify({'error': 'Invalid timestamp format'}), 400
         
-        # Update user record
-        user.plaudSettings = current_settings
+        # Update user record with Pydantic model
+        from db_handlers.user_handler import PlaudSettings
+        user.plaudSettings = PlaudSettings(**current_settings)
 
         user_handler = create_user_handler()
-        updated_user = user_handler.update_user(
-            user.id, 
-            plaudSettings=current_settings
-        )
+        updated_user = user_handler.save_user(user)
         
         if not updated_user:
             return jsonify({'error': 'Failed to update user settings'}), 500
@@ -97,7 +95,7 @@ def update_plaud_settings():
 # Plaud Sync Operations
 # ============================================================================
 
-@plaud_bp.route('/plaud_sync/start', methods=['POST'])
+@plaud_bp.route('/sync/start', methods=['POST'])
 def start_plaud_sync():
     """Trigger a Plaud sync operation"""
     try:
@@ -143,9 +141,9 @@ def start_plaud_sync():
         sync_message = {
             'action': 'plaud_sync',
             'user_id': user.id,
-            'bearerToken': plaud_settings['bearerToken'], 
+            'bearerToken': plaud_settings.bearerToken, 
             #what happens to recordings that didn't sync the last time and are before lastSyncTimestamp?
-            'lastSyncTimestamp': plaud_settings.get('lastSyncTimestamp'), 
+            'lastSyncTimestamp': plaud_settings.lastSyncTimestamp, 
             'processedPlaudIds': processed_ids,
             'callbacks': callbacks,
             'callback_token': sync_token,
@@ -159,7 +157,7 @@ def start_plaud_sync():
                 queue_name=config.TRANSCODING_QUEUE_NAME
             )
             queue_client.send_message(json.dumps(sync_message))
-            logger.info(f"Sent Plaud sync message to queue for user {user.id}")
+            logger.info(f"Sent Plaud sync message to queue {config.TRANSCODING_QUEUE_NAME} for user {user.id}")
             
         except Exception as queue_error:
             logger.error(f"Failed to send Plaud sync message to queue: {queue_error}")
@@ -167,11 +165,10 @@ def start_plaud_sync():
         
         # Update user's sync status with active sync token
         user_handler = create_user_handler()
-        # Update the plaud settings with the new sync token
-        plaud_settings_dict = plaud_settings.copy()
-        plaud_settings_dict['activeSyncToken'] = sync_token
-        plaud_settings_dict['activeSyncStarted'] = datetime.now(UTC).isoformat()
-        user_handler.update_user(user.id, plaudSettings=plaud_settings_dict)
+        # Use clean model API - set fields directly on the datetime object
+        user.plaudSettings.activeSyncToken = sync_token
+        user.plaudSettings.activeSyncStarted = datetime.now(UTC)
+        user_handler.save_user(user)
         logger.info(f"Stored sync token for user {user.id}")
         
         return jsonify({
@@ -264,7 +261,7 @@ def plaud_callback():
                 # Clear the expired token
                 user.plaudSettings.activeSyncToken = None
                 user.plaudSettings.activeSyncStarted = None
-                user_handler.update_user(user_id, plaudSettings=user.plaudSettings.model_dump())
+                user_handler.save_user(user)
                 return jsonify({'error': 'Sync token expired'}), 401
         
         # Handle different callback actions
@@ -407,8 +404,8 @@ def handle_plaud_sync_status(data):
             user_handler = create_user_handler()
             user = user_handler.get_user(user_id)
             if user and user.plaudSettings:
-                user.plaudSettings['lastSyncTimestamp'] = datetime.now(UTC).isoformat()
-                user_handler.update_user(user_id, plaudSettings=user.plaudSettings)
+                user.plaudSettings.lastSyncTimestamp = datetime.now(UTC)
+                user_handler.save_user(user)
                 
         elif status == 'failed':
             # Sync operation failed
