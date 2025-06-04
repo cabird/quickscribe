@@ -3,12 +3,14 @@ import { ColorSchemeToggle } from '../components/ColorSchemeToggle/ColorSchemeTo
 import { Container, Title, Text, Button, Group } from '@mantine/core';
 import { Link } from 'react-router-dom';
 import classes from './home.page.module.css';
-import { IconFileText, IconMicrophone, IconUpload } from '@tabler/icons-react';
+import { IconFileText, IconMicrophone, IconUpload, IconRefresh } from '@tabler/icons-react';
 import { getApiVersion } from '@/api/util';
+import { notifications } from '@mantine/notifications';
 
 export function HomePage() {
 
   const [apiVersion, setApiVersion] = useState<string>('');
+  const [syncLoading, setSyncLoading] = useState(false);
 
   useEffect(() => {
     const fetchVersion = async () => {
@@ -21,6 +23,45 @@ export function HomePage() {
     };
     fetchVersion();
   }, []);
+
+  const handlePlaudSync = async () => {
+    setSyncLoading(true);
+    try {
+      const response = await fetch('/plaud/sync/start', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ dry_run: false }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        notifications.show({
+          title: 'Plaud Sync Started',
+          message: 'Your Plaud recordings are being synced in the background',
+          color: 'green',
+          icon: <IconRefresh size={16} />,
+        });
+      } else {
+        const error = await response.json();
+        notifications.show({
+          title: 'Sync Failed',
+          message: error.error || 'Failed to start Plaud sync',
+          color: 'red',
+        });
+      }
+    } catch (error) {
+      console.error('Sync error:', error);
+      notifications.show({
+        title: 'Sync Failed',
+        message: 'Network error while starting sync',
+        color: 'red',
+      });
+    } finally {
+      setSyncLoading(false);
+    }
+  };
 
   return (
     <div style={{ 
@@ -77,6 +118,20 @@ export function HomePage() {
             onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#28a745'}
           >
             Upload a New Recording
+          </Button>
+          <Button
+            onClick={handlePlaudSync}
+            loading={syncLoading}
+            leftSection={<IconRefresh size={18} />}
+            style={{
+              backgroundColor: '#ff6b35',
+              color: '#fff',
+              boxShadow: '0px 4px 12px rgba(0, 0, 0, 0.1)',
+            }}
+            onMouseOver={(e) => !syncLoading && (e.currentTarget.style.backgroundColor = '#e55a2b')}
+            onMouseOut={(e) => !syncLoading && (e.currentTarget.style.backgroundColor = '#ff6b35')}
+          >
+            Sync Plaud
           </Button>
         </Group>
       </Container>

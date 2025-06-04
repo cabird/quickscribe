@@ -1,0 +1,315 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "definitions": {
+        "PlaudMetadata": {
+            "properties": {
+                "originalTimestamp": {
+                    "type": "string"
+                },
+                "plaudDuration": {
+                    "type": "number"
+                },
+                "plaudFileSize": {
+                    "type": "number"
+                },
+                "plaudFileType": {
+                    "type": "string"
+                },
+                "plaudFilename": {
+                    "type": "string"
+                },
+                "plaudId": {
+                    "type": "string"
+                },
+                "syncedAt": {
+                    "type": "string"
+                }
+            },
+            "propertyOrder": [
+                "plaudId",
+                "originalTimestamp",
+                "plaudFilename",
+                "plaudFileSize",
+                "plaudDuration",
+                "plaudFileType",
+                "syncedAt"
+            ],
+            "required": [
+                "originalTimestamp",
+                "plaudDuration",
+                "plaudFileSize",
+                "plaudFileType",
+                "plaudFilename",
+                "plaudId",
+                "syncedAt"
+            ],
+            "type": "object"
+        },
+        "PlaudSettings": {
+            "properties": {
+                "activeSyncStarted": {
+                    "type": "string"
+                },
+                "activeSyncToken": {
+                    "type": "string"
+                },
+                "bearerToken": {
+                    "type": "string"
+                },
+                "enableSync": {
+                    "type": "boolean"
+                },
+                "lastSyncTimestamp": {
+                    "type": "string"
+                }
+            },
+            "propertyOrder": [
+                "bearerToken",
+                "lastSyncTimestamp",
+                "enableSync",
+                "activeSyncToken",
+                "activeSyncStarted"
+            ],
+            "required": [
+                "bearerToken"
+            ],
+            "type": "object"
+        },
+        "Recording": {
+            "properties": {
+                "az_transcription_id": {
+                    "type": "string"
+                },
+                "duration": {
+                    "type": "number"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "original_filename": {
+                    "type": "string"
+                },
+                "partitionKey": {
+                    "type": "string"
+                },
+                "plaudMetadata": {
+                    "$ref": "#/definitions/PlaudMetadata"
+                },
+                "source": {
+                    "enum": [
+                        "plaud",
+                        "stream",
+                        "upload"
+                    ],
+                    "type": "string"
+                },
+                "transcoding_completed_at": {
+                    "type": "string"
+                },
+                "transcoding_error_message": {
+                    "type": "string"
+                },
+                "transcoding_retry_count": {
+                    "type": "integer"
+                },
+                "transcoding_started_at": {
+                    "type": "string"
+                },
+                "transcoding_status": {
+                    "enum": [
+                        "completed",
+                        "failed",
+                        "in_progress",
+                        "not_started",
+                        "queued"
+                    ],
+                    "type": "string"
+                },
+                "transcoding_token": {
+                    "type": "string"
+                },
+                "transcription_error_message": {
+                    "type": "string"
+                },
+                "transcription_id": {
+                    "type": "string"
+                },
+                "transcription_status": {
+                    "enum": [
+                        "completed",
+                        "failed",
+                        "in_progress",
+                        "not_started"
+                    ],
+                    "type": "string"
+                },
+                "transcription_status_updated_at": {
+                    "type": "string"
+                },
+                "unique_filename": {
+                    "type": "string"
+                },
+                "upload_timestamp": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "string"
+                }
+            },
+            "propertyOrder": [
+                "id",
+                "user_id",
+                "original_filename",
+                "unique_filename",
+                "duration",
+                "transcription_status",
+                "transcription_status_updated_at",
+                "transcription_id",
+                "az_transcription_id",
+                "transcription_error_message",
+                "transcoding_status",
+                "transcoding_started_at",
+                "transcoding_completed_at",
+                "transcoding_error_message",
+                "transcoding_retry_count",
+                "transcoding_token",
+                "upload_timestamp",
+                "source",
+                "plaudMetadata",
+                "partitionKey"
+            ],
+            "required": [
+                "id",
+                "original_filename",
+                "partitionKey",
+                "unique_filename",
+                "user_id"
+            ],
+            "type": "object"
+        },
+        "Transcription": {
+            "properties": {
+                "az_raw_transcription": {
+                    "type": "string"
+                },
+                "az_transcription_id": {
+                    "type": "string"
+                },
+                "diarized_transcript": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "partitionKey": {
+                    "type": "string"
+                },
+                "recording_id": {
+                    "type": "string"
+                },
+                "speaker_mapping": {
+                    "additionalProperties": {
+                        "properties": {
+                            "name": {
+                                "type": "string"
+                            },
+                            "reasoning": {
+                                "type": "string"
+                            }
+                        },
+                        "propertyOrder": [
+                            "name",
+                            "reasoning"
+                        ],
+                        "required": [
+                            "name",
+                            "reasoning"
+                        ],
+                        "type": "object"
+                    },
+                    "propertyOrder": [],
+                    "type": "object"
+                },
+                "text": {
+                    "type": "string"
+                },
+                "transcript_json": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "string"
+                }
+            },
+            "propertyOrder": [
+                "id",
+                "user_id",
+                "recording_id",
+                "diarized_transcript",
+                "text",
+                "transcript_json",
+                "az_raw_transcription",
+                "az_transcription_id",
+                "partitionKey",
+                "speaker_mapping"
+            ],
+            "required": [
+                "id",
+                "partitionKey",
+                "recording_id",
+                "user_id"
+            ],
+            "type": "object"
+        },
+        "User": {
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "email": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "is_test_user": {
+                    "type": "boolean"
+                },
+                "last_login": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "partitionKey": {
+                    "type": "string"
+                },
+                "plaudSettings": {
+                    "$ref": "#/definitions/PlaudSettings"
+                },
+                "role": {
+                    "type": "string"
+                }
+            },
+            "propertyOrder": [
+                "id",
+                "name",
+                "email",
+                "role",
+                "created_at",
+                "last_login",
+                "plaudSettings",
+                "partitionKey",
+                "is_test_user"
+            ],
+            "required": [
+                "id",
+                "partitionKey"
+            ],
+            "type": "object"
+        },
+        "integer": {
+            "type": "number"
+        }
+    }
+}
+

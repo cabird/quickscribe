@@ -33,7 +33,7 @@ def handle_auth_callback():
     )
     if "access_token" in result:
         session["user"] = result["id_token_claims"]
-        return redirect(url_for('index'))
+        return redirect(url_for('serve_root'))
     return "Login failed", 400
 
 def get_user():

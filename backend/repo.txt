@@ -1,0 +1,2419 @@
+Directory Structure:
+-------------------
+/ 
+├── db_handlers/
+│   ├── __init__.py
+│   ├── fixup_request.prompt
+│   ├── handler_factory.py
+│   ├── models.py
+│   ├── recording_handler.py
+│   ├── recording_handler.py.bak
+│   ├── recording_handler.py.llm_update
+│   ├── transcription_handler.py
+│   ├── transcription_handler.py.llm_update
+│   ├── user_handler.py
+│   ├── user_handler.py.llm_update
+│   └── util.py
+├── frontend-dist/
+│   ├── assets/
+│   │   ├── favicon-Bt4n31A2.svg
+│   │   ├── index-BEaQ6oam.js
+│   │   └── index-Cnlk990w.css
+│   └── index.html
+├── local_packages/
+│   └── swagger_client-1.0.0-py3-none-any.whl
+├── routes/
+│   ├── api.py
+│   └── az_transcription_routes.py
+├── static/
+│   └── styles.css
+├── templates/
+│   ├── base.html
+│   ├── index.html
+│   ├── recordings.html
+│   ├── upload.html
+│   └── view_transcription.html
+├── .bumpversion.cfg
+├── .dockerignore
+├── .env
+├── .foo.swp
+├── .gitignore
+├── .Makefile.swp
+├── .swp
+├── __init__.py
+├── api_version.py
+├── app.py
+├── auth.py
+├── auth_ids
+├── azure_diarization.json
+├── blob_util.py
+├── check-azure-quotas.sh
+├── config.py
+├── cosmos_schema
+├── deploy-local.sh
+├── deploy-to-azure.sh
+├── Dockerfile
+├── dryrun-deploy.sh
+├── example.env
+├── fileinclude
+├── filelist.txt
+├── fixup_cosmos_data.py
+├── generate_example_env.py
+├── generate_filelist.py
+├── llms.py
+├── Makefile
+├── manage.py
+├── prompts.yaml
+├── qc
+├── repo.txt
+├── repo2file.exclusion
+├── requirements.txt
+├── startup.sh
+├── test.py
+├── user_util.py
+└── util.py
+
+File Contents:
+--------------
+File: ./util.py
+--------------------------------------------------
+Content of ./util.py:
+import jinja2
+from mutagen.mp3 import MP3
+from mutagen.mp4 import MP4
+from pydub import AudioSegment
+from typing import Dict
+_js_escapes = {
+        '\\': '\\u005C',
+        '\'': '\\u0027',
+        '"': '\\u0022',
+        '>': '\\u003E',
+        '<': '\\u003C',
+        '&': '\\u0026',
+        '=': '\\u003D',
+        '-': '\\u002D',
+        ';': '\\u003B',
+        u'\u2028': '\\u2028',
+        u'\u2029': '\\u2029'
+}
+# Escape every ASCII character with a value less than 32.
+_js_escapes.update(('%c' % z, '\\u%04X' % z) for z in range(32))
+
+def jinja2_escapejs_filter(value):
+        retval = [_js_escapes.get(letter, letter) for letter in value]
+        return jinja2.utils.markupsafe.Markup("".join(retval))
+
+
+def get_recording_duration_in_seconds(file_path):
+    if file_path.lower().endswith('.mp3'):
+        audio = MP3(file_path)
+        return audio.info.length  # Duration in seconds
+    elif file_path.lower().endswith('.m4a'):
+        audio = MP4(file_path)
+        return audio.info.length  # Duration in seconds
+    else:
+        raise ValueError("Unsupported file type. Only MP3 and M4A files are supported.")
+
+def format_duration(seconds):
+    hours = int(seconds // 3600)
+    minutes = int((seconds % 3600) // 60)
+    secs = int(seconds % 60)
+
+    if hours > 0:
+        return f"{hours}h {minutes}m"
+    elif minutes > 0:
+        return f"{minutes}m {secs}s"
+    else:
+        return f"{secs}s"
+
+def ellide(text, max_length):
+    if len(text) > max_length:
+        return text[:max_length] + "..."
+    else:
+        return text
+
+AudioSegment.ffmpeg = "/usr/bin/ffmpeg"
+valid_file_extensions = ["mp3", "m4a"] # TODO - are there other valid file extensions?
+def convert_to_mp3(source_file_path: str, target_file_path: str):
+    extension = source_file_path.lower().split(".")[-1]
+    if extension not in valid_file_extensions:
+        raise ValueError(f"Unsupported file type. Only {', '.join(valid_file_extensions)} files are supported.")
+    if extension == "m4a":
+        audio = AudioSegment.from_file(source_file_path, format="m4a")
+    elif extension == "mp3":
+        audio = AudioSegment.from_file(source_file_path, format="mp3")
+    else:
+        raise ValueError(f"Unsupported file type. Only {', '.join(valid_file_extensions)} files are supported.")
+    audio.export(target_file_path, format="mp3", bitrate="128k", parameters=["-ac", "1"])
+
+def update_diarized_transcript(diarized_transcript: str, speaker_labels: Dict[str, str]) -> str:
+    for original_speaker, new_label in speaker_labels.items():
+        diarized_transcript = diarized_transcript.replace(original_speaker, new_label)
+    return diarized_transcript
+
+
+File: ./__init__.py
+--------------------------------------------------
+Content of ./__init__.py:
+from .config import config
+
+
+File: ./fixup_cosmos_data.py
+--------------------------------------------------
+Content of ./fixup_cosmos_data.py:
+
+from config import config
+from db_handlers.handler_factory import create_recording_handler, create_transcription_handler, create_user_handler
+from db_handlers.models import TranscriptionStatus
+from datetime import datetime, UTC
+from azure.storage.blob import BlobServiceClient
+from util import get_recording_duration_in_seconds
+import os
+import logging
+
+# setup logging
+logging.basicConfig(level=logging.INFO)
+
+# Suppress INFO logs from azure.core.pipeline.policies.http_logging_policy
+logging.getLogger('azure.core.pipeline.policies.http_logging_policy').setLevel(logging.WARNING)
+
+
+def fixup_recording(recording):
+    changed = False
+    if not 'transcription_status' in recording:
+        logging.info(f"fixup_recording: setting transcription_status to {TranscriptionStatus.not_started} for recording {recording['id']}")
+        recording['transcription_status'] = TranscriptionStatus.not_started
+        changed = True
+    
+    if not 'transcription_status_updated_at' in recording:
+        logging.info(f"fixup_recording: setting transcription_status_updated_at to {datetime.now(UTC).timestamp()} for recording {recording['id']}")
+        recording['transcription_status_updated_at'] = datetime.now(UTC).timestamp()
+        changed = True
+
+    original_extension = recording['original_filename'].split(".")[-1]
+    unique_extension = recording['unique_filename'].split(".")[-1]
+    if original_extension != unique_extension:
+        first_unique_filename = recording['unique_filename']
+        logging.info(f"fixup_recording: original_extension {original_extension} != unique_extension {unique_extension} for recording {recording['id']}")
+        recording['unique_filename'] = recording['unique_filename'].split(".")[0] + "." + original_extension
+        
+        logging.info(f"fixup_recording: copying {first_unique_filename} to {recording['unique_filename']} for recording {recording['id']}")
+        #rename the blob in azure blob storage
+        blob_client = BlobServiceClient.from_connection_string(config.AZURE_STORAGE_CONNECTION_STRING).get_blob_client(container=config.AZURE_RECORDING_BLOB_CONTAINER, blob=first_unique_filename)
+        new_blob_client = BlobServiceClient.from_connection_string(config.AZURE_STORAGE_CONNECTION_STRING).get_blob_client(container=config.AZURE_RECORDING_BLOB_CONTAINER, blob=recording['unique_filename'])
+        new_blob_client.start_copy_from_url(blob_client.url)
+        blob_client.delete_blob()
+
+        changed = True
+
+    #calculate the duration of the recording
+    if not 'duration' in recording:
+        logging.info(f"fixup_recording: calculating duration for recording {recording['id']}")
+        # get the blob from azure blob storage
+        blob_client = BlobServiceClient.from_connection_string(config.AZURE_STORAGE_CONNECTION_STRING).get_blob_client(container=config.AZURE_RECORDING_BLOB_CONTAINER, blob=recording['unique_filename'])
+
+        # write the blob to a file
+        filename = recording['unique_filename']
+        with open(filename, "wb") as f:
+            f.write(blob_client.download_blob().readall())
+        recording['duration'] = get_recording_duration_in_seconds(filename)
+        os.remove(filename)
+        changed = True
+
+    return changed
+
+def fixup_recordings_for_transcription_id():
+    recording_handler = create_recording_handler()
+    transcription_handler = create_transcription_handler()
+    container = recording_handler.container
+    query = "SELECT * FROM c"
+    for recording in container.query_items(query=query, partition_key="recording"):
+        transcription = transcription_handler.get_transcription_by_recording(recording['id'])
+        if recording.get("transcription_id", "") != transcription.id:
+            recording["transcription_id"] = transcription.id
+            container.upsert_item(recording)
+            logging.info(f"fixup_cosmos_data: updated recording {recording['id']} with transcription {transcription.id}")
+        
+        
+
+
+def fixup_remove_diarization_and_speaker_mapping():
+    transcription_handler = create_transcription_handler()
+    container = transcription_handler.container
+    query = "SELECT * FROM c"
+    for item in container.query_items(query=query, partition_key="transcription"):
+        changed = False 
+        if "callback_secret" in item:
+            del item["callback_secret"]
+            changed = True
+        if "aai_transcript_id" in item:
+            del item["aai_transcript_id"]
+            changed = True
+        if "diarized_transcript" in item:
+            del item["diarized_transcript"]
+            changed = True
+        if changed:
+            container.upsert_item(item)
+            logging.info(f"fixup_cosmos_data: updated item {item['id']}")
+
+
+def fixup_transcriptions():
+    transcription_handler = create_transcription_handler()
+    container = transcription_handler.container
+    query = "SELECT * FROM c"
+    for item in container.query_items(query=query, partition_key="transcription"):
+        changed = False
+        if "transcription_status" in item:
+            del item["transcription_status"]
+            changed = True
+        if "transcription_progress" in item:
+            del item["transcription_progress"]
+            changed = True
+        if changed:
+            container.upsert_item(item)
+            logging.info(f"fixup_cosmos_data: updated item {item['id']}")
+        if item["id"].startswith("f798c"):
+            item["transcription_status"] = "in_progress"
+            container.upsert_item(item)
+            logging.info(f"fixup_cosmos_data: updated item {item['id']}")
+
+def fixup_item():
+    transcription_handler = create_transcription_handler()
+    container = transcription_handler.container
+    query = "SELECT * FROM c"
+    items = container.query_items(
+        query=query, 
+        partition_key="recording", 
+    )
+    for item in items:
+        logging.info(f"fixup_cosmos_data: examining item {item['id']}")
+        if item["id"].startswith("f798c"):
+            item["transcription_status"] = "in_progress"
+            container.upsert_item(item)
+            logging.info(f"fixup_cosmos_data: updated item {item['id']}")
+
+def main():
+    fixup_recordings_for_transcription_id()
+
+if __name__ == "__main__":
+    main()
+
+File: ./blob_util.py
+--------------------------------------------------
+Content of ./blob_util.py:
+from typing import Dict, List
+from azure.storage.blob import BlobServiceClient, generate_blob_sas, BlobSasPermissions
+from azure.storage.queue import QueueClient
+from datetime import datetime, timedelta
+from config import config
+import json
+
+import logging
+logging.basicConfig(level=logging.INFO)
+
+def store_recording_as_blob(file_path, blob_filename):
+    blob_client = BlobServiceClient.from_connection_string(config.AZURE_STORAGE_CONNECTION_STRING).get_blob_client(container=config.AZURE_RECORDING_BLOB_CONTAINER, blob=blob_filename)
+    with open(file_path, "rb") as data:
+        blob_client.upload_blob(data)
+
+
+def save_blob_to_local_file(blob_filename, local_file_path):
+    blob_client = BlobServiceClient.from_connection_string(config.AZURE_STORAGE_CONNECTION_STRING).get_blob_client(container=config.AZURE_RECORDING_BLOB_CONTAINER, blob=blob_filename)
+    with open(local_file_path, "wb") as data:
+        data.write(blob_client.download_blob().readall())
+
+def generate_recording_sas_url(filename):
+    blob_service_client = BlobServiceClient.from_connection_string(config.AZURE_STORAGE_CONNECTION_STRING)
+    sas_token = generate_blob_sas(
+        account_name=blob_service_client.account_name,
+        container_name=config.AZURE_RECORDING_BLOB_CONTAINER,
+        blob_name=filename,
+        account_key=blob_service_client.credential.account_key,
+        permission=BlobSasPermissions(read=True),
+        expiry=datetime.utcnow() + timedelta(hours=1)
+    )
+    blob_sas_url = f"https://{blob_service_client.account_name}.blob.core.windows.net/{config.AZURE_RECORDING_BLOB_CONTAINER}/{filename}?{sas_token}"
+    return blob_sas_url
+
+def generate_recording_sas_url(filename, read=True, write=False):
+    """
+    Generate a SAS URL for a blob with specified permissions.
+    
+    Args:
+        filename: Name of the blob file
+        read: Whether to allow read access
+        write: Whether to allow write access
+    
+    Returns:
+        SAS URL with the specified permissions
+    """
+    blob_service_client = BlobServiceClient.from_connection_string(config.AZURE_STORAGE_CONNECTION_STRING)
+    
+    # Set permissions based on the parameter
+    blob_permissions = BlobSasPermissions(read=read, write=write, create=write)
+
+    sas_token = generate_blob_sas(
+        account_name=blob_service_client.account_name,
+        container_name=config.AZURE_RECORDING_BLOB_CONTAINER,
+        blob_name=filename,
+        account_key=blob_service_client.credential.account_key,
+        permission=blob_permissions,
+        expiry=datetime.utcnow() + timedelta(days=1)
+    )
+    
+    blob_sas_url = f"https://{blob_service_client.account_name}.blob.core.windows.net/{config.AZURE_RECORDING_BLOB_CONTAINER}/{filename}?{sas_token}"
+    return blob_sas_url
+
+def send_to_transcoding_queue(recording_id: str, source_blob_filename: str, target_blob_filename: str, original_filename: str, user_id: str, callbacks: List[Dict[str, str]]):
+    logging.info(f"Sending transcoding request for recording ID: {recording_id} to queue: {config.TRANSCODING_QUEUE_NAME}")
+    queue_client = QueueClient.from_connection_string(config.AZURE_STORAGE_CONNECTION_STRING, queue_name=config.TRANSCODING_QUEUE_NAME)
+
+    source_sas_url = generate_recording_sas_url(source_blob_filename, read=True, write=False)
+    target_sas_url = generate_recording_sas_url(target_blob_filename, read=True, write=True)
+
+    # the assumption is that these are in the recordings container of the storage account, found in config.AZURE_RECORDING_BLOB_CONTAINER
+    obj = {
+        "action": "transcode",
+        "recording_id": recording_id,
+        "original_filename": original_filename,
+        "user_id": user_id,
+        "source_sas_url": source_sas_url,
+        "target_sas_url": target_sas_url,
+        "callbacks": callbacks
+    }
+    queue_client.send_message(json.dumps(obj))
+    
+
+File: ./llms.py
+--------------------------------------------------
+Content of ./llms.py:
+import os
+import requests
+import base64
+import json
+from config import config
+import yaml
+import logging
+from typing import Dict, List
+
+# Configuration
+API_KEY = config.AZURE_OPENAI_API_KEY
+ENDPOINT = config.AZURE_OPENAI_API_ENDPOINT
+DEPLOYMENT_NAME = config.AZURE_OPENAI_DEPLOYMENT_NAME
+API_VERSION = config.AZURE_OPENAI_API_VERSION
+
+ENDPOINT = f"{ENDPOINT}/openai/deployments/{DEPLOYMENT_NAME}/chat/completions?api-version={API_VERSION}"
+headers = {
+    "Content-Type": "application/json",
+    "api-key": API_KEY,
+}
+
+# Payload for the request
+payload = {
+  "messages": [
+    {
+      "role": "system",
+      "content": [
+        {
+          "type": "text",
+          "text": "You are an AI assistant that helps people find information."
+        }
+      ]
+    },
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "text",
+          "text": "tell me a joke"
+        }
+      ]
+    }
+  ],
+  "temperature": 0.1,
+  "top_p": 0.95,
+  "max_tokens": 800
+}
+
+with open("prompts.yaml", 'r') as stream:
+    prompts = yaml.safe_load(stream)
+
+infer_speaker_prompt = prompts['prompts']['infer_speaker_names']['prompt']
+get_speaker_summaries_prompt = prompts['prompts']['get_speaker_summaries']['prompt']
+
+def get_speaker_mapping(transcript_text):
+    prompt = infer_speaker_prompt.replace("__TRANSCRIPT__", transcript_text)
+    payload["messages"][1]["content"][0]["text"] = prompt
+    response = send_prompt_to_llm(prompt)
+    updated_transcript_text = ""
+    #extract the json portion and validate it
+    try:
+        logging.info(response)
+        json_start = response.find("{")
+        json_end = response.rfind("}") + 1
+        response_json = json.loads(response[json_start:json_end])
+        logging.info(json.dumps(response_json, indent=4))
+
+        #now get the list of all speakers from the transcript_text. they look like this:
+        # Speaker 1: some stuff
+        # Speaker 2: I said another thing
+        # Speaker 3: lots of stuff
+        # Speaker 2: blah blah blah
+        speakers = set()
+        for line in transcript_text.split("\n"):
+            if line.startswith("Speaker"):
+                speaker_name = line.split(":")[0]
+                speakers.add(speaker_name)
+        # now check that each speaker in the transcript_text is in the response_json
+        for speaker in speakers:
+            if speaker not in response_json:
+                raise ValueError(f"Speaker {speaker} not found in response_json")
+
+        # now replace the speaker names in the transcript_text with the speaker mapping
+        for speaker in speakers:
+            transcript_text = transcript_text.replace(speaker, response_json[speaker]["name"])
+        updated_transcript_text = transcript_text
+        
+
+    except json.JSONDecodeError:
+        raise ValueError("Invalid JSON response from the LLM")
+    return response_json, updated_transcript_text
+
+def extract_json_from_response(response: str) -> Dict:
+    """
+    Extracts the JSON from the response string even if there are other parts in the response.
+    """
+    json_start = response.find("{")
+    json_end = response.rfind("}") + 1
+    return json.loads(response[json_start:json_end])
+
+
+def get_speaker_summaries_via_llm(transcript_text: str) -> Dict[str, str]:
+    prompt = get_speaker_summaries_prompt.replace("__TRANSCRIPT__", transcript_text)
+    response = send_prompt_to_llm(prompt)
+    # Parse the response to extract speaker summaries
+    summaries = parse_speaker_summaries(response)
+    return summaries
+
+
+def parse_speaker_summaries(response: str) -> Dict[str, str]:
+    """
+    Parses the response to extract the speaker summaries.  Assumes the response is in the format specified in the prompts.yaml file.
+    { "speaker_summaries": {
+        "Speaker Name 1": "<one-sentence summary>",
+        "Speaker Name 2": "<one-sentence summary>"
+      }
+    }
+    """
+    response_json = extract_json_from_response(response)
+    return response_json["speaker_summaries"]
+
+def send_prompt_to_llm(prompt):
+    payload["messages"][1]["content"][0]["text"] = prompt
+
+    # Send request
+    try:
+        response = requests.post(ENDPOINT, headers=headers, json=payload)
+        response.raise_for_status()  # Will raise an HTTPError if the HTTP request returned an unsuccessful status code
+    except requests.RequestException as e:
+        raise SystemExit(f"Failed to make the request. Error: {e}")
+
+    return response.json()["choices"][0]["message"]["content"]
+
+
+
+# Example usage
+if __name__ == "__main__":
+    prompt = "Tell me a joke about computers."
+    response = send_prompt_to_llm(prompt)
+    if response:
+        print(f"LLM Response:\n{response}")
+
+
+File: ./Makefile
+--------------------------------------------------
+Content of ./Makefile:
+RESOURCE_GROUP = QuickScribeResourceGroup
+APP_NAME = QuickScribeWebApp
+SPEECH_CLIENT_DIR = azure_speech/python-client
+SHARED_DIR = ../shared
+
+.PHONY: build_packages bump_version build_zip clean build
+
+default: build
+
+repo2file:
+	repo2file . repo.txt repo2file.exclusion .py .ts Makefile
+
+build: db_handlers/models.py
+
+db_handlers/models.py: $(SHARED_DIR)/Models.ts
+	typescript-json-schema $(SHARED_DIR)/Models.ts "*" --propOrder --required --out $(SHARED_DIR)/models.schema.json 
+	datamodel-codegen --input $(SHARED_DIR)/models.schema.json --input-file-type jsonschema  --output-model-type pydantic_v2.BaseModel --output db_handlers/models.py
+
+build_packages:
+	$(MAKE) -C $(SPEECH_CLIENT_DIR) build
+	mkdir -p local_packages
+	cp $(SPEECH_CLIENT_DIR)/dist/*whl local_packages
+
+bump_version:
+	bump2version --allow-dirty patch
+	@cat api_version.py
+
+build_zip: build_packages
+	rm -f app.zip
+	pip freeze | grep -v "swagger_client" > requirements.txt
+	python generate_filelist.py
+	zip app.zip -@ < filelist.txt
+
+deploy_azure: build_zip
+	@echo "Ensure that you are logged in to the Azure CLI *AND* that you have elevated your permissions to the Contributor."
+	# set an app setting to force a build during deployment
+	az webapp config appsettings set --name $(APP_NAME) --resource-group $(RESOURCE_GROUP) --settings SCM_DO_BUILD_DURING_DEPLOYMENT=false
+	az webapp deploy --name $(APP_NAME) --resource-group $(RESOURCE_GROUP) --type zip --src-path app.zip
+
+deploy_to_test: build_zip
+	@echo "Ensure that you are logged in to the Azure CLI *AND* that you have elevated your permissions to the Contributor."
+	# set an app setting to force a build during deployment
+	az webapp config appsettings set --name $(APP_NAME) --resource-group $(RESOURCE_GROUP) --slot test --settings SCM_DO_BUILD_DURING_DEPLOYMENT=false
+	az webapp deploy --name $(APP_NAME) --resource-group $(RESOURCE_GROUP) --slot test --type zip --src-path app.zip
+
+deploy: deploy_azure
+
+clean:
+	$(MAKE) -C $(SPEECH_CLIENT_DIR) clean
+	rm -rf local_packages
+	rm -rf app.zip
+	rm -rf filelist.txt
+
+
+File: ./app.py
+--------------------------------------------------
+Content of ./app.py:
+from flask import Flask, render_template, request, jsonify, g, send_from_directory    
+import os
+import requests
+from azure.identity import DefaultAzureCredential
+from azure.keyvault.secrets import SecretClient
+from dotenv import load_dotenv
+from azure.cosmos import CosmosClient, PartitionKey
+from azure.storage.blob import BlobServiceClient, ContentSettings, generate_blob_sas, BlobSasPermissions
+from db_handlers.user_handler import UserHandler
+from db_handlers.recording_handler import RecordingHandler
+from db_handlers.transcription_handler import TranscriptionHandler
+from datetime import datetime, UTC
+from routes.az_transcription_routes import az_transcription_bp, check_in_progress_transcription
+from routes.api import api_bp
+from api_version import API_VERSION
+import logging
+from user_util import get_user
+from config import config
+import auth
+
+from util import jinja2_escapejs_filter, get_recording_duration_in_seconds, format_duration, ellide, convert_to_mp3
+from db_handlers.handler_factory import get_recording_handler, get_transcription_handler, get_user_handler
+import time
+import logging
+
+load_dotenv()
+
+app = Flask(__name__, static_folder='frontend-dist', static_url_path=None)
+app.secret_key = config.SECRET_KEY
+app.config['PREFERRED_URL_SCHEME'] = 'https'
+
+# Create a context processor to make API_VERSION available globally
+@app.context_processor
+def inject_api_version():
+    return dict(api_version=API_VERSION)
+
+logging.basicConfig(level=logging.INFO)
+# Set logging level for Azure SDK components to suppress headers
+# TODO - could move this to an environment variable
+logging.getLogger('azure.core.pipeline.policies.http_logging_policy').setLevel(logging.WARNING)
+logging.info("Starting QuickScribe Web App")
+
+TRANSCRIPTION_IN_PROGRESS_TIMEOUT_SECONDS = 24 * 60 * 60 * 30 # 30 days
+
+app.register_blueprint(az_transcription_bp, url_prefix='/az_transcription')
+app.register_blueprint(api_bp, url_prefix='/api')
+# Initialize the BlobServiceClient
+blob_service_client = BlobServiceClient.from_connection_string(config.AZURE_STORAGE_CONNECTION_STRING)
+
+# Initialize Cosmos DB client
+cosmos_client = CosmosClient(config.COSMOS_URL, credential=config.COSMOS_KEY)
+cosmos_database = cosmos_client.get_database_client(config.COSMOS_DB_NAME)
+cosmos_container = cosmos_database.get_container_client(config.COSMOS_CONTAINER_NAME)
+
+@app.route('/auth/login')
+def login():
+    return auth.login()
+
+@app.route('/auth/callback')
+def callback():
+    return auth.handle_auth_callback()
+
+#@app.route("/", defaults={'path': ''})
+#@app.route("/<path:path>")
+@app.route("/<path:path>", endpoint='catch_all')
+def serve_static(path):
+    logging.info(f"received request for: {path}")
+    if path.startswith( ("auth/", "api/", "az_transcription/") ):
+        logging.info(f"API route detected, returning 404")
+        return jsonify({"error": "Not found"}), 404  # Optional: Provide a custom error or redirect
+
+    # Check for static assets
+    static_file_path = os.path.join(app.static_folder, path)
+    logging.info(f"static_file_path: {static_file_path}")
+    if path != "" and os.path.exists(static_file_path):
+        logging.info(f"Serving static file from: {static_file_path}")
+        return send_from_directory(app.static_folder, path)
+    else:
+        logging.info(f"Not serving static file from: {static_file_path}")
+
+    # For all other routes, including /view_transcription/*, return index.html
+    logging.info(f"Serving index.html for client-side routing at path: {path}")
+    return send_from_directory(app.static_folder, "index.html")
+        
+#Add a separate root route
+@app.route("/")
+def serve_root():
+    logging.info(f"serving root route")
+    return send_from_directory(app.static_folder, "index.html")
+
+# Add this right before `if __name__ == '__main__':`
+print("Registered routes:")
+for rule in app.url_map.iter_rules():
+    print(rule)
+
+if __name__ == '__main__':
+    app.run(debug=True)
+
+
+File: ./api_version.py
+--------------------------------------------------
+Content of ./api_version.py:
+API_VERSION = '0.1.51'
+
+
+File: ./user_util.py
+--------------------------------------------------
+Content of ./user_util.py:
+from config import config
+from db_handlers.user_handler import UserHandler
+
+def get_user(request):
+    # Try to get the user_id from cookies
+    user_id = request.cookies.get('user_id')
+
+    user_handler = UserHandler(config.COSMOS_URL, config.COSMOS_KEY, config.COSMOS_DB_NAME, config.COSMOS_CONTAINER_NAME)
+
+    if user_id:
+        # Fetch user by ID if the user_id exists in the cookie
+        user = user_handler.get_user(user_id)
+    else:
+        # If no user_id in cookie, fetch user by name 'cbird'
+        users = user_handler.get_user_by_name('cbird')
+        user = users[0] if users else None  # Assuming 'cbird' is unique, take the first result
+
+    return user
+
+File: ./generate_example_env.py
+--------------------------------------------------
+Content of ./generate_example_env.py:
+env_file = '.env'
+example_env_file = 'example.env'
+
+with open(env_file, 'r') as infile, open(example_env_file, 'w') as outfile:
+    for line in infile:
+        line = line.strip()
+        if not line or line.startswith('#'):
+            outfile.write(line + '\n')
+        elif '=' in line:
+            key, value = line.split('=', 1)
+            if 'KEY' in key or 'CONNECTION_STRING' in key or 'SECRET' in key or 'ID' in key:
+                value = 'REDACTED'
+            # if there is a url in the value, replace the first part of the url with <fill in>
+            if "http" in value:
+                #get from "//" to the first "." and replace with "<fill in>"
+                parts = value.split("//")
+                parts2 = parts[1].split(".", 1)
+                value = parts[0] + "//<fill in>." + parts2[1]
+            outfile.write(f"{key}={value}\n")
+        else:
+            outfile.write(line + '\n')
+
+print(f"example.env generated successfully: {example_env_file}")
+
+
+File: ./test.py
+--------------------------------------------------
+Content of ./test.py:
+import json
+
+# Sample JSON input
+data = {
+    "source": "https://quickscribestorage.blob.core.windows.net/recordings/test.mp3",
+    "timestamp": "2024-10-23T17:23:38Z",
+    "durationInTicks": 36465600000,
+    "duration": "PT1H46.56S",
+    "combinedRecognizedPhrases": [],
+    "recognizedPhrases": [
+        # Example entries, please add all from the JSON you provided
+    ]
+}
+
+# Function to generate the transcript
+def generate_transcript(data):
+    transcript = []
+    last_speaker = None
+    last_text = []
+
+    for phrase in data["recognizedPhrases"]:
+        current_speaker = phrase["speaker"]
+        current_text = phrase["nBest"][0]["display"]
+
+        # Combine consecutive text if same speaker
+        if current_speaker == last_speaker:
+            last_text.append(current_text)
+        else:
+            if last_text:  # Add the previous speaker's combined text
+                transcript.append(f"Speaker {last_speaker}: " + " ".join(last_text) + "\n")
+            # Reset for new speaker
+            last_speaker = current_speaker
+            last_text = [current_text]
+
+    # Append the last speaker's text after the loop
+    if last_text:
+        transcript.append(f"Speaker {last_speaker}: " + " ".join(last_text) + "\n")
+
+    # Print the formatted transcript
+    for line in transcript:
+        print(line)
+
+data = json.load(open("azure_diarization.json"))
+
+# Call the function with the JSON data
+generate_transcript(data)
+
+
+File: ./config.py
+--------------------------------------------------
+Content of ./config.py:
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+class Config:
+    SECRET_KEY = os.getenv('SECRET_KEY', 'supersecretkey')
+    AZURE_STORAGE_CONNECTION_STRING = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
+    AZURE_RECORDING_BLOB_CONTAINER = os.getenv("AZURE_RECORDING_BLOB_CONTAINER")
+    COSMOS_URL = os.getenv('COSMOS_URL')
+    COSMOS_KEY = os.getenv('COSMOS_KEY')
+    COSMOS_DB_NAME = os.getenv("COSMOS_DB_NAME")
+    COSMOS_CONTAINER_NAME = os.getenv("COSMOS_CONTAINER_NAME")
+    KEY_VAULT_NAME = os.getenv("KEY_VAULT_NAME")
+    AZURE_STORAGE_ACCOUNT_KEY = os.getenv("AZURE_STORAGE_ACCOUNT_KEY")
+
+    TRANSCODING_QUEUE_NAME = os.getenv("TRANSCODING_QUEUE_NAME")
+    
+    # this is a workaround to determine if we're running in a container
+    # https://stackoverflow.com/questions/71411665/how-to-determine-if-a-python-flask-application-is-running-in-a-container
+    RUNNING_IN_CONTAINER = "WEBSITE_INSTANCE_ID" in os.environ
+    
+    #Azure Authentication
+    AZ_AUTH_CLIENT_ID = os.getenv("AZ_AUTH_CLIENT_ID")
+    AZ_AUTH_CLIENT_SECRET = os.getenv("AZ_AUTH_CLIENT_SECRET")
+    AZ_AUTH_TENANT_ID = os.getenv("AZ_AUTH_TENANT_ID")
+
+    #Azure OpenAI
+    AZURE_OPENAI_API_KEY = os.getenv("AZURE_OPENAI_API_KEY")
+    AZURE_OPENAI_API_ENDPOINT = os.getenv("AZURE_OPENAI_API_ENDPOINT")
+    AZURE_OPENAI_API_VERSION = os.getenv("AZURE_OPENAI_API_VERSION")
+    AZURE_OPENAI_DEPLOYMENT_NAME = os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME")
+
+    #AssemblyAI
+    ASSEMBLYAI_SPEECH_MODEL = os.getenv("ASSEMBLYAI_SPEECH_MODEL")
+    ASSEMBLYAI_API_KEY = os.getenv("ASSEMBLYAI_API_KEY")
+
+    #Azure Speech Services
+    AZURE_SPEECH_SERVICES_ENDPOINT = os.getenv("AZURE_SPEECH_SERVICES_ENDPOINT")
+    AZURE_SPEECH_SERVICES_REGION = os.getenv("AZURE_SPEECH_SERVICES_REGION")
+    AZURE_SPEECH_SERVICES_KEY = os.getenv("AZURE_SPEECH_SERVICES_KEY")
+
+config = Config()
+
+
+File: ./manage.py
+--------------------------------------------------
+Content of ./manage.py:
+import click
+from azure.storage.blob import BlobServiceClient
+from azure.cosmos import CosmosClient, PartitionKey
+from db_handlers.handler_factory import create_user_handler, create_recording_handler
+import os
+import json
+from dotenv import load_dotenv
+import swagger_client
+from pprint import pprint
+import requests
+
+
+load_dotenv()
+
+# Azure configurations
+AZURE_STORAGE_CONNECTION_STRING = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
+RECORDINGS_BLOB_CONTAINER = os.getenv("AZURE_RECORDING_BLOB_CONTAINER")
+
+COSMOS_URL = os.getenv("COSMOS_URL")
+COSMOS_KEY = os.getenv("COSMOS_KEY")
+COSMOS_DB_NAME  = os.getenv("COSMOS_DB_NAME")
+COSMOS_CONTAINER_NAME = os.getenv("COSMOS_CONTAINER_NAME")
+
+AZURE_SPEECH_SERVICES_KEY = os.getenv("AZURE_SPEECH_SERVICES_KEY")
+AZURE_SPEECH_SERVICES_ENDPOINT = os.getenv("AZURE_SPEECH_SERVICES_ENDPOINT")
+AZURE_SPEECH_SERVICES_REGION = os.getenv("AZURE_SPEECH_SERVICES_REGION")
+
+# Initialize clients
+blob_service_client = BlobServiceClient.from_connection_string(AZURE_STORAGE_CONNECTION_STRING)
+cosmos_client = CosmosClient(COSMOS_URL, credential=COSMOS_KEY)
+database = cosmos_client.get_database_client(COSMOS_DB_NAME)
+container = database.get_container_client(COSMOS_CONTAINER_NAME)
+
+def find_entry_by_partial_id(partial_id):
+    """
+    Search for an entry in Cosmos DB whose ID starts with the given partial ID.
+    Returns the entry if exactly one match is found, otherwise returns None and prints a message.
+    """
+    # Fetch all entries from Cosmos DB
+    entries = list(container.read_all_items())
+
+    # Search for entries whose ID starts with the given partial ID
+    matching_entries = [entry for entry in entries if entry['id'].startswith(partial_id)]
+
+    if len(matching_entries) == 0:
+        click.echo(f"No entries found with an ID starting with '{partial_id}'")
+        return None
+    elif len(matching_entries) > 1:
+        click.echo(f"Multiple entries found with an ID starting with '{partial_id}':")
+        for entry in matching_entries:
+            click.echo(f"- {entry['id']}")
+        return None
+
+    # If exactly one match is found, return the matched entry
+    return matching_entries[0]
+
+
+@click.group()
+def cli():
+    """A command-line tool to manage Azure Blob Storage and Cosmos DB."""
+    pass
+
+# Command to list all files in the mp3uploads container
+@cli.command()
+def list_blobs():
+    """List all files in the mp3uploads container."""
+    blob_list = blob_service_client.get_container_client(RECORDINGS_BLOB_CONTAINER).list_blobs()
+    click.echo("Files in the 'mp3uploads' container:")
+    for blob in blob_list:
+        click.echo(f"- {blob.name}")
+
+# Command to list all entries in the Cosmos DB
+@cli.command()
+def list_cosmos_entries():
+    """List all entries in Cosmos DB."""
+    entries = list(container.read_all_items())
+    click.echo("Entries in the Cosmos DB:")
+    for entry in entries:
+        click.echo(f"- {entry['id']}: {entry['original_filename']}")
+
+@cli.command()
+@click.argument('partial_id')
+def show_item(partial_id):
+    """Show the full JSON of a particular entry in Cosmos DB by partial ID."""
+    entry = find_entry_by_partial_id(partial_id)
+    
+    if entry:
+        click.echo(json.dumps(entry, indent=4))
+
+
+@cli.command()
+def list_recordings():
+    recording_handler = create_recording_handler()
+    recordings = recording_handler.get_all_recordings()
+    for recording in recordings:
+        click.echo(f"- {recording.id}: {recording.original_filename} {recording.unique_filename}")
+
+@cli.command()
+@click.argument('recording_id')
+def show_recording(recording_id):
+    recording_handler = create_recording_handler()
+    recordings = recording_handler.get_all_recordings()
+    for curRecording in recordings:
+        if curRecording.id.startswith(recording_id):
+            click.echo(json.dumps(curRecording.model_dump(exclude_unset=False), indent=4))
+
+
+# Command to delete a Cosmos DB entry and its associated blob
+@cli.command()
+@click.argument('entry_id')
+def delete_cosmos_entry(entry_id):
+    """Delete an entry in Cosmos DB and the associated file in Blob Storage."""
+    entry = find_entry_by_partial_id(entry_id)
+    if not entry:
+        return
+    try:
+        unique_filename = entry['unique_filename']
+
+        # Delete the file from Blob Storage
+        blob_client = blob_service_client.get_blob_client(container=RECORDINGS_BLOB_CONTAINER, blob=unique_filename)
+        blob_client.delete_blob()
+        click.echo(f"Deleted file: {unique_filename} from Blob Storage")
+
+        # Delete the entry from Cosmos DB
+        container.delete_item(item=entry_id, partition_key="file")
+        click.echo(f"Deleted entry: {entry_id} from Cosmos DB")
+
+    except Exception as e:
+        click.echo(f"Error: {str(e)}")
+
+# Command to check consistency between Cosmos DB and Blob Storage
+@cli.command()
+def check_consistency():
+    """Check that every entry in Cosmos DB has an associated file in Blob Storage and vice versa."""
+    click.echo("Checking consistency between Cosmos DB and Blob Storage...\n")
+
+    # Step 1: Check if every entry in Cosmos DB has a corresponding blob
+    cosmos_entries = list(container.read_all_items())
+    blob_names = {blob.name for blob in blob_service_client.get_container_client(RECORDINGS_BLOB_CONTAINER).list_blobs()}
+
+    missing_files = []
+    for entry in cosmos_entries:
+        if entry['unique_filename'] not in blob_names:
+            missing_files.append(entry['unique_filename'])
+            click.echo(f"Warning: Missing blob for Cosmos DB entry: {entry['id']} (file: {entry['unique_filename']})")
+
+    if not missing_files:
+        click.echo("All Cosmos DB entries have corresponding files in Blob Storage.\n")
+
+    # Step 2: Check if every blob in Blob Storage has a corresponding entry in Cosmos DB
+    cosmos_filenames = {entry['unique_filename'] for entry in cosmos_entries}
+    missing_entries = []
+    for blob_name in blob_names:
+        if blob_name not in cosmos_filenames:
+            missing_entries.append(blob_name)
+            click.echo(f"Warning: Missing Cosmos DB entry for blob: {blob_name}")
+
+    if not missing_entries:
+        click.echo("All files in Blob Storage have corresponding entries in Cosmos DB.\n")
+
+    # Final Summary
+    if not missing_files and not missing_entries:
+        click.echo("Consistency check passed. Everything is in sync!")
+    else:
+        click.echo(f"\nSummary: {len(missing_files)} missing blobs, {len(missing_entries)} missing Cosmos DB entries.")
+
+# Command to create a new user
+@cli.command()
+@click.argument('email')
+@click.argument('name')
+@click.option('--role', default="user", help="Role of the user (default is 'user')")
+def create_user(email, name, role):
+    # Create the user handler
+    user_handler = create_user_handler()
+    """Create a new user with the provided email, name, and optional role."""
+    user_id = user_handler.create_user(email, name, role)
+    click.echo(f"User created with ID: {user_id}")
+
+# Command to list users
+@cli.command()
+def list_users():
+    user_handler = create_user_handler()
+    users = user_handler.get_all_users()
+    for user in users:
+        click.echo(f"- {user['id']}: {user['name']} ({user['email']})")
+
+# command to list transcription jobs
+@cli.command()
+def list_transcriptions():
+    client = get_speech_api_client()
+    api = swagger_client.CustomSpeechTranscriptionsApi(api_client=client)
+    
+    paginated_transcriptions = api.transcriptions_list()
+    for transcription in az_paginate(api, paginated_transcriptions):
+        link = transcription._self
+        created_datetime = transcription.created_date_time
+        #format the datetime
+        created_datetime = created_datetime.strftime("%Y-%m-%d %H:%M:%S")   
+        id = link.split('/')[-1]
+        click.echo(f"{id}: {transcription.status} : {transcription.display_name} : {created_datetime}")
+
+
+@cli.command()
+@click.argument('id')
+def show_transcription(id):
+    client = get_speech_api_client()
+    api = swagger_client.CustomSpeechTranscriptionsApi(api_client=client)
+    
+    paginated_transcriptions = api.transcriptions_list()
+    for transcription in az_paginate(api, paginated_transcriptions):
+        link = transcription._self
+        link_id = link.split('/')[-1]
+        if link_id.startswith(id):
+            id = link_id
+            click.echo(f"{link}: {transcription.status} : {transcription.display_name}")
+            click.echo(f"    {transcription}")
+
+            paginated_files = api.transcriptions_list_files(id)
+            for file in az_paginate(api, paginated_files):
+                click.echo(f"FILE    {file}")
+                link = file.links.content_url
+                click.echo(f" LINK       {link}")
+                #get the contents of the link using requests
+                response = requests.get(link)
+                click.echo(f"RESPONSE    {response.content}")
+                # convert the content which is json to a python object and then pretty print it
+                content = json.loads(response.content)
+                pprint(content)
+
+            
+            #pprint(response)
+
+def az_paginate(api, paginated_object):
+    """
+    The autogenerated client does not support pagination. This function returns a generator over
+    all items of the array that the paginated object `paginated_object` is part of.
+    """
+    yield from paginated_object.values
+    typename = type(paginated_object).__name__
+    auth_settings = ["api_key"]
+    while paginated_object.next_link:
+        link = paginated_object.next_link[len(api.api_client.configuration.host):]
+        paginated_object, status, headers = api.api_client.call_api(link, "GET",
+            response_type=typename, auth_settings=auth_settings)
+
+        if status == 200:
+            yield from paginated_object.values
+        else:
+            raise Exception(f"could not receive paginated data: status {status}")
+
+def get_speech_api_client():
+    configuration = swagger_client.Configuration()
+    configuration.api_key["Ocp-Apim-Subscription-Key"] = os.getenv("AZURE_SPEECH_SERVICES_KEY")
+    configuration.host = f"https://{os.getenv('AZURE_SPEECH_SERVICES_REGION')}.api.cognitive.microsoft.com/speechtotext/v3.2"
+
+    client = swagger_client.ApiClient(configuration)
+    return client
+    
+
+if __name__ == '__main__':
+    cli()
+
+
+File: ./auth.py
+--------------------------------------------------
+Content of ./auth.py:
+import os
+import msal
+from flask import session, redirect, url_for, request
+from config import config
+
+# Azure AD Configuration (Environment variables are preferred for security)
+client_id = config.AZ_AUTH_CLIENT_ID
+client_secret = config.AZ_AUTH_CLIENT_SECRET
+authority = f"https://login.microsoftonline.com/{config.AZ_AUTH_TENANT_ID}"
+redirect_uri = 'https://quickscribewebapp.azurewebsites.net/auth/callback'
+
+# MSAL Authentication methods
+def build_msal_app():
+    return msal.ConfidentialClientApplication(
+        client_id, authority=authority, client_credential=client_secret
+    )
+
+def login():
+    msal_app = build_msal_app()
+    auth_url = msal_app.get_authorization_request_url(
+        scopes=["User.Read"],
+        redirect_uri=redirect_uri
+    )
+    return redirect(auth_url)
+
+def handle_auth_callback():
+    msal_app = build_msal_app()
+    code = request.args.get('code')
+    result = msal_app.acquire_token_by_authorization_code(
+        code,
+        scopes=["User.Read"],
+        redirect_uri=redirect_uri
+    )
+    if "access_token" in result:
+        session["user"] = result["id_token_claims"]
+        return redirect(url_for('index'))
+    return "Login failed", 400
+
+def get_user():
+    return session.get("user")
+
+
+File: ./generate_filelist.py
+--------------------------------------------------
+Content of ./generate_filelist.py:
+import os
+import fnmatch
+from pathlib import Path
+
+# Read patterns from the .fileinclude file
+def read_patterns(filename):
+    include_patterns = []
+    exclude_patterns = []
+    with open(filename, 'r') as f:
+        for line in f:
+            # Remove comments and empty lines
+            line = line.strip()
+            if not line or line.startswith('#'):
+                continue
+            # Handle exclusion with '!' at the beginning
+            if line.startswith('!'):
+                exclude_patterns.append(line[1:].strip())
+            else:
+                include_patterns.append(line.strip())
+    return include_patterns, exclude_patterns
+
+# Collect files based on include and exclude patterns in the current directory (non-recursive)
+def collect_files(include_patterns, exclude_patterns):
+    all_files = set()
+    current_path = Path('.')
+
+    # Iterate through include patterns and add matching files. 
+    for pattern in include_patterns:
+        # Find all files matching the pattern in the current directory
+        all_files.update(current_path.glob(pattern))
+
+    # Apply exclusion patterns to remove unwanted files
+    for pattern in exclude_patterns:
+        all_files = {f for f in all_files if not fnmatch.fnmatch(str(f), pattern)}
+
+    return sorted(map(str, all_files))
+
+# Write the collected files to filelist.txt
+def write_filelist(filelist, output_file='filelist.txt'):
+    with open(output_file, 'w') as f:
+        for file in filelist:
+            f.write(f"{file}\n")
+
+# Main function to read .fileinclude and generate filelist.txt
+def generate_filelist():
+    include_patterns, exclude_patterns = read_patterns('fileinclude')
+    print(include_patterns)
+    print(exclude_patterns)
+    filelist = collect_files(include_patterns, exclude_patterns)
+    for file in filelist:
+        print(file)
+    write_filelist(filelist)
+    print(f"{len(filelist)} files written to filelist.txt")
+
+if __name__ == "__main__":
+    generate_filelist()
+
+
+File: routes/api.py
+--------------------------------------------------
+Content of routes/api.py:
+# api.py
+from flask import Blueprint, request, jsonify, url_for
+from db_handlers.handler_factory import get_user_handler, get_recording_handler, get_transcription_handler
+from user_util import get_user
+from db_handlers.models import User, Recording, Transcription, TranscodingStatus, TranscriptionStatus
+from util import update_diarized_transcript, convert_to_mp3, get_recording_duration_in_seconds
+import logging
+from llms import get_speaker_summaries_via_llm, get_speaker_mapping
+import uuid
+import os
+from werkzeug.utils import secure_filename
+from datetime import datetime, UTC
+import time
+from blob_util import store_recording_as_blob, send_to_transcoding_queue
+from api_version import API_VERSION
+
+api_bp = Blueprint('api', __name__)
+
+# Helper function to get current user
+def get_current_user():
+    return get_user(request)
+
+@api_bp.route('/get_api_version', methods=['GET'])
+def get_api_version():
+    return jsonify({'version': API_VERSION}), 200
+
+# Route to get a user by ID
+@api_bp.route('/user/<user_id>', methods=['GET'])
+def get_user_by_id(user_id):
+    user_handler = get_user_handler()
+    user = user_handler.get_user(user_id)
+    if user:
+        return jsonify(user.model_dump()), 200
+    return jsonify({'error': 'User not found'}), 404
+
+# Route to list all users
+@api_bp.route('/users', methods=['GET'])
+def list_users():
+    user_handler = get_user_handler()
+    users = user_handler.get_all_users()
+    return jsonify([user.model_dump() for user in users]), 200
+
+# Route to get a recording by ID
+@api_bp.route('/recording/<recording_id>', methods=['GET'])
+def get_recording_by_id(recording_id):
+    recording_handler = get_recording_handler()
+    recording = recording_handler.get_recording(recording_id)
+    if recording:
+        return jsonify(recording.model_dump()), 200
+    return jsonify({'error': 'Recording not found'}), 404
+
+# Route to list all recordings
+@api_bp.route('/recordings', methods=['GET'])
+def list_recordings():
+    recording_handler = get_recording_handler()
+    recordings = recording_handler.get_all_recordings()
+    return jsonify([recording.model_dump() for recording in recordings]), 200
+
+# Route to get a transcription by ID
+@api_bp.route('/transcription/<transcription_id>', methods=['GET'])
+def get_transcription_by_id(transcription_id):
+    transcription_handler = get_transcription_handler()
+    transcription = transcription_handler.get_transcription(transcription_id)
+    if transcription:
+        return jsonify(transcription.model_dump()), 200
+    return jsonify({'error': 'Transcription not found'}), 404
+
+# Route to get all transcriptions for a user
+@api_bp.route('/user/<user_id>/transcriptions', methods=['GET'])
+def get_user_transcriptions(user_id):
+    transcription_handler = get_transcription_handler()
+    transcriptions = transcription_handler.get_user_transcriptions(user_id)
+    return jsonify([transcription.model_dump() for transcription in transcriptions]), 200
+
+# Route to get all recordings for a user
+@api_bp.route('/user/<user_id>/recordings', methods=['GET'])
+def get_user_recordings(user_id):
+    recording_handler = get_recording_handler()
+    recordings = recording_handler.get_user_recordings(user_id)
+    return jsonify([recording.model_dump() for recording in recordings]), 200
+
+# Route to get users by a list of IDs
+@api_bp.route('/users', methods=['POST'])
+def get_users_by_ids():
+    user_handler = get_user_handler()
+    ids = request.json.get('ids', [])
+    users = [user_handler.get_user(user_id) for user_id in ids]
+    return jsonify([user.model_dump() for user in users if user]), 200
+
+# Route to get recordings by a list of IDs
+@api_bp.route('/recordings', methods=['POST'])
+def get_recordings_by_ids():
+    recording_handler = get_recording_handler()
+    ids = request.json.get('ids', [])
+    recordings = [recording_handler.get_recording(recording_id) for recording_id in ids]
+    return jsonify([recording.model_dump() for recording in recordings if recording]), 200
+
+# Route to get transcriptions by a list of IDs
+@api_bp.route('/transcriptions', methods=['POST'])
+def get_transcriptions_by_ids():
+    transcription_handler = get_transcription_handler()
+    ids = request.json.get('ids', [])
+    transcriptions = [transcription_handler.get_transcription(transcription_id) for transcription_id in ids]
+    return jsonify([transcription.model_dump() for transcription in transcriptions if transcription]), 200
+
+# Route to delete items by ID
+@api_bp.route('/delete_user/<user_id>', methods=['GET'])
+def delete_user(user_id):
+    user_handler = get_user_handler()
+    user_handler.delete_user(user_id)
+    return jsonify({'message': 'User deleted successfully'}), 200
+
+@api_bp.route('/delete_recording/<recording_id>', methods=['GET'])
+def delete_recording(recording_id):
+    recording_handler = get_recording_handler()
+    recording_handler.delete_recording(recording_id)
+    return jsonify({'message': 'Recording deleted successfully'}), 200
+
+@api_bp.route('/delete_transcription/<transcription_id>', methods=['GET'])
+def delete_transcription(transcription_id):
+    transcription_handler = get_transcription_handler()
+    transcription_handler.delete_transcription(transcription_id)
+    return jsonify({'message': 'Transcription deleted successfully'}), 200
+
+# Route to update items by ID
+@api_bp.route('/user/<user_id>', methods=['PUT'])
+def update_user(user_id):
+    user_handler = get_user_handler()
+    user_data = request.json
+    updated_user = user_handler.update_user(user_id, **user_data)
+    if updated_user:
+        return jsonify(updated_user.model_dump()), 200
+    return jsonify({'error': 'User not found'}), 404
+
+@api_bp.route('/recording/<recording_id>', methods=['PUT'])
+def update_recording(recording_id):
+    recording_handler = get_recording_handler()
+    recording_data = request.json
+    recording = recording_handler.get_recording(recording_id)
+    if recording:
+        for key, value in recording_data.items():
+            setattr(recording, key, value)
+        updated_recording = recording_handler.update_recording(recording)
+        return jsonify(updated_recording.model_dump()), 200
+    return jsonify({'error': 'Recording not found'}), 404
+
+@api_bp.route('/transcription/<transcription_id>', methods=['PUT'])
+def update_transcription(transcription_id):
+    transcription_handler = get_transcription_handler()
+    transcription_data = request.json
+    transcription = transcription_handler.get_transcription(transcription_id)
+    if transcription:
+        for key, value in transcription_data.items():
+            setattr(transcription, key, value)
+        updated_transcription = transcription_handler.update_transcription(transcription)
+        return jsonify(updated_transcription.model_dump()), 200
+    return jsonify({'error': 'Transcription not found'}), 404
+
+@api_bp.route('/get_speaker_summaries/<transcription_id>', methods=['GET'])
+def get_speaker_summaries(transcription_id):
+    logging.info(f"get_speaker_summaries: transcription_id {transcription_id}")
+    transcription_handler = get_transcription_handler()
+    transcription = transcription_handler.get_transcription(transcription_id)
+    if transcription and transcription.diarized_transcript:
+        logging.info(f"get_speaker_summaries: found diarized transcript")
+        summaries = get_speaker_summaries_via_llm(transcription.diarized_transcript)    
+        logging.info(f"get_speaker_summaries: summaries {summaries}")
+        return jsonify(summaries), 200
+    return jsonify({'error': 'Transcription not found or does not have a diarized transcript'}), 404
+
+@api_bp.route('/update_speaker_labels/<transcription_id>', methods=['POST'])
+def update_speaker_labels(transcription_id):
+    logging.info(f"update_speaker_labels: transcription_id {transcription_id}")
+    #output the request json
+    logging.info(f"update_speaker_labels: request json {request.json}")
+    transcription_handler = get_transcription_handler()
+    transcription = transcription_handler.get_transcription(transcription_id)
+    if transcription and transcription.diarized_transcript:
+        speaker_labels = request.json
+        # TODO - update the speaker labels... do we need them?
+        updated_transcript = update_diarized_transcript(transcription.diarized_transcript, speaker_labels)
+        transcription.diarized_transcript = updated_transcript
+
+        #transcription.speaker_mapping = speaker_labels
+        logging.info(f"update_speaker_labels: updated_transcript")
+        transcription_handler.update_transcription(transcription)
+        return jsonify({'message': 'Speaker labels updated successfully'}), 200
+    return jsonify({'error': 'Transcription not found or does not have a diarized transcript'}), 404
+
+
+@api_bp.route("/infer_speaker_names/<transcription_id>")
+def infer_speaker_names(transcription_id):
+    transcription_handler = get_transcription_handler()
+    transcription = transcription_handler.get_transcription(transcription_id)
+    if transcription and transcription.diarized_transcript:
+        if True: # TODO - uncomment this when we don't want to allow inferring multiple times... not transcription.speaker_mapping:
+            speaker_mapping, diarized_text = get_speaker_mapping(transcription.diarized_transcript)
+            transcription.speaker_mapping = speaker_mapping
+            transcription.diarized_transcript = diarized_text
+            transcription_handler.update_transcription(transcription)
+            return jsonify({'message': 'Speaker names successfully inferred'}), 200
+        else:
+            return jsonify({'message': 'Speaker names already inferred'}), 200
+    else:
+        return jsonify({'error': 'Transcription not found'}), 404
+
+#support upload from iphone share context menu
+@api_bp.route("/upload_from_ios_share", methods=['POST'])
+def upload_from_ios_share():
+    logging.info("upload_from_ios_share endpoint called")
+
+    # log file details
+    filenames = [request.files[key].filename for key in request.files.keys()]
+    #output the list of files in the request
+    for file in request.files.values():
+        #output all the fields in the file:
+        logging.info(f"upload_from_ios_share: file {file}")
+        logging.info(f"upload_from_ios_share: file.filename {file.filename}")
+        logging.info(f"upload_from_ios_share: file.content_type {file.content_type}")
+        logging.info(f"upload_from_ios_share: file.mimetype {file.mimetype}")
+        logging.info(f"upload_from_ios_share: file.content_length {file.content_length}")
+        logging.info(f"upload_from_ios_share: file.headers {file.headers}")
+        
+    logging.info(f"upload_from_ios_share: request files {filenames}")
+
+    if 'audio_file' not in request.files:
+        return jsonify({'error': 'No audio file part'}), 400
+
+    audio_file = request.files['audio_file']
+    if audio_file.filename == '':
+        return jsonify({'error': 'No selected file'}), 400
+
+    if audio_file:
+        logging.info(f"handling upload of audio file: {audio_file}")
+
+        try:
+            logging.info(f"handling upload of file: {audio_file}")
+            original_filename = secure_filename(audio_file.filename)
+
+            #get the file extension
+            file_extension = os.path.splitext(audio_file.filename)[1]
+            unique_original_filename = uuid.uuid4().hex + file_extension
+            unique_transcoded_filename = uuid.uuid4().hex + ".mp3"
+
+            temp_path = os.path.join('/tmp', unique_original_filename)
+            audio_file.save(temp_path)
+            logging.info(f"file saved to {temp_path}")
+
+            #store the original file in blob storage
+            store_recording_as_blob(temp_path, unique_original_filename)
+            logging.info(f"stored original file in blob storage as {unique_original_filename}")
+
+            recording_handler = get_recording_handler()
+            user = get_user(request)
+
+            recording = recording_handler.create_recording(user.id, original_filename, unique_original_filename,
+                                                           transcoding_status=TranscodingStatus.queued)
+            recording.upload_timestamp = datetime.now(UTC).isoformat()
+            recording.duration = get_recording_duration_in_seconds(temp_path)
+            recording_handler.update_recording(recording)
+
+            send_to_transcoding_queue(recording.id,
+                                      unique_original_filename,
+                                      unique_transcoded_filename,
+                                      original_filename,
+                                      user.id)
+
+            logging.info(f"sent to transcoding queue: {recording.id}, {unique_original_filename}, {unique_transcoded_filename}, {original_filename}, {user.id}")
+
+            os.remove(temp_path)
+
+            return jsonify({'success': 'File uploaded successfully!', 
+                            'filename': original_filename, 
+                            'recording_id': recording.id, 
+                            'transcoding_status': 'queued'}), 200
+
+
+
+        except Exception as e:
+            logging.error(f"error uploading file: {e}")
+            #print the stack trace
+            import traceback
+            traceback.print_exc()
+            return jsonify({'error': str(e)}), 500
+        
+    return jsonify({'error': 'No valid audio file provided'}), 400
+
+
+def generate_callbacks(request, callback_token):
+    callbacks = []
+    # Generate callback URL
+    callbacks.append( { "url": url_for('api.transcoding_callback', _external=True), "token": callback_token })
+    # TODO - move this to config or something
+    callbacks.append( { "url": "https://www.postb.in/1747433051215-4530967178288", "token": callback_token })
+    return callbacks
+   
+
+# File upload form route
+@api_bp.route('/upload', methods=['POST'])
+def upload():
+    logging.info("upload endpoint called")
+    if 'file' not in request.files:
+        return jsonify({'error': 'No file part'}), 400
+
+    file = request.files['file']
+
+    if file.filename == '':
+        return jsonify({'error': 'No selected file'}), 400
+
+    if file:
+        try:
+            logging.info(f"handling upload of file: {file}")
+            original_filename = secure_filename(file.filename)
+            
+            # Generate unique filename for the original upload
+            file_extension = os.path.splitext(original_filename)[1]
+            unique_original_filename = str(uuid.uuid4()) + file_extension
+            
+            # Generate target filename for transcoded version (always .mp3)
+            unique_transcoded_filename = str(uuid.uuid4()) + ".mp3"
+            
+            # Save original file to temporary location
+            temp_path = os.path.join('/tmp', unique_original_filename)
+            file.save(temp_path)
+            logging.info(f"file saved to {temp_path}")
+            
+            # Store original file in blob storage
+            store_recording_as_blob(temp_path, unique_original_filename)
+            logging.info(f"stored original file in blob storage as {unique_original_filename}")
+            
+            # Create recording in database with transcoding status "queued"
+            recording_handler = get_recording_handler()
+            user = get_user(request)
+            
+            recording = recording_handler.create_recording(
+                user.id, 
+                original_filename, 
+                unique_original_filename,  # This will be the final transcoded filename
+                transcoding_status=TranscodingStatus.queued
+            )
+            recording.upload_timestamp = datetime.now(UTC).isoformat()
+            recording.transcoding_token = str(uuid.uuid4())
+            recording_handler.update_recording(recording)
+            
+            # Queue transcoding job
+            send_to_transcoding_queue(
+                recording.id,
+                unique_original_filename,  # Source file
+                unique_transcoded_filename,  # Target file
+                original_filename,
+                user.id,
+                generate_callbacks(request, recording.transcoding_token)
+            )
+            logging.info(f"queued transcoding job for recording {recording.id}")
+            
+            # Clean up temporary file
+            os.remove(temp_path)
+            
+            return jsonify({
+                'message': 'File uploaded successfully and queued for transcoding!', 
+                'filename': original_filename, 
+                'recording_id': recording.id,
+                'transcoding_status': 'queued',
+                'token': recording.transcoding_token
+            }), 200
+
+        except Exception as e:
+            logging.error(f"error uploading file: {e}")
+            import traceback
+            traceback.print_exc()
+            return jsonify({'error': str(e)}), 500
+
+    return jsonify({'error': 'Only supported audio files are allowed'}), 400
+
+@api_bp.route('/transcoding_status/<recording_id>', methods=['GET'])
+def get_transcoding_status(recording_id):
+    recording_handler = get_recording_handler()
+    recording = recording_handler.get_recording(recording_id)
+    
+    if not recording:
+        return jsonify({'error': 'Recording not found'}), 404
+    
+    return jsonify({
+        'recording_id': recording_id,
+        'transcoding_status': recording.transcoding_status.value,
+        'transcoding_started_at': recording.transcoding_started_at,
+        'transcoding_completed_at': recording.transcoding_completed_at,
+        'transcoding_error_message': recording.transcoding_error_message,
+        'transcoding_retry_count': recording.transcoding_retry_count
+    }), 200
+
+# Transcoding callback route - handles callbacks from the transcoding container
+@api_bp.route('/transcoding_callback', methods=['POST'])
+def transcoding_callback():
+    logging.info("transcoding_callback endpoint called")
+    
+    try:
+        # Get the data from the request
+        data = request.get_json()
+        logging.info(f"transcoding_callback: request json {data}")
+        
+        # Check if this is a test message
+        if data.get('action') == 'test':
+            logging.info("transcoding_callback: test message received")
+            return jsonify({'message': 'Test callback received'}), 200
+        
+        # Validate required fields for transcoding callback
+        if data.get('action') != 'transcode' or 'recording_id' not in data or 'status' not in data:
+            logging.error(f"Invalid callback format: {data}")
+            return jsonify({'error': 'Invalid callback format'}), 400
+        
+        # Get necessary fields
+        recording_id = data.get('recording_id')
+        status = data.get('status')
+        callback_token = data.get('callback_token')
+        
+        # Retrieve the recording
+        recording_handler = get_recording_handler()
+        recording = recording_handler.get_recording(recording_id)
+        
+        if not recording:
+            logging.error(f"Recording not found: {recording_id}")
+            return jsonify({'error': f'Recording not found: {recording_id}'}), 404
+            
+        # Verify callback token
+        if recording.transcoding_token != callback_token:
+            logging.error(f"Invalid callback token for recording {recording_id}")
+            return jsonify({'error': 'Invalid callback token'}), 401
+        
+        # Update recording based on status
+        if status == 'in_progress':
+            recording.transcoding_status = TranscodingStatus.in_progress
+            
+        elif status == 'completed':
+            recording.transcoding_status = TranscodingStatus.completed
+            
+            # Update duration if available in the metadata
+            if 'output_metadata' in data and 'duration' in data['output_metadata']:
+                recording.duration = data['output_metadata']['duration']
+                
+            # Track processing time
+            if 'processing_time' in data:
+                logging.info(f"Transcoding completed in {data['processing_time']} seconds")
+                
+        elif status == 'failed':
+            recording.transcoding_status = TranscodingStatus.failed
+            
+            # Store error message
+            if 'error_message' in data:
+                recording.transcoding_error_message = data['error_message']
+                
+            # Increment retry count
+            if recording.transcoding_retry_count is None:
+                recording.transcoding_retry_count = 1
+            else:
+                recording.transcoding_retry_count += 1
+                
+        # Save the updated recording
+        recording_handler.update_recording(recording)
+        
+        return jsonify({'message': 'Transcoding callback processed successfully'}), 200
+        
+    except Exception as e:
+        logging.error(f"Error processing transcoding callback: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+
+File: routes/az_transcription_routes.py
+--------------------------------------------------
+Content of routes/az_transcription_routes.py:
+from flask import Blueprint, request, redirect, jsonify, flash, url_for
+from db_handlers.transcription_handler import TranscriptionHandler
+from db_handlers.recording_handler import RecordingHandler
+from db_handlers.models import TranscriptionStatus, Recording
+from user_util import get_user
+from blob_util import generate_recording_sas_url
+from azure.storage.blob import BlobServiceClient
+import assemblyai as aai
+import logging
+import uuid
+import json
+from config import config
+from datetime import datetime, UTC
+import swagger_client
+import requests
+from pprint import pprint
+
+# Initialize the BlobServiceClient
+blob_service_client = BlobServiceClient.from_connection_string(config.AZURE_STORAGE_CONNECTION_STRING)
+
+az_transcription_bp = Blueprint('az_transcription_bp', __name__)
+
+# Initialize your handlers
+recording_handler = RecordingHandler(config.COSMOS_URL, config.COSMOS_KEY, config.COSMOS_DB_NAME, config.COSMOS_CONTAINER_NAME)
+transcription_handler = TranscriptionHandler(config.COSMOS_URL, config.COSMOS_KEY, config.COSMOS_DB_NAME, config.COSMOS_CONTAINER_NAME)
+
+@az_transcription_bp.route("/start_transcription/<recording_id>", methods=["POST", "GET"])
+def start_transcription(recording_id):
+    logging.info(f"Starting transcription: {recording_id}")
+    user = get_user(request)
+    # Get the recording details
+    # TODO - check that the recording exists and belongs to the user
+    recording = recording_handler.get_recording(recording_id)
+
+    if not recording or recording.user_id != user.id:
+        logging.error(f"Recording not found or does not belong to the user: {recording_id}")
+        return jsonify({'error': 'Recording not found or does not belong to the user'}), 404
+
+    logging.info(f"found recording: {recording.original_filename}")
+
+    #see if there is already a transcription for this recording
+    transcription = transcription_handler.get_transcription_by_recording(recording_id)
+    logging.info(f"Transcription: {transcription}")
+    if recording and recording.transcription_status in [TranscriptionStatus.in_progress, TranscriptionStatus.completed]:
+        logging.warning(f"Transcription already exists or in progress for this recording: {recording.id}")
+        return jsonify({'error': 'Transcription already exists or in progress for this recording'}), 400
+    
+    if not transcription:
+        logging.info(f"No transcription found, creating new transcription")
+        transcription = transcription_handler.create_transcription(user.id, recording_id)
+    else:
+        logging.info(f"Transcription found: {transcription.id}")
+    
+    try:
+        blob_sas_url = generate_recording_sas_url(recording.unique_filename)
+        logging.info(f"SAS URL generated: {blob_sas_url}")        
+        # Call the long-running Azure Speech Services transcription function asynchronously
+        logging.info(f"Calling Azure Speech Services transcription function: {transcription.id}")
+            
+        logging.info(f"Submitting transcription to Azure Speech Services: {blob_sas_url}")
+        az_transcription_id = az_transcribe(blob_sas_url, recording.original_filename)
+
+        recording.transcription_status = TranscriptionStatus.in_progress
+        recording.az_transcription_id = az_transcription_id
+        recording_handler.update_recording(recording)
+        return jsonify({'message': 'Transcription started'}), 200
+
+    except Exception as e:
+        logging.error(f"An error occurred: {str(e)}")
+        #print the stack trace
+        import traceback
+        traceback.print_exc()
+        logging.error(f"Stack trace: {traceback.format_exc()}")
+        return jsonify({'error': str(e)}), 500
+
+@az_transcription_bp.route("/transcription_hello_world", methods=["GET"])
+def transcription_hello_world():
+    return "<html><body><h1>Hello World</h1></body></html>", 200
+
+@az_transcription_bp.route("/check_transcription_status/<recording_id>", methods=["GET"])
+def check_transcription_status(recording_id):
+    logging.info(f"Checking transcription status: {recording_id}")
+    recording = recording_handler.get_recording(recording_id)
+    status, error = check_in_progress_transcription(recording)
+    return jsonify({'status': status, 'error': error}), 200
+
+def check_in_progress_transcription(recording: Recording) -> tuple[str, str]:
+    client = get_speech_api_client()
+    api = swagger_client.CustomSpeechTranscriptionsApi(api_client=client)
+    az_transcription_id = recording.az_transcription_id
+    if not az_transcription_id:
+        return TranscriptionStatus.not_started.value, ""
+    az_transcription = api.transcriptions_get(az_transcription_id)
+    logging.info(f" got transcription for {az_transcription_id}")
+
+    # valid statuses are "NotStarted", "Running", "Succeeded", "Failed" - these are different than the TranscriptionStatus enum
+    az_status_map = {
+        "NotStarted": TranscriptionStatus.not_started.value,
+        "Running": TranscriptionStatus.in_progress.value,
+        "Succeeded": TranscriptionStatus.completed.value,
+        "Failed": TranscriptionStatus.failed.value
+    }
+    status = az_status_map[az_transcription.status]
+    logging.info(f"AZ Transcription status: {status}")
+    error_message = ""
+    if status == TranscriptionStatus.completed.value:
+        logging.info(f"Transcription succeeded: {az_transcription_id}")
+        transcription = transcription_handler.get_transcription_by_recording(recording.id)
+        if not transcription:
+            logging.info(f"No transcription found, creating new transcription")
+            transcription = transcription_handler.create_transcription(recording.user_id, recording.id)
+        transcription.az_transcription_id = az_transcription_id
+        transcription.az_raw_transcription = str(az_transcription)
+        
+        logging.info(f"Getting transcript: {az_transcription_id}")
+        transcription.transcript_json = az_get_transcript(az_transcription_id)
+        json_data = json.loads(transcription.transcript_json)        
+        
+        transcription.diarized_transcript = az_get_diarized_transcript(json_data)
+
+        logging.info(f"Updating transcription: {transcription.id}")
+        transcription_handler.update_transcription(transcription)
+
+        recording.transcription_status = TranscriptionStatus.completed
+        recording.transcription_id = transcription.id
+        recording_handler.update_recording(recording)
+
+    elif status == TranscriptionStatus.failed.value and az_transcription.properties.error:
+        logging.info(f"Transcription failed: {az_transcription.properties.error}")
+        error_message = str(az_transcription.properties.error.code) + ": " + str(az_transcription.properties.error.message)
+    elif status == TranscriptionStatus.in_progress.value:
+        logging.info(f"Transcription is still running: {az_transcription_id}")
+    return status, error_message
+
+  
+def az_paginate(api, paginated_object):
+    """
+    The autogenerated client does not support pagination. This function returns a generator over
+    all items of the array that the paginated object `paginated_object` is part of.
+    """
+    yield from paginated_object.values
+    typename = type(paginated_object).__name__
+    auth_settings = ["api_key"]
+    while paginated_object.next_link:
+        link = paginated_object.next_link[len(api.api_client.configuration.host):]
+        paginated_object, status, headers = api.api_client.call_api(link, "GET",
+            response_type=typename, auth_settings=auth_settings)
+
+        if status == 200:
+            yield from paginated_object.values
+        else:
+            raise Exception(f"could not receive paginated data: status {status}")
+
+def get_speech_api_client():
+    configuration = swagger_client.Configuration()
+    configuration.api_key["Ocp-Apim-Subscription-Key"] = config.AZURE_SPEECH_SERVICES_KEY
+    configuration.host = f"https://{config.AZURE_SPEECH_SERVICES_REGION}.api.cognitive.microsoft.com/speechtotext/v3.2"
+
+    client = swagger_client.ApiClient(configuration)
+    return client
+
+def az_transcribe(blob_sas_url, original_filename):
+    """
+    Transcribe a single audio file located at `blob_sas_url` using the settings specified in `properties`
+    using the base model for the specified locale.
+
+    returns the transcription id
+    """
+
+    logging.info("Starting transcription client...")
+    client = get_speech_api_client()
+    api = swagger_client.CustomSpeechTranscriptionsApi(api_client=client)
+
+    properties = swagger_client.TranscriptionProperties()
+    properties.punctuation_mode = "DictatedAndAutomatic"
+    properties.diarization_enabled = True
+    #TODO - make this dynamic
+    properties.diarization = swagger_client.DiarizationProperties(
+        swagger_client.DiarizationSpeakersProperties(min_count=1, max_count=5))
+    
+    name = "Transcription of " + original_filename
+    description = f"Transcription of {original_filename} using the Azure Speech Services, started at {datetime.now(UTC).strftime('%Y-%m-%d %H:%M:%S')}"
+
+    transcription_definition = swagger_client.Transcription(
+        display_name=name,
+        description=description,
+        locale="en-US",
+        content_urls=[blob_sas_url],
+        properties=properties
+    )
+
+    created_transcription, status, headers = api.transcriptions_create_with_http_info(transcription=transcription_definition)
+    logging.info(f"Transcription created: {created_transcription}")
+    logging.info(f"Status: {status}")
+    logging.info(f"Headers: {headers}")
+
+    transcription_id = headers["location"].split("/")[-1]
+    return transcription_id
+
+def az_get_transcript(az_transcription_id): 
+    logging.info(f"Getting transcript: {az_transcription_id}")
+    client = get_speech_api_client()
+    api = swagger_client.CustomSpeechTranscriptionsApi(api_client=client)
+
+    transcription = api.transcriptions_get(az_transcription_id)
+    logging.info(f"Transcript: {transcription}")
+    if transcription.status == "Succeeded":
+        pag_files = api.transcriptions_list_files(az_transcription_id)
+        for file_data in az_paginate(api, pag_files):
+            if file_data.kind != "Transcription":
+                continue
+            logging.info(f"File data: {file_data}")
+            results_url = file_data.links.content_url
+            logging.info(f"Results URL: {results_url}")
+            results = requests.get(results_url)
+            #logging.info(f"Results for {az_transcription_id}:\n{results.content.decode('utf-8')}")
+            return results.content.decode('utf-8')
+    return None
+
+
+# Function to generate the transcript
+def az_get_diarized_transcript(json_data):
+    transcript = []
+    last_speaker = None
+    last_text = []
+
+    for phrase in json_data["recognizedPhrases"]:
+        current_speaker = phrase["speaker"]
+        current_text = phrase["nBest"][0]["display"]
+
+        # Combine consecutive text if same speaker
+        if current_speaker == last_speaker:
+            last_text.append(current_text)
+        else:
+            if last_text:  # Add the previous speaker's combined text
+                transcript.append(f"Speaker {last_speaker}: " + " ".join(last_text) + "\n")
+            # Reset for new speaker
+            last_speaker = current_speaker
+            last_text = [current_text]
+
+    # Append the last speaker's text after the loop
+    if last_text:
+        transcript.append(f"Speaker {last_speaker}: " + " ".join(last_text) + "\n")
+    
+    return "\n".join(transcript)
+
+File: db_handlers/handler_factory.py
+--------------------------------------------------
+Content of db_handlers/handler_factory.py:
+from .recording_handler import RecordingHandler
+from .transcription_handler import TranscriptionHandler
+from .user_handler import UserHandler
+from config import config
+
+from flask import g
+
+def get_recording_handler():
+    if not hasattr(g, 'recording_handler'):
+        g.recording_handler = create_recording_handler()
+    return g.recording_handler
+
+def get_transcription_handler():
+    if not hasattr(g, 'transcription_handler'):
+        g.transcription_handler = create_transcription_handler()
+    return g.transcription_handler
+
+def get_user_handler():
+    if not hasattr(g, 'user_handler'):
+        g.user_handler = create_user_handler()
+    return g.user_handler
+
+def create_recording_handler():
+    return RecordingHandler(config.COSMOS_URL, config.COSMOS_KEY, config.COSMOS_DB_NAME, config.COSMOS_CONTAINER_NAME)
+
+def create_transcription_handler():
+    return TranscriptionHandler(config.COSMOS_URL, config.COSMOS_KEY, config.COSMOS_DB_NAME, config.COSMOS_CONTAINER_NAME)
+
+def create_user_handler():
+    return UserHandler(config.COSMOS_URL, config.COSMOS_KEY, config.COSMOS_DB_NAME, config.COSMOS_CONTAINER_NAME)
+
+
+File: db_handlers/util.py
+--------------------------------------------------
+Content of db_handlers/util.py:
+COSMOS_SYSTEM_FIELDS = {"_rid", "_self", "_etag", "_attachments", "_ts"}
+
+def filter_cosmos_fields(document: dict) -> dict:
+    """Removes Cosmos DB system fields from a document."""
+    return {key: value for key, value in document.items() if key not in COSMOS_SYSTEM_FIELDS}
+
+
+File: db_handlers/__init__.py
+--------------------------------------------------
+Content of db_handlers/__init__.py:
+# Empty __init__.py file
+
+File: db_handlers/transcription_handler.py
+--------------------------------------------------
+Content of db_handlers/transcription_handler.py:
+from azure.cosmos import CosmosClient, PartitionKey
+from datetime import datetime
+import uuid
+from db_handlers.models import Transcription, TranscriptionStatus  # Import the Pydantic Transcription model and TranscriptionStatus enum
+from db_handlers.util import filter_cosmos_fields  # Import the utility function
+from typing import Optional, List
+
+class TranscriptionHandler:
+    def __init__(self, cosmos_url: str, cosmos_key: str, database_name: str, container_name: str):
+        """
+        Initialize the TranscriptionHandler with Cosmos DB connection details.
+
+        :param cosmos_url: URL for the Cosmos DB account.
+        :param cosmos_key: Key for the Cosmos DB account.
+        :param database_name: Name of the database.
+        :param container_name: Name of the container.
+        """
+        self.client = CosmosClient(cosmos_url, credential=cosmos_key)
+        self.database = self.client.get_database_client(database_name)
+        self.container = self.database.get_container_client(container_name)
+
+    def create_transcription(self, user_id: str, recording_id: str) -> Transcription:
+        """
+        Create a new transcription entry in Cosmos DB and return as a Transcription model.
+
+        :param user_id: ID of the user.
+        :param recording_id: ID of the recording.
+        :return: Transcription model instance.
+        """
+        transcription_id = str(uuid.uuid4())
+        transcription_item = {
+            "id": transcription_id,
+            "az_transcription_id": "",
+            "user_id": user_id,
+            "recording_id": recording_id,
+            "transcription_status": TranscriptionStatus.not_started.value,  # Use Enum value for status
+            "transcription_progress": 0,
+            "created_at": datetime.utcnow().isoformat(),
+            "updated_at": datetime.utcnow().isoformat(),
+            "partitionKey": "transcription",
+            "text": "",
+            "transcript_json": ""
+        }
+        item = self.container.create_item(body=transcription_item)
+        return Transcription(**filter_cosmos_fields(item))
+
+    def get_transcription_by_recording(self, recording_id: str) -> Optional[Transcription]:
+        """
+        Get a transcription entry by the associated recording ID and return as a Transcription model.
+
+        :param recording_id: ID of the recording.
+        :return: Transcription model instance or None if not found.
+        """
+        query = "SELECT * FROM c WHERE c.recording_id = @recording_id AND c.partitionKey = 'transcription'"
+        parameters = [{"name": "@recording_id", "value": recording_id}]
+        transcriptions = list(self.container.query_items(query=query, parameters=parameters, enable_cross_partition_query=True))
+        return Transcription(**filter_cosmos_fields(transcriptions[0])) if transcriptions else None
+
+    def get_transcription_by_az_id(self, az_transcription_id: str) -> Optional[Transcription]:
+        """
+        Get a transcription entry by the associated Azure Speech Services transcription ID and return as a Transcription model.
+
+        :param az_transcription_id: ID of the Azure transcription.
+        :return: Transcription model instance or None if not found.
+        """
+        query = "SELECT * FROM c WHERE c.az_transcription_id = @az_transcription_id AND c.partitionKey = 'transcription'"
+        parameters = [{"name": "@az_transcription_id", "value": az_transcription_id}]
+        transcriptions = list(self.container.query_items(query=query, parameters=parameters, enable_cross_partition_query=True))
+        return Transcription(**filter_cosmos_fields(transcriptions[0])) if transcriptions else None
+
+    def get_transcription(self, transcription_id: str) -> Optional[Transcription]:
+        """
+        Retrieve a transcription by its ID and return as a Transcription model.
+
+        :param transcription_id: ID of the transcription.
+        :return: Transcription model instance or None if not found.
+        """
+        try:
+            transcription = self.container.read_item(item=transcription_id, partition_key="transcription")
+            return Transcription(**filter_cosmos_fields(transcription))
+        except Exception as e:
+            print(f"Error retrieving transcription: {e}")
+            return None
+
+    def update_transcription(self, transcription: Transcription) -> Transcription:
+        """
+        Update an existing transcription in Cosmos DB and return the updated Transcription model.
+
+        :param transcription: Transcription model instance with updated data.
+        :return: Updated Transcription model instance.
+        """
+        transcription_data = transcription.dict(exclude_unset=True)
+        updated_item = self.container.upsert_item(body=transcription_data)
+        return Transcription(**filter_cosmos_fields(updated_item))
+
+    def delete_transcription(self, transcription_id: str) -> None:
+        """
+        Delete a transcription from Cosmos DB.
+
+        :param transcription_id: ID of the transcription to delete.
+        """
+        self.container.delete_item(item=transcription_id, partition_key="transcription")
+
+File: db_handlers/recording_handler.py
+--------------------------------------------------
+Content of db_handlers/recording_handler.py:
+from azure.cosmos import CosmosClient, PartitionKey
+from .transcription_handler import TranscriptionHandler
+from datetime import datetime, UTC
+import uuid
+import db_handlers.models as models# Import the Pydantic Recording model
+from pydantic import Field, field_validator
+from db_handlers.util import filter_cosmos_fields  # Import the utility function
+from typing import Optional, List, Any
+
+class Recording(models.Recording):
+    transcription_status: models.TranscriptionStatus = Field(default=models.TranscriptionStatus.not_started)
+    transcription_status_updated_at: str = Field(default_factory=lambda: datetime.now(UTC).isoformat())
+    transcoding_status: models.TranscodingStatus = Field(default=models.TranscodingStatus.not_started)
+
+    def __init__(self, **data):
+        super().__init__(**data)
+        self._transcription_status = data.get('transcription_status', models.TranscriptionStatus.not_started)
+        self._transcoding_status = data.get('transcoding_status', models.TranscodingStatus.not_started)
+
+    @property
+    def transcription_status(self) -> models.TranscriptionStatus:
+        return self._transcription_status  
+
+    @transcription_status.setter
+    def transcription_status(self, value: models.TranscriptionStatus):
+        if value != self._transcription_status: 
+            self._transcription_status = value
+            self.transcription_status_updated_at = datetime.now(UTC).isoformat()
+
+    @property
+    def transcoding_status(self) -> models.TranscodingStatus:
+        return self._transcoding_status
+    
+    @transcoding_status.setter
+    def transcoding_status(self, value: models.TranscodingStatus):
+        if value != self._transcoding_status: 
+            self._transcoding_status = value
+            # Update timestamps based on status
+            if value == models.TranscodingStatus.in_progress and not self.transcoding_started_at:
+                self.transcoding_started_at = datetime.now(UTC).isoformat()
+            elif value in [models.TranscodingStatus.completed, models.TranscodingStatus.failed]:
+                if not self.transcoding_completed_at:
+                    self.transcoding_completed_at = datetime.now(UTC).isoformat()
+    
+    @field_validator('transcription_status')
+    @classmethod
+    def validate_transcription_status(cls, value):
+        # Convert string value back to TranscriptionStatus Enum
+        if isinstance(value, str):
+            return models.TranscriptionStatus(value)
+        return value
+    
+    @field_validator('transcoding_status')
+    @classmethod
+    def validate_transcoding_status(cls, value):
+        if isinstance(value, str):
+            return models.TranscodingStatus(value)
+        return value
+    
+    
+    def model_dump(self, *args: Any, **kwargs: Any) -> dict:
+        data = super().model_dump(*args, **kwargs)
+        # Convert Enum to string for JSON serialization
+        
+        # Handle transcription_status - might be Enum or string already
+        if hasattr(self._transcription_status, 'value'):
+            data['transcription_status'] = self._transcription_status.value
+        else:
+            data['transcription_status'] = self._transcription_status
+            
+        # Handle transcoding_status - might be Enum or string already
+        if hasattr(self._transcoding_status, 'value'):
+            data['transcoding_status'] = self._transcoding_status.value
+        else:
+            data['transcoding_status'] = self._transcoding_status
+            
+        return data
+
+class RecordingHandler:
+    def __init__(self, cosmos_url: str, cosmos_key: str, database_name: str, container_name: str):
+        self.client = CosmosClient(cosmos_url, credential=cosmos_key)
+        self.database = self.client.get_database_client(database_name)
+        self.container = self.database.get_container_client(container_name)
+        self.transcription_handler = TranscriptionHandler(cosmos_url, cosmos_key, database_name, container_name)
+
+    def create_recording(self, user_id: str, original_filename: str, unique_filename: str, 
+                         transcription_status: models.TranscriptionStatus = models.TranscriptionStatus.not_started,
+                         transcoding_status: models.TranscodingStatus = models.TranscodingStatus.not_started) -> Recording:
+        """Create a new recording entry in Cosmos DB and return as a Recording model."""
+        recording_id = str(uuid.uuid4())
+        recording_item = {
+            "id": recording_id,
+            "user_id": user_id,
+            "original_filename": original_filename,
+            "unique_filename": unique_filename,
+            "transcription_status": transcription_status.value,
+            "transcoding_status": transcoding_status.value,
+            "transcoding_retry_count": 0,
+            "partitionKey": "recording"
+        }
+        item = self.container.create_item(body=recording_item)
+        return Recording(**filter_cosmos_fields(item))
+
+    def get_recording(self, recording_id: str) -> Optional[Recording]:
+        """Retrieve a recording by its ID and return as a Recording model."""
+        try:
+            recording = self.container.read_item(item=recording_id, partition_key="recording")
+            return Recording(**filter_cosmos_fields(recording))
+        except Exception as e:
+            print(f"Error retrieving recording: {e}")
+            return None
+
+    def get_user_recordings(self, user_id: str) -> List[Recording]:
+        """Get all recordings for a specific user and return as Recording models."""
+        query = "SELECT * FROM c WHERE c.user_id = @user_id"
+        parameters = [{"name": "@user_id", "value": user_id}]
+        recordings = self.container.query_items(query=query, parameters=parameters, partition_key="recording")
+        return [Recording(**filter_cosmos_fields(rec)) for rec in recordings]
+
+    def get_all_recordings(self) -> List[Recording]:
+        """Get all recordings and return as Recording models."""
+        query = "SELECT * FROM c WHERE c.partitionKey = 'recording'"
+        recordings = self.container.query_items(query=query, partition_key="recording")
+        return [Recording(**filter_cosmos_fields(rec)) for rec in recordings]
+
+    def delete_recording(self, recording_id: str) -> None:
+        """Delete a recording by its ID."""
+        self.container.delete_item(item=recording_id, partition_key="recording")
+
+    def update_recording(self, recording: Recording) -> Recording:
+        """Update a recording in Cosmos DB."""
+        recording_data = recording.model_dump(exclude_unset=True)   
+        updated_record = self.container.replace_item(item=recording_data['id'], body=recording_data)
+        return Recording(**filter_cosmos_fields(updated_record))
+
+
+File: db_handlers/models.py
+--------------------------------------------------
+Content of db_handlers/models.py:
+# generated by datamodel-codegen:
+#   filename:  models.schema.json
+#   timestamp: 2025-05-16T20:18:45+00:00
+
+from __future__ import annotations
+
+from enum import Enum
+from typing import Any, Dict, Optional
+
+from pydantic import BaseModel, RootModel
+
+
+class Model(RootModel[Any]):
+    root: Any
+
+
+class TranscodingStatus(Enum):
+    completed = 'completed'
+    failed = 'failed'
+    in_progress = 'in_progress'
+    not_started = 'not_started'
+    queued = 'queued'
+
+
+class TranscriptionStatus(Enum):
+    completed = 'completed'
+    failed = 'failed'
+    in_progress = 'in_progress'
+    not_started = 'not_started'
+
+
+class Recording(BaseModel):
+    az_transcription_id: Optional[str] = None
+    duration: Optional[float] = None
+    id: str
+    original_filename: str
+    partitionKey: str
+    transcoding_completed_at: Optional[str] = None
+    transcoding_error_message: Optional[str] = None
+    transcoding_retry_count: Optional[int] = None
+    transcoding_started_at: Optional[str] = None
+    transcoding_status: TranscodingStatus
+    transcoding_token: Optional[str] = None
+    transcription_error_message: Optional[str] = None
+    transcription_id: Optional[str] = None
+    transcription_status: TranscriptionStatus
+    transcription_status_updated_at: Optional[str] = None
+    unique_filename: str
+    upload_timestamp: Optional[str] = None
+    user_id: str
+
+
+class SpeakerMapping(BaseModel):
+    name: str
+    reasoning: str
+
+
+class Transcription(BaseModel):
+    az_raw_transcription: Optional[str] = None
+    az_transcription_id: Optional[str] = None
+    diarized_transcript: Optional[str] = None
+    id: str
+    partitionKey: str
+    recording_id: str
+    speaker_mapping: Optional[Dict[str, SpeakerMapping]] = None
+    text: Optional[str] = None
+    transcript_json: Optional[str] = None
+    user_id: str
+
+
+class User(BaseModel):
+    created_at: Optional[str] = None
+    email: Optional[str] = None
+    id: str
+    last_login: Optional[str] = None
+    name: Optional[str] = None
+    partitionKey: str
+    role: Optional[str] = None
+
+
+class Integer(RootModel[float]):
+    root: float
+
+
+File: db_handlers/user_handler.py
+--------------------------------------------------
+Content of db_handlers/user_handler.py:
+from azure.cosmos import CosmosClient
+from datetime import datetime
+import uuid
+from db_handlers.models import User, Recording, Transcription  # Import the Pydantic models
+from db_handlers.util import filter_cosmos_fields  # Import the utility function
+from typing import Optional, List
+
+class UserHandler:
+    def __init__(self, cosmos_url: str, cosmos_key: str, database_name: str, container_name: str):
+        self.client = CosmosClient(cosmos_url, credential=cosmos_key)
+        self.database = self.client.get_database_client(database_name)
+        self.container = self.database.get_container_client(container_name)
+
+    def create_user(self, email: str, name: str, role: str = "user") -> str:
+        """Create a new user in Cosmos DB and return the user ID."""
+        user_id = f"user-{str(uuid.uuid4())}"
+        user_item = {
+            "id": user_id,
+            "email": email,
+            "name": name,
+            "role": role,
+            "created_at": datetime.utcnow().isoformat(),
+            "last_login": None,  # Initialize last_login as None
+            "partitionKey": "user"
+        }
+        self.container.create_item(body=user_item)
+        return User(**filter_cosmos_fields(user_item))
+
+    def get_user(self, user_id: str) -> Optional[User]:
+        """Retrieve a user by ID and return as a User model."""
+        try:
+            user_item = self.container.read_item(item=user_id, partition_key="user")
+            return User(**filter_cosmos_fields(user_item))
+        except Exception as e:
+            print(f"Error retrieving user: {e}")
+            return None
+
+    def get_user_by_name(self, name: str) -> List[User]:
+        """Retrieve a user by name and return as a list of User models."""
+        query = "SELECT * FROM c WHERE c.name = @name"
+        parameters = [{"name": "@name", "value": name}]
+        users = list(self.container.query_items(query=query, parameters=parameters, partition_key="user"))
+        return [User(**filter_cosmos_fields(user)) for user in users]
+
+    def get_all_users(self) -> List[User]:
+        """Retrieve all users and return as a list of User models."""
+        users = list(self.container.query_items(
+            query="SELECT * FROM c WHERE c.partitionKey = 'user'",
+            partition_key="user"
+        ))
+        return [User(**filter_cosmos_fields(user)) for user in users]
+
+    def update_user(self, user_id: str, email: Optional[str] = None, name: Optional[str] = None, role: Optional[str] = None) -> Optional[User]:
+        """Update user details like email, name, and role, and return the updated User model."""
+        try:
+            user_item = self.get_user(user_id)
+            if user_item:
+                user_data = user_item.model_dump()  
+                if email:
+                    user_data['email'] = email
+                if name:
+                    user_data['name'] = name
+                if role:
+                    user_data['role'] = role
+                user_data['updated_at'] = datetime.utcnow().isoformat()
+
+                # Update item in Cosmos DB
+                updated_item = self.container.replace_item(item=user_id, body=user_data)
+                return User(**filter_cosmos_fields(updated_item))
+            return None
+        except Exception as e:
+            print(f"Error updating user: {e}")
+            return None
+
+    def delete_user(self, user_id: str) -> None:
+        """Delete a user from Cosmos DB."""
+        try:
+            self.container.delete_item(item=user_id, partition_key="user")
+            print(f"User {user_id} deleted successfully.")
+        except Exception as e:
+            print(f"Error deleting user: {e}")
+
+    def get_user_files(self, user_id: str) -> List[Recording]:
+        """Get all recordings (files) associated with the user and return as Recording models."""
+        query = "SELECT * FROM c WHERE c.user_id = @user_id AND c.partitionKey = 'recording'"
+        parameters = [{"name": "@user_id", "value": user_id}]
+        recordings = list(self.container.query_items(query=query, parameters=parameters, enable_cross_partition_query=True))
+        return [Recording(**filter_cosmos_fields(recording)) for recording in recordings]
+
+    def get_user_transcriptions(self, user_id: str) -> List[Transcription]:
+        """Get all transcriptions associated with the user and return as Transcription models."""
+        query = "SELECT * FROM c WHERE c.user_id = @user_id AND c.partitionKey = 'transcription'"
+        parameters = [{"name": "@user_id", "value": user_id}]
+        transcriptions = list(self.container.query_items(query=query, parameters=parameters, enable_cross_partition_query=True))
+        return [Transcription(**filter_cosmos_fields(transcription)) for transcription in transcriptions]
+
+

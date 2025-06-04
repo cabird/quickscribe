@@ -1,0 +1,51 @@
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "5000:8000"
+    environment:
+      - PORT=8000
+      - PYTHONUNBUFFERED=1
+      - FLASK_DEBUG=1
+      - FLASK_ENV=development
+    env_file:
+      - ./backend/.env.local
+    volumes:
+      - ./backend:/app
+    networks:
+      - quickscribe-network
+
+  frontend:
+    build:
+      context: ./vite-frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+    volumes:
+      - ./vite-frontend:/app
+      - /app/node_modules
+    depends_on:
+      - backend
+    networks:
+      - quickscribe-network
+
+  transcoder:
+    build:
+      context: ./transcoder_container
+      dockerfile: Dockerfile
+    environment:
+      - PYTHONUNBUFFERED=1
+    env_file:
+      - ./transcoder_container/.env.local
+    volumes:
+      - ./transcoder_container:/app
+    networks:
+      - quickscribe-network
+
+networks:
+  quickscribe-network:
+    driver: bridge

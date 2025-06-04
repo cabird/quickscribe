@@ -1,0 +1,2030 @@
+{
+  "./scratch/commit_with_llm_msg.py": {
+    "type": "Python",
+    "purpose": "This script generates a commit message using an AI model and commits changes to a Git repository with the generated message.",
+    "elements": [
+      "function:clean_output - Removes non-printable characters from a given string.",
+      "function:send_prompt_to_llm - Sends a prompt to a language model and returns the generated response.",
+      "function:get_current_diff - Retrieves the current Git diff for the repository.",
+      "function:main - Orchestrates the process of generating a commit message and committing changes based on user confirmation."
+    ],
+    "path": "./scratch/commit_with_llm_msg.py",
+    "kind": "file",
+    "md5sum": "0359161d15faa0c18d11cea60934e2bc",
+    "passes_completed": 3,
+    "related": [
+      "./scratch/gen_commit_message.py - May share similar functionality or purpose related to generating commit messages.",
+      "./backend/llms.py - Contains a function named send_prompt_to_llm, which might be related to or used by this script."
+    ],
+    "deps": [
+      "os",
+      "subprocess",
+      "requests",
+      "json",
+      "dotenv",
+      "sys",
+      "re"
+    ]
+  },
+  "./scratch/copy.py": {
+    "type": "Python",
+    "purpose": "This script copies the contents of specified files to the Windows clipboard.",
+    "elements": [
+      "function:copy_files_to_clipboard - Reads the content of given files and copies it to the Windows clipboard."
+    ],
+    "path": "./scratch/copy.py",
+    "kind": "file",
+    "md5sum": "fa9dfdc1b102ffb959e5dbdaeb4c34ff",
+    "passes_completed": 3,
+    "related": [],
+    "deps": [
+      "sys",
+      "subprocess"
+    ]
+  },
+  "./scratch/analysis.py": {
+    "type": "Python",
+    "purpose": "This script is designed to index project files and directories, analyze their contents, and facilitate querying the indexed data. It also interacts with an LLM to extract and process information from the files.",
+    "elements": [
+      "class:TokenCounter - Manages token counting and cost estimation for interactions with the LLM.",
+      "function:send_prompt_to_llm - Sends a prompt to the LLM and processes the response.",
+      "function:read_file_content - Reads and returns the content of a specified file.",
+      "function:get_file_md5 - Calculates the MD5 hash of file content.",
+      "function:get_directory_md5 - Computes the MD5 hash for a directory based on its file paths.",
+      "function:get_all_files_in_tree_rec - Recursively retrieves all files in a directory tree, filtering by specified criteria.",
+      "function:extract_json_from_llm_response - Extracts JSON data from an LLM response.",
+      "function:index_file - Indexes a file by analyzing its content and interacting with the LLM.",
+      "function:index_directory - Indexes a directory by summarizing its contents and purpose.",
+      "function:query_index - Queries the indexed data using the LLM.",
+      "function:load_index_file - Loads an index from a JSON file.",
+      "function:save_index_file - Saves an index to a JSON file.",
+      "function:thread_safe_update_index - Updates the index in a thread-safe manner.",
+      "function:update_index - Updates the project index by analyzing files and directories.",
+      "function:get_directories_sorted - Retrieves and sorts directories by depth.",
+      "function:fixup_index - Fixes and updates the index file with additional metadata.",
+      "function:get_info_for_llm_relevance - Extracts relevant information for LLM processing.",
+      "function:get_relevant_files_rec - Recursively retrieves relevant files for a query.",
+      "function:write_output_to_md_file - Writes query results to a markdown file.",
+      "function:answer_query - Answers a query using the indexed data and LLM.",
+      "function:get_session_name_using_llm - Generates a session name using the LLM.",
+      "function:main - Parses command-line arguments and executes the appropriate actions."
+    ],
+    "path": "./scratch/analysis.py",
+    "kind": "file",
+    "md5sum": "7c48bf153e1344cc9f00e2e103f86f7b",
+    "passes_completed": 3,
+    "related": [
+      "./scratch/gen_commit_message.py - Shares the function 'send_prompt_to_llm' for interacting with the LLM.",
+      "./scratch/rewrite_with_llm.py - Also uses 'send_prompt_to_llm' for LLM interactions.",
+      "./backend/llms.py - Contains functions for interacting with LLMs, similar to this script."
+    ],
+    "deps": [
+      "os",
+      "subprocess",
+      "requests",
+      "json",
+      "dotenv",
+      "sys",
+      "argparse",
+      "tiktoken",
+      "hashlib",
+      "datetime",
+      "logging",
+      "io",
+      "concurrent.futures",
+      "threading"
+    ]
+  },
+  "./scratch/gen_commit_message.py": {
+    "type": "Python",
+    "purpose": "This script generates descriptive commit messages for Git changes using an AI language model.",
+    "elements": [
+      "function:send_prompt_to_llm - Sends a prompt to the language model and returns the generated response.",
+      "function:get_commit_hashes - Retrieves a list of all commit hashes in the repository.",
+      "function:get_patch - Retrieves the patch for a specific commit.",
+      "function:get_current_diff - Retrieves the current diff for the repository.",
+      "function:main_old - Processes all commit hashes to generate new commit messages and writes them to a file.",
+      "function:main - Generates a commit message for the current diff and prints it."
+    ],
+    "path": "./scratch/gen_commit_message.py",
+    "kind": "file",
+    "md5sum": "ef95744917668c61dbd061abcb35fe52",
+    "passes_completed": 3,
+    "related": [
+      "./scratch/commit_with_llm_msg.py - May share similar functionality or purpose related to generating commit messages.",
+      "./backend/llms.py - Contains the function send_prompt_to_llm, which is used in this script."
+    ],
+    "deps": [
+      "os",
+      "subprocess",
+      "requests",
+      "json",
+      "dotenv",
+      "sys"
+    ]
+  },
+  "./scratch/convert_index.py": {
+    "type": "Python",
+    "purpose": "This script converts an original schema JSON file into a new schema format and saves it.",
+    "elements": [
+      "function:convert_schema - Converts the original schema to a new schema format with simplified structure and additional metadata."
+    ],
+    "path": "./scratch/convert_index.py",
+    "kind": "file",
+    "md5sum": "36eb9170980d7ab0f2b8d43a041b154a",
+    "passes_completed": 3,
+    "related": [],
+    "deps": [
+      "json",
+      "sys"
+    ]
+  },
+  "./scratch/rewrite_with_llm.py": {
+    "type": "Python",
+    "purpose": "This script is designed to interact with a language model to either modify a primary file based on a given request or answer a question using optional context files.",
+    "elements": [
+      "function:count_tokens - Counts the number of tokens in a given prompt using the tiktoken library.",
+      "function:send_prompt_to_llm - Sends a prompt to the language model and returns the response.",
+      "function:read_file_content - Reads and returns the content of a specified file.",
+      "function:construct_prompt - Constructs a detailed prompt for the LLM to generate code updates on the primary file.",
+      "function:save_new_version - Saves the modified code to a new file with '.llm_update' appended to the original filename.",
+      "function:construct_query_prompt - Constructs a prompt for querying based on the primary file and context files.",
+      "function:main - The main function that parses arguments and orchestrates the script's operations."
+    ],
+    "path": "./scratch/rewrite_with_llm.py",
+    "kind": "file",
+    "md5sum": "46fe02a7dc0e43670a8d1ec095450b42",
+    "passes_completed": 3,
+    "related": [
+      "./backend/llms.py - May share functionality or concepts related to sending prompts to a language model.",
+      "./scratch/analysis.py - Contains functions that might be relevant for file content manipulation or analysis.",
+      "./scratch/gen_commit_message.py - Also uses the function send_prompt_to_llm, indicating a shared dependency or functionality.",
+      "./backend/util.py - Contains utility functions that might be useful for file handling or processing."
+    ],
+    "deps": [
+      "os",
+      "subprocess",
+      "requests",
+      "json",
+      "dotenv",
+      "sys",
+      "argparse",
+      "tiktoken"
+    ]
+  },
+  "./shared/Models.ts": {
+    "type": "TypeScript",
+    "purpose": "Defines interfaces for User, Recording, and Transcription entities used in the system.",
+    "elements": [
+      "structure:User - Represents a user in the system with properties like id, name, email, role, and timestamps.",
+      "structure:Recording - Represents a recording entity with properties like id, user_id, filenames, duration, transcription status, and timestamps.",
+      "structure:Transcription - Represents a transcription entity with properties like id, user_id, recording_id, transcript texts, and speaker mapping."
+    ],
+    "path": "./shared/Models.ts",
+    "kind": "file",
+    "md5sum": "9032aa0afbf5a964e9059f712a32653f",
+    "passes_completed": 3,
+    "related": [
+      "./vite-frontend/src/interfaces/Models.ts - Contains similar interfaces for frontend use.",
+      "./shared/models.py - Contains equivalent classes for backend use.",
+      "./backend/db_handlers/models.py - Contains equivalent classes for database handling."
+    ],
+    "deps": []
+  },
+  "./shared/models.py": {
+    "type": "Python",
+    "purpose": "Defines data models using Pydantic for handling transcription-related data.",
+    "elements": [
+      "class:Model - A base model class with a root attribute of any type.",
+      "class:TranscriptionStatus - An enumeration for transcription status states.",
+      "class:Recording - A model representing a recording with transcription details.",
+      "class:SpeakerMapping - A model for mapping speaker information.",
+      "class:Transcription - A model for transcription data including speaker mapping.",
+      "class:User - A model representing a user with basic information."
+    ],
+    "path": "./shared/models.py",
+    "kind": "file",
+    "md5sum": "468ab27359fa37d17f1166464c7526bd",
+    "passes_completed": 3,
+    "related": [
+      "./backend/db_handlers/models.py - Contains similar models likely used for database interactions.",
+      "./shared/Models.ts - Contains TypeScript structures that may correspond to these Python models."
+    ],
+    "deps": [
+      "enum",
+      "typing",
+      "pydantic"
+    ]
+  },
+  "./vite-frontend/.storybook/main.ts": {
+    "type": "TypeScript",
+    "purpose": "Configuration file for setting up Storybook with Vite in a React project.",
+    "elements": [
+      "structure:config - Storybook configuration object defining core settings, stories paths, and addons."
+    ],
+    "path": "./vite-frontend/.storybook/main.ts",
+    "kind": "file",
+    "md5sum": "6ec5d1a24cd64f97db71e5a3e9f02802",
+    "passes_completed": 3,
+    "related": [
+      "./vite-frontend/.storybook/preview.tsx - May contain additional Storybook configuration or decorators.",
+      "./vite-frontend/src/components/Welcome/Welcome.story.tsx - Example of a story file that would be included based on the stories path pattern."
+    ],
+    "deps": [
+      "@storybook/react-vite",
+      "storybook-dark-mode"
+    ]
+  },
+  "./vite-frontend/.storybook/preview.tsx": {
+    "type": "TypeScript",
+    "purpose": "Configures Storybook preview settings and applies global decorators for theming and layout.",
+    "elements": [
+      "function:ColorSchemeWrapper - Wraps children components to handle color scheme changes using Mantine's color scheme hook.",
+      "structure:parameters - Defines Storybook parameters such as layout and panel visibility.",
+      "structure:decorators - List of decorators to wrap stories with additional functionality, such as theming."
+    ],
+    "path": "./vite-frontend/.storybook/preview.tsx",
+    "kind": "file",
+    "md5sum": "4fe3dd4c106bf2e1627ebd0abb16a3fb",
+    "passes_completed": 3,
+    "related": [
+      "./vite-frontend/src/theme.ts - Provides the theme used by MantineProvider.",
+      "./vite-frontend/src/components/ColorSchemeToggle/ColorSchemeToggle.tsx - May relate to color scheme handling."
+    ],
+    "deps": [
+      "@mantine/core",
+      "react",
+      "@storybook/preview-api",
+      "storybook-dark-mode",
+      "../src/theme"
+    ]
+  },
+  "./vite-frontend/src/util.ts": {
+    "type": "JavaScript",
+    "purpose": "Utility function to format a duration given in seconds into a human-readable string.",
+    "elements": [
+      "function:formatDuration - Converts a duration in seconds into a formatted string with hours, minutes, and seconds."
+    ],
+    "path": "./vite-frontend/src/util.ts",
+    "kind": "file",
+    "md5sum": "887f5e87f79632c872dc4e63c21dc73c",
+    "passes_completed": 3,
+    "related": [],
+    "deps": []
+  },
+  "./vite-frontend/src/vite-env.d.ts": {
+    "type": "TypeScript",
+    "purpose": "Provides TypeScript type definitions for Vite client environment.",
+    "elements": [],
+    "path": "./vite-frontend/src/vite-env.d.ts",
+    "kind": "file",
+    "md5sum": "0352474ba2918efe13895edbc3780d94",
+    "passes_completed": 3,
+    "related": [],
+    "deps": [
+      "vite/client"
+    ]
+  },
+  "./vite-frontend/src/GlobalStyle.ts": {
+    "type": "TypeScript",
+    "purpose": "Defines global styles for the application using styled-components.",
+    "elements": [
+      "function:createGlobalStyle - Creates a global style component for consistent styling across the application."
+    ],
+    "path": "./vite-frontend/src/GlobalStyle.ts",
+    "kind": "file",
+    "md5sum": "f7a9b4d947b6db2ad882140be25eb6f9",
+    "passes_completed": 3,
+    "related": [],
+    "deps": [
+      "styled-components"
+    ]
+  },
+  "./vite-frontend/src/components/RecordingCompleteDialog.tsx": {
+    "type": "TypeScript",
+    "purpose": "This file defines a React component for a dialog that appears when a recording is complete, allowing the user to enter a title and description for the recording and either save or discard it.",
+    "elements": [
+      "function:RecordingCompleteDialog - A React component that renders a modal dialog for saving or discarding a completed recording.",
+      "function:handleSubmit - Handles the submission of the recording details by calling the onSubmit prop and resetting the input fields.",
+      "function:formatTime - Formats a given number of seconds into a MM:SS string."
+    ],
+    "path": "./vite-frontend/src/components/RecordingCompleteDialog.tsx",
+    "kind": "file",
+    "md5sum": "c69dda4fa8e69795aa9aeb31539a0441",
+    "passes_completed": 3,
+    "related": [
+      "./vite-frontend/src/components/Recording.tsx - May interact with the Recording component for managing recordings.",
+      "./vite-frontend/src/pages/UploadPage.tsx - Could be related through the process of uploading and managing recordings."
+    ],
+    "deps": [
+      "@mantine/core",
+      "React"
+    ]
+  },
+  "./vite-frontend/src/components/Welcome/Welcome.story.tsx": {
+    "type": "JavaScript",
+    "purpose": "This file defines a Storybook story for the Welcome component.",
+    "elements": [
+      "function:Usage - A Storybook story function that renders the Welcome component."
+    ],
+    "path": "./vite-frontend/src/components/Welcome/Welcome.story.tsx",
+    "kind": "file",
+    "md5sum": "7b06607b65d1414babf9ea97759f47a8",
+    "passes_completed": 3,
+    "related": [
+      "./vite-frontend/src/components/Welcome/Welcome.tsx - This file contains the Welcome component being used in the story.",
+      "./vite-frontend/src/components/Welcome/Welcome.test.tsx - This file contains tests for the Welcome component, which is also used in the story."
+    ],
+    "deps": [
+      "./Welcome"
+    ]
+  },
+  "./vite-frontend/src/components/Welcome/Welcome.test.tsx": {
+    "type": "JavaScript",
+    "purpose": "This file contains tests for the Welcome component, ensuring it has the correct Vite guide link.",
+    "elements": [
+      "function:describe - Groups related tests for the Welcome component.",
+      "function:it - Defines a test case to check the Vite guide link in the Welcome component."
+    ],
+    "path": "./vite-frontend/src/components/Welcome/Welcome.test.tsx",
+    "kind": "file",
+    "md5sum": "9347a3fc23f1026decec1859fb3b44c1",
+    "passes_completed": 3,
+    "related": [
+      "./vite-frontend/src/components/Welcome/Welcome.tsx - Contains the Welcome component being tested.",
+      "./vite-frontend/test-utils/index.ts - Provides the render function used in the tests."
+    ],
+    "deps": [
+      "@test-utils",
+      "./Welcome"
+    ]
+  },
+  "./vite-frontend/src/components/Welcome/Welcome.tsx": {
+    "type": "JavaScript",
+    "purpose": "This file defines a React component that displays a welcome message using Mantine UI components.",
+    "elements": [
+      "function:Welcome - A React component that renders a welcome message with styled text and a link to a guide."
+    ],
+    "path": "./vite-frontend/src/components/Welcome/Welcome.tsx",
+    "kind": "file",
+    "md5sum": "c2b837657974acd1dad93680f00e118c",
+    "passes_completed": 3,
+    "related": [
+      "./vite-frontend/src/components/Welcome/Welcome.story.tsx - Contains storybook stories for the Welcome component.",
+      "./vite-frontend/src/components/Welcome/Welcome.test.tsx - Contains tests for the Welcome component."
+    ],
+    "deps": [
+      "@mantine/core",
+      "./Welcome.module.css"
+    ]
+  },
+  "./vite-frontend/src/components/ColorSchemeToggle/ColorSchemeToggle.tsx": {
+    "type": "JavaScript",
+    "purpose": "This file defines a React component for toggling between different color schemes using Mantine's color scheme management.",
+    "elements": [
+      "function:ColorSchemeToggle - A React component that provides buttons to switch between light, dark, and auto color schemes."
+    ],
+    "path": "./vite-frontend/src/components/ColorSchemeToggle/ColorSchemeToggle.tsx",
+    "kind": "file",
+    "md5sum": "089857ad078e4680dc7de8e8152ec0c6",
+    "passes_completed": 3,
+    "related": [
+      "./vite-frontend/.storybook/preview.tsx - May use or demonstrate the ColorSchemeToggle component.",
+      "./vite-frontend/src/theme.ts - Could be related if the theme is affected by color scheme changes.",
+      "./vite-frontend/src/App.tsx - Might include or render the ColorSchemeToggle component.",
+      "./vite-frontend/src/GlobalStyle.ts - Could be related if global styles are affected by color scheme changes."
+    ],
+    "deps": [
+      "@mantine/core"
+    ]
+  },
+  "./vite-frontend/src/components/SpeakerLabelDialog.tsx": {
+    "type": "JavaScript",
+    "purpose": "This file defines a React component for a dialog that allows users to label speakers based on provided summaries.",
+    "elements": [
+      "class:SpeakerLabelDialog - A React functional component that provides a UI for labeling speakers.",
+      "function:handleChange - Updates the label for a specific speaker.",
+      "function:handleAccept - Accepts the current labels and closes the dialog.",
+      "structure:SpeakerLabelDialogProps - Interface defining the props for the SpeakerLabelDialog component."
+    ],
+    "path": "./vite-frontend/src/components/SpeakerLabelDialog.tsx",
+    "kind": "file",
+    "md5sum": "0ebe77c3d232b73a2971bfbf7693f89d",
+    "passes_completed": 3,
+    "related": [
+      "./vite-frontend/src/components/Recording.tsx - May use or interact with speaker labeling functionality.",
+      "./vite-frontend/src/components/RecordingCard.tsx - May use or interact with speaker labeling functionality."
+    ],
+    "deps": [
+      "react"
+    ]
+  },
+  "./vite-frontend/src/components/AudioRecorder/useAudioRecorder.tsx": {
+    "type": "TypeScript",
+    "purpose": "Provides a custom hook for recording audio using the MediaRecorder API, handling audio data processing and streaming.",
+    "elements": [
+      "interface:AudioRecorderState - Represents the state of the audio recorder including recording status, volume, and errors.",
+      "function:useAudioRecorder - Custom hook that manages audio recording, state updates, and data streaming.",
+      "function:updateVolume - Updates the volume level and history during recording.",
+      "function:handleDataAvailable - Processes audio data chunks and uploads them.",
+      "function:startRecording - Initiates the audio recording session and sets up necessary resources.",
+      "function:stopRecording - Stops the audio recording session and finalizes data processing."
+    ],
+    "path": "./vite-frontend/src/components/AudioRecorder/useAudioRecorder.tsx",
+    "kind": "file",
+    "md5sum": "6c27f30f820ac821f6ca5027141151fe",
+    "passes_completed": 3,
+    "related": [
+      "./vite-frontend/src/api/audiostream.ts - Provides functions for handling audio streaming sessions and data processing.",
+      "./vite-frontend/src/components/AudioRecorder/AudioRecorder.tsx - Likely uses this hook to manage audio recording functionality."
+    ],
+    "deps": [
+      "extendable-media-recorder",
+      "extendable-media-recorder-wav-encoder",
+      "uuid",
+      "../../api/audiostream"
+    ]
+  },
+  "./vite-frontend/src/components/AudioRecorder/AudioRecorder.tsx": {
+    "type": "TypeScript",
+    "purpose": "This file defines an audio recorder component that allows users to start and stop audio recordings, visualize volume levels, and handle the completion of recordings.",
+    "elements": [
+      "class:AudioRecorder - A React functional component that manages audio recording state and UI interactions.",
+      "function:handleStopRecording - Stops the recording and shows the completion dialog.",
+      "function:handleDialogSubmit - Handles the submission of the recording completion dialog.",
+      "function:formatTime - Formats the recording time into a human-readable string.",
+      "structure:AudioRecorderProps - Interface for the props accepted by the AudioRecorder component."
+    ],
+    "path": "./vite-frontend/src/components/AudioRecorder/AudioRecorder.tsx",
+    "kind": "file",
+    "md5sum": "240eff9039f9812439b7571922aa2ba3",
+    "passes_completed": 3,
+    "related": [
+      "./vite-frontend/src/components/AudioRecorder/useAudioRecorder.tsx - Provides the useAudioRecorder hook used for managing audio recording state.",
+      "./vite-frontend/src/components/RecordingCompleteDialog.tsx - Provides the RecordingCompleteDialog component used for handling recording completion.",
+      "./vite-frontend/src/components/VolumeVisualizer.tsx - Provides the VolumeVisualizer component used to visualize audio volume levels."
+    ],
+    "deps": [
+      "react",
+      "@mantine/core",
+      "./useAudioRecorder",
+      "./VolumeVisualizer",
+      "@tabler/icons-react",
+      "../RecordingCompleteDialog",
+      "@mantine/notifications"
+    ]
+  },
+  "./vite-frontend/src/components/AudioRecorder/VolumeVisualizer.tsx": {
+    "type": "JavaScript",
+    "purpose": "This file defines a React component that visualizes audio volume levels as a series of vertical bars.",
+    "elements": [
+      "interface:VolumeVisualizerProps - Defines the properties for the VolumeVisualizer component, including volumeHistory and isRecording.",
+      "function:VolumeVisualizer - A React functional component that renders a visual representation of audio volume levels using a series of bars."
+    ],
+    "path": "./vite-frontend/src/components/AudioRecorder/VolumeVisualizer.tsx",
+    "kind": "file",
+    "md5sum": "2ce90ed4ef1be9496d2084fcb7e18119",
+    "passes_completed": 3,
+    "related": [
+      "./vite-frontend/src/components/AudioRecorder/useAudioRecorder.tsx - May provide the volume data used by the VolumeVisualizer component.",
+      "./vite-frontend/src/components/AudioRecorder/AudioRecorder.tsx - Likely uses the VolumeVisualizer component to display audio levels during recording."
+    ],
+    "deps": [
+      "react"
+    ]
+  },
+  "./vite-frontend/src/components/Recording.tsx": {
+    "type": "JavaScript",
+    "purpose": "This file defines a React component for displaying and managing a recording, including actions like transcription, downloading, and speaker labeling.",
+    "elements": [
+      "class:Recording - A React functional component that represents a recording and provides UI for various actions related to it.",
+      "function:fetchUpdatedRecording - Fetches the latest data for a recording from the server.",
+      "function:copyTranscriptToClipboard - Copies the transcription text to the clipboard.",
+      "function:handleLabelSpeakers - Opens the speaker label dialog.",
+      "function:handleDownload - Initiates a download action for the recording.",
+      "function:handleDelete - Deletes the recording and its transcription if available.",
+      "function:handleAcceptSpeakerLabels - Sends updated speaker labels to the server.",
+      "function:useEffect - Multiple useEffect hooks are used for handling side effects like fetching data and setting intervals."
+    ],
+    "path": "./vite-frontend/src/components/Recording.tsx",
+    "kind": "file",
+    "md5sum": "0734a31b23a51a408e74b4250ae1406a",
+    "passes_completed": 3,
+    "related": [
+      "./shared/Models.ts - Provides the Recording model used in this component.",
+      "./vite-frontend/src/components/SpeakerLabelDialog.tsx - Used for displaying and managing speaker labels.",
+      "./vite-frontend/src/api/recordings.ts - Provides API functions used for fetching and managing recordings.",
+      "./vite-frontend/src/pages/ViewTranscriptionPage.tsx - Related through transcription viewing functionality."
+    ],
+    "deps": [
+      "react",
+      "react-router-dom",
+      "@mantine/core",
+      "@fortawesome/react-fontawesome",
+      "@tabler/icons-react",
+      "../interfaces/Models",
+      "./SpeakerLabelDialog",
+      "../api/recordings",
+      "../util",
+      "@/Common"
+    ]
+  },
+  "./vite-frontend/src/components/RecordingCard.tsx": {
+    "type": "JavaScript",
+    "purpose": "This file defines a React component for displaying and interacting with a recording card, allowing users to manage recordings, such as starting transcription, viewing, downloading, and deleting recordings.",
+    "elements": [
+      "class:RecordingCard - A React functional component that represents a card UI for a recording.",
+      "function:copyTranscriptToClipboard - Copies the transcript text to the clipboard and shows a notification.",
+      "function:handleLabelSpeakers - Opens the speaker label dialog.",
+      "function:handleDownload - Initiates the download process and shows a notification.",
+      "function:handleDelete - Deletes the recording or transcription and shows a notification.",
+      "function:handleAcceptSpeakerLabels - Sends updated speaker labels to the server and shows a notification.",
+      "function:useEffect - React hook used for side effects, such as fetching speaker summaries and checking transcription status."
+    ],
+    "path": "./vite-frontend/src/components/RecordingCard.tsx",
+    "kind": "file",
+    "md5sum": "78d83dcc14d92b46f8d9304a3c788a59",
+    "passes_completed": 3,
+    "related": [
+      "./vite-frontend/src/api/recordings.ts - Provides API functions used for managing recordings and transcriptions.",
+      "./vite-frontend/src/Common.ts - Contains utility functions for showing notifications.",
+      "./shared/Models.ts - Defines the Recording model used in the component.",
+      "./vite-frontend/src/components/SpeakerLabelDialog.tsx - Related component used for labeling speakers.",
+      "./vite-frontend/src/util.ts - Contains the formatDuration utility function used in the component."
+    ],
+    "deps": [
+      "React",
+      "RecordingModel",
+      "SpeakerLabelDialog",
+      "Mantine core components",
+      "FontAwesomeIcon",
+      "recordings API functions",
+      "Mantine notifications",
+      "Tabler icons",
+      "formatDuration utility",
+      "showNotificationFromApiResponse function",
+      "React Router Link",
+      "RecordingCard.module.css"
+    ]
+  },
+  "./vite-frontend/src/Common.ts": {
+    "type": "TypeScript",
+    "purpose": "This file provides utility functions for displaying notifications based on API responses or errors.",
+    "elements": [
+      "structure:apiResponse - An interface defining the structure of API response objects with status, message, and error fields.",
+      "function:showNotificationFromApiResponse - Displays a notification based on the status of an API response.",
+      "function:showNotificationFromError - Displays an error notification with a given error message."
+    ],
+    "path": "./vite-frontend/src/Common.ts",
+    "kind": "file",
+    "md5sum": "f8d58ee7193e5c651053bce6073e092d",
+    "passes_completed": 3,
+    "related": [],
+    "deps": [
+      "@mantine/notifications"
+    ]
+  },
+  "./vite-frontend/src/Router.tsx": {
+    "type": "JavaScript",
+    "purpose": "Defines the routing configuration for the application using react-router-dom.",
+    "elements": [
+      "function:Router - Provides the RouterProvider component with the defined routes."
+    ],
+    "path": "./vite-frontend/src/Router.tsx",
+    "kind": "file",
+    "md5sum": "0f5e065e5cd6f49b0806b48ad2927559",
+    "passes_completed": 3,
+    "related": [
+      "./vite-frontend/src/pages/Home.page.tsx - Used as a route component for the home path.",
+      "./vite-frontend/src/pages/UploadPage.tsx - Used as a route component for the upload path.",
+      "./vite-frontend/src/pages/ViewTranscriptionPage.tsx - Used as a route component for viewing transcriptions.",
+      "./vite-frontend/src/pages/RecordingCardsPage.tsx - Used as a route component for displaying recording cards.",
+      "./vite-frontend/src/pages/AudioStreamPage.tsx - Used as a route component for audio streaming."
+    ],
+    "deps": [
+      "react-router-dom",
+      "./pages/Home.page",
+      "./pages/UploadPage",
+      "./pages/ViewTranscriptionPage",
+      "./pages/RecordingCardsPage",
+      "./pages/AudioStreamPage"
+    ]
+  },
+  "./vite-frontend/src/api/util.ts": {
+    "type": "JavaScript",
+    "purpose": "Utility functions for API interactions in the frontend.",
+    "elements": [
+      "function:getApiVersion - Fetches the API version from the backend."
+    ],
+    "path": "./vite-frontend/src/api/util.ts",
+    "kind": "file",
+    "md5sum": "49311c2d080231e7eee6f42d297e09c6",
+    "passes_completed": 3,
+    "related": [
+      "./backend/routes/api.py - Provides the backend endpoint '/api/get_api_version' that this function calls."
+    ],
+    "deps": [
+      "axios"
+    ]
+  },
+  "./vite-frontend/src/api/audiostream.ts": {
+    "type": "JavaScript",
+    "purpose": "This file provides functions to manage audio streaming sessions, including starting, uploading chunks, finishing sessions, checking for missing chunks, and encoding audio to MP3 format.",
+    "elements": [
+      "function:startAudioStreamSession - Initiates an audio streaming session by sending a request to the server.",
+      "function:uploadChunk - Uploads a chunk of audio data to the server for a specific session.",
+      "function:finishAudioStreamSession - Completes the audio streaming session by notifying the server.",
+      "function:getMissingChunks - Retrieves a list of missing audio chunks for a session from the server.",
+      "function:encodeToMp3 - Encodes audio data to MP3 format using the specified channels, sample rate, and bit rate."
+    ],
+    "path": "./vite-frontend/src/api/audiostream.ts",
+    "kind": "file",
+    "md5sum": "a6d61709a12db4462eff1453a3cef2e9",
+    "passes_completed": 3,
+    "related": [
+      "./backend/routes/audiostream.py - Provides server-side endpoints that this file interacts with for managing audio streaming sessions.",
+      "./backend/audiostream_api/in_memory_chunk_storage.py - May be involved in handling chunk storage during audio streaming sessions.",
+      "./backend/audiostream_api/chunk_storage.py - May be involved in handling chunk storage during audio streaming sessions."
+    ],
+    "deps": [
+      "fs",
+      "axios",
+      "@breezystack/lamejs"
+    ]
+  },
+  "./vite-frontend/src/api/recordings.ts": {
+    "type": "JavaScript",
+    "purpose": "This file provides API functions for managing recordings and transcriptions, including fetching, deleting, and checking transcription status.",
+    "elements": [
+      "function:fetchRecordings - Fetches a list of recordings from the server.",
+      "function:fetchRecording - Fetches a specific recording by its ID.",
+      "function:startTranscription - Initiates transcription for a given recording.",
+      "function:deleteRecording - Deletes a specific recording by its ID.",
+      "function:deleteTranscription - Deletes a specific transcription by its ID.",
+      "function:checkTranscriptionStatus - Checks the status of a transcription for a given recording."
+    ],
+    "path": "./vite-frontend/src/api/recordings.ts",
+    "kind": "file",
+    "md5sum": "757c2354fed303289533ddef522775b1",
+    "passes_completed": 3,
+    "related": [
+      "./shared/Models.ts - Provides the Recording structure used in this file.",
+      "./backend/db_handlers/recording_handler.py - Handles backend operations related to recordings.",
+      "./backend/db_handlers/transcription_handler.py - Handles backend operations related to transcriptions.",
+      "./backend/routes/api.py - Defines API endpoints that these functions interact with."
+    ],
+    "deps": [
+      "axios",
+      "../interfaces/Models",
+      "@/Common"
+    ]
+  },
+  "./vite-frontend/src/theme.ts": {
+    "type": "TypeScript",
+    "purpose": "Defines a custom theme configuration using Mantine's theming system.",
+    "elements": [
+      "structure:theme - Custom theme configuration object for Mantine"
+    ],
+    "path": "./vite-frontend/src/theme.ts",
+    "kind": "file",
+    "md5sum": "b1a8d7ea0f425b092f882c85714fa5b5",
+    "passes_completed": 3,
+    "related": [],
+    "deps": [
+      "@mantine/core"
+    ]
+  },
+  "./vite-frontend/src/main.tsx": {
+    "type": "TypeScript",
+    "purpose": "Entry point for the React application, rendering the main App component.",
+    "elements": [],
+    "path": "./vite-frontend/src/main.tsx",
+    "kind": "file",
+    "md5sum": "e14df66fcbb1a30045a54c3fa2c912de",
+    "passes_completed": 3,
+    "related": [
+      "./vite-frontend/src/App.tsx - Imports the App component to render it as the main component of the application."
+    ],
+    "deps": [
+      "react-dom",
+      "./App"
+    ]
+  },
+  "./vite-frontend/src/pages/ViewTranscriptionPage.tsx": {
+    "type": "JavaScript",
+    "purpose": "This file defines a React component for displaying and interacting with a transcription, allowing users to view and copy the transcription text.",
+    "elements": [
+      "function:ViewTranscriptionPage - React functional component that fetches and displays a transcription, and provides functionality to copy it to the clipboard.",
+      "function:copyTranscriptionToClipboard - Copies the transcription text to the clipboard and shows a notification based on the success or failure of the operation."
+    ],
+    "path": "./vite-frontend/src/pages/ViewTranscriptionPage.tsx",
+    "kind": "file",
+    "md5sum": "885bf32aae7925aa565d1f8bb5a4958b",
+    "passes_completed": 3,
+    "related": [
+      "./shared/Models.ts - Defines the Transcription structure used in this file.",
+      "./vite-frontend/src/api/recordings.ts - May provide API functions related to recordings and transcriptions.",
+      "./vite-frontend/src/components/Recording.tsx - Contains related functionality for handling recordings.",
+      "./vite-frontend/src/pages/RecordingCardsPage.tsx - Related page that may link to or from this page."
+    ],
+    "deps": [
+      "react",
+      "react-router-dom",
+      "@mantine/core",
+      "@mantine/notifications",
+      "@tabler/icons-react",
+      "@fortawesome/free-regular-svg-icons",
+      "../interfaces/Models",
+      "./ViewTranscriptionPage.module.css"
+    ]
+  },
+  "./vite-frontend/src/pages/RecordingCardsPage.tsx": {
+    "type": "TypeScript",
+    "purpose": "This file defines a React component page that displays a list of recording cards, allowing users to view and delete recordings.",
+    "elements": [
+      "function:RecordingCardsPage - A React functional component that fetches and displays recordings using RecordingCard components.",
+      "function:handleDeleteRecording - Removes a recording from the list of displayed recordings.",
+      "structure:useEffect - React hook used to fetch recordings when the component mounts.",
+      "structure:useState - React hook used to manage the state of recordings and loading status."
+    ],
+    "path": "./vite-frontend/src/pages/RecordingCardsPage.tsx",
+    "kind": "file",
+    "md5sum": "59a4bc0d86b9125953138e45e2d8e71f",
+    "passes_completed": 3,
+    "related": [
+      "./vite-frontend/src/api/recordings.ts - Provides the fetchRecordings function used to retrieve recordings.",
+      "./vite-frontend/src/components/RecordingCard.tsx - Contains the RecordingCard component used to display individual recordings."
+    ],
+    "deps": [
+      "../api/recordings",
+      "../components/RecordingCard",
+      "../interfaces/Models",
+      "@mantine/core",
+      "@mantine/notifications",
+      "@tabler/icons-react",
+      "react-router-dom",
+      "./RecordingCardsPage.module.css"
+    ]
+  },
+  "./vite-frontend/src/pages/UploadPage.tsx": {
+    "type": "JavaScript",
+    "purpose": "This file defines a React component for an upload page that allows users to upload audio files and provides feedback on the upload progress.",
+    "elements": [
+      "function:UploadPage - A React functional component that handles file selection and uploading, and displays progress and status messages.",
+      "function:handleFileSelect - Handles the selection of files from the dropzone and sets the selected file state.",
+      "function:handleUpload - Manages the file upload process using XMLHttpRequest, updating progress and handling errors.",
+      "structure:useState - React hook used to manage state for file, progress, status, and error.",
+      "structure:useRef - React hook used to create a reference for the dropzone open function."
+    ],
+    "path": "./vite-frontend/src/pages/UploadPage.tsx",
+    "kind": "file",
+    "md5sum": "f791dc4f4428cfb8a2c7c72201209a55",
+    "passes_completed": 3,
+    "related": [],
+    "deps": [
+      "react",
+      "@mantine/core",
+      "@mantine/dropzone",
+      "@tabler/icons-react",
+      "@mantine/notifications",
+      "axios",
+      "react-router-dom"
+    ]
+  },
+  "./vite-frontend/src/pages/AudioStreamPage.tsx": {
+    "type": "TypeScript",
+    "purpose": "This file defines a React component for the AudioStreamPage, which allows users to start a new audio recording directly from their browser.",
+    "elements": [
+      "function:AudioStreamPage - A React component that renders the audio recording page.",
+      "function:handleRecordingComplete - A callback function that logs the completion of an audio recording."
+    ],
+    "path": "./vite-frontend/src/pages/AudioStreamPage.tsx",
+    "kind": "file",
+    "md5sum": "edd61408577dc6cb4f486b926e0579a9",
+    "passes_completed": 3,
+    "related": [
+      "./vite-frontend/src/components/AudioRecorder/AudioRecorder.tsx - Used to render the AudioRecorder component within the page.",
+      "./vite-frontend/src/Router.tsx - Likely related as it may define the route for this page."
+    ],
+    "deps": [
+      "react",
+      "@mantine/core",
+      "react-router-dom",
+      "@tabler/icons-react",
+      "../components/AudioRecorder/AudioRecorder"
+    ]
+  },
+  "./vite-frontend/src/pages/Home.page.tsx": {
+    "type": "JavaScript",
+    "purpose": "This file defines the HomePage component for a React application, providing a user interface for navigating to different sections of the app such as recordings, uploads, and audio streaming.",
+    "elements": [
+      "function:HomePage - Defines the main component for the home page, fetching API version and rendering navigation buttons."
+    ],
+    "path": "./vite-frontend/src/pages/Home.page.tsx",
+    "kind": "file",
+    "md5sum": "fd431b1e8cdd5b1b8a428dd29c0412d8",
+    "passes_completed": 3,
+    "related": [
+      "./vite-frontend/src/api/util.ts - Utilized for fetching the API version.",
+      "./vite-frontend/src/pages/RecordingsPage.tsx - Linked as a navigation target for viewing recordings.",
+      "./vite-frontend/src/pages/UploadPage.tsx - Linked as a navigation target for uploading recordings.",
+      "./vite-frontend/src/pages/AudioStreamPage.tsx - Linked as a navigation target for recording audio."
+    ],
+    "deps": [
+      "react",
+      "react-router-dom",
+      "@mantine/core",
+      "@tabler/icons-react",
+      "@/api/util"
+    ]
+  },
+  "./vite-frontend/src/pages/RecordingsPage.tsx": {
+    "type": "TypeScript",
+    "purpose": "This file defines the RecordingsPage component, which displays a list of recordings fetched from an API and provides navigation back to the home page.",
+    "elements": [
+      "function:RecordingsPage - A React functional component that fetches and displays a list of recordings.",
+      "structure:useEffect - React hook used to fetch recordings when the component mounts.",
+      "structure:useState - React hook used to manage the state of the recordings list."
+    ],
+    "path": "./vite-frontend/src/pages/RecordingsPage.tsx",
+    "kind": "file",
+    "md5sum": "21b0ed3644a4d42477fbf6a5ab69d7e6",
+    "passes_completed": 3,
+    "related": [
+      "./vite-frontend/src/api/recordings.ts - Provides the fetchRecordings function used to retrieve recordings data.",
+      "./vite-frontend/src/components/Recording.tsx - Contains the Recording component used to render each recording in the table."
+    ],
+    "deps": [
+      "../api/recordings",
+      "../components/Recording",
+      "@mantine/core",
+      "@mantine/notifications",
+      "@tabler/icons-react",
+      "react-router-dom"
+    ]
+  },
+  "./vite-frontend/src/App.tsx": {
+    "type": "JavaScript",
+    "purpose": "Defines the main application component for a React application using Mantine UI framework.",
+    "elements": [
+      "function:App - Main application component that sets up the MantineProvider with a theme, notifications, global styles, and routing."
+    ],
+    "path": "./vite-frontend/src/App.tsx",
+    "kind": "file",
+    "md5sum": "6ab71ee2785c00703bc7190fe6a8ae36",
+    "passes_completed": 3,
+    "related": [
+      "./vite-frontend/src/Router.tsx - Provides the Router component used for application routing.",
+      "./vite-frontend/src/theme.ts - Provides the theme object used for styling the application.",
+      "./vite-frontend/src/GlobalStyle.ts - Provides global styles applied to the application."
+    ],
+    "deps": [
+      "@mantine/core",
+      "@mantine/notifications",
+      "./Router",
+      "./theme",
+      "./GlobalStyle"
+    ]
+  },
+  "./vite-frontend/src/interfaces/Models.ts": {
+    "type": "TypeScript",
+    "purpose": "Defines TypeScript interfaces for User, Recording, and Transcription entities used in the system.",
+    "elements": [
+      "structure:User - Represents a user in the system with properties like id, name, email, role, and timestamps.",
+      "structure:Recording - Represents a recording entity with properties like id, user_id, filenames, duration, transcription status, and timestamps.",
+      "structure:Transcription - Represents a transcription entity with properties like id, user_id, recording_id, transcript texts, and speaker mapping."
+    ],
+    "path": "./vite-frontend/src/interfaces/Models.ts",
+    "kind": "file",
+    "md5sum": "9032aa0afbf5a964e9059f712a32653f",
+    "passes_completed": 3,
+    "related": [
+      "./shared/Models.ts - Contains similar structures in a different format, possibly for backend use.",
+      "./vite-frontend/src/components/Recording.tsx - May use these interfaces for handling recording data.",
+      "./vite-frontend/src/components/RecordingCard.tsx - May use these interfaces for displaying recording information.",
+      "./vite-frontend/src/pages/UploadPage.tsx - May use these interfaces for handling uploads related to recordings.",
+      "./vite-frontend/src/pages/ViewTranscriptionPage.tsx - May use these interfaces for displaying transcription data.",
+      "./vite-frontend/src/pages/RecordingsPage.tsx - May use these interfaces for managing and displaying recordings."
+    ],
+    "deps": []
+  },
+  "./vite-frontend/test-utils/index.ts": {
+    "type": "TypeScript",
+    "purpose": "This file serves as an entry point for test utilities, re-exporting functions and modules for easier imports in test files.",
+    "elements": [],
+    "path": "./vite-frontend/test-utils/index.ts",
+    "kind": "file",
+    "md5sum": "35a628460be395a345f7d5de7006d75f",
+    "passes_completed": 3,
+    "related": [
+      "./vite-frontend/test-utils/render.tsx - Re-exports the render function from this file for use in tests."
+    ],
+    "deps": [
+      "@testing-library/react",
+      "@testing-library/user-event",
+      "./render"
+    ]
+  },
+  "./vite-frontend/test-utils/render.tsx": {
+    "type": "TypeScript",
+    "purpose": "Provides a custom render function for testing React components with Mantine theme support.",
+    "elements": [
+      "function:render - Custom render function that wraps UI components with MantineProvider using a specified theme."
+    ],
+    "path": "./vite-frontend/test-utils/render.tsx",
+    "kind": "file",
+    "md5sum": "35e3ed3e84eea05bf878a3939e1d50a4",
+    "passes_completed": 3,
+    "related": [
+      "./vite-frontend/src/main.tsx - May use the theme defined in the project, which is also used in the render function.",
+      "./vite-frontend/src/components/Welcome/Welcome.test.tsx - Could use the custom render function for testing components."
+    ],
+    "deps": [
+      "@testing-library/react",
+      "@mantine/core",
+      "../src/theme"
+    ]
+  },
+  "./backend/llms.py": {
+    "type": "Python",
+    "purpose": "This file interacts with an Azure OpenAI deployment to process and analyze transcripts, including inferring speaker names and generating speaker summaries.",
+    "elements": [
+      "function:get_speaker_mapping - Maps speakers in a transcript to inferred names using a language model.",
+      "function:extract_json_from_response - Extracts JSON data from a response string.",
+      "function:get_speaker_summaries_via_llm - Obtains speaker summaries from a transcript using a language model.",
+      "function:parse_speaker_summaries - Parses the response to extract speaker summaries.",
+      "function:send_prompt_to_llm - Sends a prompt to the language model and returns the response."
+    ],
+    "path": "./backend/llms.py",
+    "kind": "file",
+    "md5sum": "e97ebc0301ae6fb5e4545718bac9592e",
+    "passes_completed": 3,
+    "related": [
+      "./backend/routes/api.py - May use functions for handling API requests related to transcripts.",
+      "./backend/db_handlers/transcription_handler.py - Could interact with transcription data.",
+      "./backend/routes/az_transcription_routes.py - Likely related to Azure transcription services.",
+      "./backend/util.py - Might provide utility functions for handling transcripts."
+    ],
+    "deps": [
+      "os",
+      "requests",
+      "base64",
+      "json",
+      "config",
+      "yaml",
+      "logging",
+      "typing"
+    ]
+  },
+  "./backend/blob_util.py": {
+    "type": "Python",
+    "purpose": "This file provides utility functions for storing recordings in Azure Blob Storage and generating SAS URLs for accessing these recordings.",
+    "elements": [
+      "function:store_recording - Uploads a file to Azure Blob Storage using a specified blob filename.",
+      "function:generate_recording_sas_url - Generates a SAS URL for accessing a recording stored in Azure Blob Storage."
+    ],
+    "path": "./backend/blob_util.py",
+    "kind": "file",
+    "md5sum": "c5af3a3ec77d22c4b80ea36da753f7d7",
+    "passes_completed": 3,
+    "related": [
+      "./backend/app.py - Uses BlobServiceClient which is also used in this file.",
+      "./backend/manage.py - May interact with blob storage for listing or managing recordings.",
+      "./backend/routes/api.py - Could use SAS URLs for accessing recordings.",
+      "./backend/db_handlers/recording_handler.py - Manages recordings which may involve storing or accessing blobs."
+    ],
+    "deps": [
+      "azure.storage.blob",
+      "config"
+    ]
+  },
+  "./backend/app.py": {
+    "type": "Python",
+    "purpose": "This file sets up and runs a Flask web application, handling routing, authentication, and integration with Azure services.",
+    "elements": [
+      "function:inject_api_version - Makes the API version available globally in templates.",
+      "function:login - Handles the login route using the auth module.",
+      "function:callback - Handles the authentication callback route using the auth module.",
+      "function:serve_static - Serves static files or returns index.html for client-side routing.",
+      "function:serve_root - Serves the index.html file for the root route."
+    ],
+    "path": "./backend/app.py",
+    "kind": "file",
+    "md5sum": "7358fb540f1ee8a29188d58711aae4ab",
+    "passes_completed": 3,
+    "related": [
+      "./backend/auth.py - Provides authentication functions used in login and callback routes.",
+      "./backend/routes/api.py - Contains API routes registered with the Flask app.",
+      "./backend/routes/az_transcription_routes.py - Contains Azure transcription routes registered with the Flask app.",
+      "./backend/db_handlers/user_handler.py - Manages user data, imported for potential user operations.",
+      "./backend/db_handlers/recording_handler.py - Manages recording data, imported for potential recording operations.",
+      "./backend/db_handlers/transcription_handler.py - Manages transcription data, imported for potential transcription operations.",
+      "./backend/config.py - Provides configuration settings used throughout the app.",
+      "./backend/util.py - Provides utility functions used in the app.",
+      "./backend/routes/audiostream.py - Contains audiostream routes registered with the Flask app."
+    ],
+    "deps": [
+      "flask",
+      "os",
+      "requests",
+      "azure.identity",
+      "azure.keyvault.secrets",
+      "dotenv",
+      "azure.cosmos",
+      "azure.storage.blob",
+      "db_handlers.user_handler",
+      "db_handlers.recording_handler",
+      "db_handlers.transcription_handler",
+      "datetime",
+      "routes.az_transcription_routes",
+      "routes.api",
+      "routes.audiostream",
+      "api_version",
+      "logging",
+      "user_util",
+      "config",
+      "auth",
+      "util",
+      "db_handlers.handler_factory",
+      "time"
+    ]
+  },
+  "./backend/manage.py": {
+    "type": "Python",
+    "purpose": "A command-line tool to manage Azure Blob Storage and Cosmos DB, providing functionalities like listing, showing, deleting entries, and checking consistency.",
+    "elements": [
+      "function:find_entry_by_partial_id - Searches for an entry in Cosmos DB by partial ID.",
+      "function:cli - Initializes the command-line interface.",
+      "function:list_blobs - Lists all files in the mp3uploads container.",
+      "function:list_cosmos_entries - Lists all entries in Cosmos DB.",
+      "function:show_item - Shows the full JSON of a particular entry in Cosmos DB by partial ID.",
+      "function:list_recordings - Lists all recordings using the recording handler.",
+      "function:show_recording - Shows a recording's details by ID.",
+      "function:delete_cosmos_entry - Deletes an entry in Cosmos DB and its associated file in Blob Storage.",
+      "function:check_consistency - Checks consistency between Cosmos DB and Blob Storage.",
+      "function:create_user - Creates a new user with the provided email, name, and optional role.",
+      "function:list_users - Lists all users using the user handler.",
+      "function:list_transcriptions - Lists transcription jobs using the speech API client.",
+      "function:show_transcription - Shows details of a transcription job by ID.",
+      "function:az_paginate - Handles pagination for API responses.",
+      "function:get_speech_api_client - Initializes the speech API client."
+    ],
+    "path": "./backend/manage.py",
+    "kind": "file",
+    "md5sum": "2f799c2af1fd28ed6d973ef8c233d312",
+    "passes_completed": 3,
+    "related": [
+      "./backend/db_handlers/user_handler.py - Provides user handling functionalities used in create_user and list_users commands.",
+      "./backend/db_handlers/recording_handler.py - Provides recording handling functionalities used in list_recordings and show_recording commands.",
+      "./backend/config.py - Contains environment variables used for Azure and Cosmos DB configurations."
+    ],
+    "deps": [
+      "click",
+      "azure.storage.blob.BlobServiceClient",
+      "azure.cosmos.CosmosClient",
+      "db_handlers.handler_factory",
+      "os",
+      "json",
+      "dotenv.load_dotenv",
+      "swagger_client",
+      "pprint.pprint",
+      "requests"
+    ]
+  },
+  "./backend/util.py": {
+    "type": "Python",
+    "purpose": "Utility functions for audio processing and text manipulation.",
+    "elements": [
+      "function:jinja2_escapejs_filter - Escapes JavaScript characters in a string for safe embedding in HTML.",
+      "function:get_recording_duration_in_seconds - Returns the duration of an audio file in seconds, supporting MP3 and M4A formats.",
+      "function:format_duration - Formats a duration given in seconds into a human-readable string.",
+      "function:ellide - Truncates a string to a specified maximum length, adding ellipsis if necessary.",
+      "function:convert_to_mp3 - Converts audio files to MP3 format, supporting MP3 and M4A input formats.",
+      "function:update_diarized_transcript - Updates speaker labels in a diarized transcript based on a provided mapping."
+    ],
+    "path": "./backend/util.py",
+    "kind": "file",
+    "md5sum": "3af9852090454002bb375951d443ad9e",
+    "passes_completed": 3,
+    "related": [
+      "./backend/routes/api.py - May use update_diarized_transcript for handling speaker labels in transcripts.",
+      "./backend/audiostream_api/audio_operations.py - Related to audio processing, potentially using convert_to_mp3."
+    ],
+    "deps": [
+      "jinja2",
+      "mutagen.mp3",
+      "mutagen.mp4",
+      "pydub"
+    ]
+  },
+  "./backend/config.py": {
+    "type": "Python",
+    "purpose": "This file is used to configure environment variables for the application, loading them from a .env file and providing a Config class to access these variables.",
+    "elements": [
+      "class:Config - Holds configuration settings loaded from environment variables."
+    ],
+    "path": "./backend/config.py",
+    "kind": "file",
+    "md5sum": "a015ff27e81f1501794e905c13b3d558",
+    "passes_completed": 3,
+    "related": [
+      "./backend/app.py - May use configuration settings for application setup.",
+      "./backend/manage.py - May use configuration settings for management tasks.",
+      "./backend/auth.py - May use authentication-related configuration settings.",
+      "./backend/llms.py - May use OpenAI-related configuration settings.",
+      "./backend/blob_util.py - May use Azure storage configuration settings."
+    ],
+    "deps": [
+      "os",
+      "dotenv"
+    ]
+  },
+  "./backend/user_util.py": {
+    "type": "Python",
+    "purpose": "Utility functions for handling user-related operations, primarily fetching user information.",
+    "elements": [
+      "function:get_user - Retrieves a user based on the user_id from cookies or by a default username if not found."
+    ],
+    "path": "./backend/user_util.py",
+    "kind": "file",
+    "md5sum": "28af67aff15deddf03a426a98da16524",
+    "passes_completed": 3,
+    "related": [
+      "./backend/db_handlers/user_handler.py - Uses UserHandler class to interact with the database for user information."
+    ],
+    "deps": [
+      "config",
+      "db_handlers.user_handler.UserHandler"
+    ]
+  },
+  "./backend/audiostream_api/in_memory_chunk_storage.py": {
+    "type": "Python",
+    "purpose": "Provides an in-memory implementation of chunk storage for audio streaming sessions.",
+    "elements": [
+      "class:InMemoryChunkStorage - An in-memory storage system for managing audio chunks during streaming sessions.",
+      "function:__init__ - Initializes the in-memory storage with an empty sessions dictionary.",
+      "function:start_session - Starts a new session with a given session ID.",
+      "function:store_chunk - Stores a chunk of data for a given session and chunk ID.",
+      "function:retrieve_chunk - Retrieves a specific chunk of data for a given session and chunk ID.",
+      "function:get_all_chunks - Retrieves all chunks for a given session, ordered by chunk ID.",
+      "function:finish_session - Marks a session as finished and sets the expected number of chunks.",
+      "function:check_missing_chunks - Checks for any missing chunks in a completed session.",
+      "function:delete_session - Deletes a session from the in-memory storage."
+    ],
+    "path": "./backend/audiostream_api/in_memory_chunk_storage.py",
+    "kind": "file",
+    "md5sum": "30cdd8bbd030b3aebd443ec1461cb0f2",
+    "passes_completed": 3,
+    "related": [
+      "./backend/audiostream_api/chunk_storage.py - InMemoryChunkStorage inherits from ChunkStorage, indicating a relationship where InMemoryChunkStorage extends or implements the functionality defined in ChunkStorage."
+    ],
+    "deps": [
+      "audiostream_api.chunk_storage",
+      "logging"
+    ]
+  },
+  "./backend/audiostream_api/audio_operations.py": {
+    "type": "Python",
+    "purpose": "This file provides functionality to combine multiple MP3 audio chunks into a single MP3 file with one audio channel using ffmpeg.",
+    "elements": [
+      "function:combine_mp3_chunks_into_one_channel_file - Combines a list of MP3 chunks into a single MP3 file with one audio channel using ffmpeg."
+    ],
+    "path": "./backend/audiostream_api/audio_operations.py",
+    "kind": "file",
+    "md5sum": "4759f324be5651e181e36ea5063635fa",
+    "passes_completed": 3,
+    "related": [],
+    "deps": [
+      "subprocess",
+      "tempfile",
+      "os",
+      "typing.List",
+      "logging"
+    ]
+  },
+  "./backend/audiostream_api/__init__.py": {
+    "type": "Python",
+    "purpose": "Initialization file for the audiostream_api package, potentially used to set up package-level imports or configurations.",
+    "elements": [],
+    "path": "./backend/audiostream_api/__init__.py",
+    "kind": "file",
+    "md5sum": "d41d8cd98f00b204e9800998ecf8427e",
+    "passes_completed": 3,
+    "related": [
+      "./backend/audiostream_api/in_memory_chunk_storage.py - May be imported or initialized in this package.",
+      "./backend/audiostream_api/audio_operations.py - May be imported or initialized in this package.",
+      "./backend/audiostream_api/chunk_storage.py - May be imported or initialized in this package."
+    ],
+    "deps": []
+  },
+  "./backend/audiostream_api/chunk_storage.py": {
+    "type": "Python",
+    "purpose": "Defines an interface for chunk storage operations related to audio streaming sessions.",
+    "elements": [
+      "class:ChunkStorage - Provides methods to manage audio data chunks for recording sessions.",
+      "function:__init__ - Initializes the storage mechanism.",
+      "function:start_session - Starts a new recording session.",
+      "function:store_chunk - Stores a chunk of audio data for a session.",
+      "function:retrieve_chunk - Retrieves a specific chunk of audio data for a session.",
+      "function:get_all_chunks - Retrieves all chunks in sequence for a session.",
+      "function:finish_session - Marks a session as complete and may trigger final processing.",
+      "function:check_missing_chunks - Checks for any missing chunks in a session.",
+      "function:delete_session - Deletes all stored data for a session."
+    ],
+    "path": "./backend/audiostream_api/chunk_storage.py",
+    "kind": "file",
+    "md5sum": "1a21774d26e5a86f6222050a5b6255cb",
+    "passes_completed": 3,
+    "related": [
+      "./backend/audiostream_api/in_memory_chunk_storage.py - Likely implements the interface defined in this file.",
+      "./backend/routes/audiostream.py - Uses chunk storage operations for managing audio streams."
+    ],
+    "deps": []
+  },
+  "./backend/db_handlers/util.py": {
+    "type": "Python",
+    "purpose": "Utility functions for handling Cosmos DB documents.",
+    "elements": [
+      "structure:COSMOS_SYSTEM_FIELDS - Set of system fields used by Cosmos DB.",
+      "function:filter_cosmos_fields - Removes Cosmos DB system fields from a document."
+    ],
+    "path": "./backend/db_handlers/util.py",
+    "kind": "file",
+    "md5sum": "4009f9ee3f614c9698571d7af554411f",
+    "passes_completed": 3,
+    "related": [],
+    "deps": []
+  },
+  "./backend/db_handlers/user_handler.py": {
+    "type": "Python",
+    "purpose": "Handles user-related operations in Cosmos DB, including creating, retrieving, updating, and deleting users, as well as fetching user-related recordings and transcriptions.",
+    "elements": [
+      "class:UserHandler - Manages user operations in Cosmos DB.",
+      "function:__init__ - Initializes the Cosmos DB client and container.",
+      "function:create_user - Creates a new user in Cosmos DB and returns the user ID.",
+      "function:get_user - Retrieves a user by ID and returns as a User model.",
+      "function:get_user_by_name - Retrieves users by name and returns as a list of User models.",
+      "function:get_all_users - Retrieves all users and returns as a list of User models.",
+      "function:update_user - Updates user details and returns the updated User model.",
+      "function:delete_user - Deletes a user from Cosmos DB.",
+      "function:get_user_files - Retrieves all recordings associated with the user.",
+      "function:get_user_transcriptions - Retrieves all transcriptions associated with the user."
+    ],
+    "path": "./backend/db_handlers/user_handler.py",
+    "kind": "file",
+    "md5sum": "6dfa52bad4ce28827f7d3cfe03b7fabe",
+    "passes_completed": 3,
+    "related": [
+      "./backend/db_handlers/models.py - Provides the User, Recording, and Transcription models used in this file."
+    ],
+    "deps": [
+      "azure.cosmos.CosmosClient",
+      "db_handlers.models.User",
+      "db_handlers.models.Recording",
+      "db_handlers.models.Transcription",
+      "db_handlers.util.filter_cosmos_fields",
+      "uuid",
+      "datetime"
+    ]
+  },
+  "./backend/db_handlers/recording_handler.py": {
+    "type": "Python",
+    "purpose": "Handles operations related to recordings in a Cosmos DB, including creation, retrieval, updating, and deletion of recording entries.",
+    "elements": [
+      "class:Recording - Extends the Pydantic Recording model to include transcription status and its update logic.",
+      "class:RecordingHandler - Manages database operations for recordings, including CRUD operations.",
+      "function:__init__ - Initializes the RecordingHandler with Cosmos DB client and container.",
+      "function:create_recording - Creates a new recording entry in the database.",
+      "function:get_recording - Retrieves a recording by its ID.",
+      "function:get_user_recordings - Retrieves all recordings for a specific user.",
+      "function:get_all_recordings - Retrieves all recordings from the database.",
+      "function:delete_recording - Deletes a recording by its ID.",
+      "function:update_recording - Updates an existing recording in the database.",
+      "function:transcription_status - Property getter for transcription status.",
+      "function:transcription_status - Property setter for transcription status.",
+      "function:validate_transcription_status - Validates and converts transcription status from string to Enum.",
+      "function:model_dump - Serializes the Recording model for JSON output."
+    ],
+    "path": "./backend/db_handlers/recording_handler.py",
+    "kind": "file",
+    "md5sum": "7b6ad9cf7559f2c6ba69e493b54f4392",
+    "passes_completed": 3,
+    "related": [
+      "./backend/db_handlers/transcription_handler.py - Used for handling transcription-related operations within the RecordingHandler.",
+      "./backend/db_handlers/models.py - Provides the Pydantic models used for data validation and serialization.",
+      "./backend/routes/api.py - May interact with RecordingHandler for API endpoints related to recordings.",
+      "./backend/routes/az_transcription_routes.py - May interact with RecordingHandler for transcription-related routes."
+    ],
+    "deps": [
+      "azure.cosmos",
+      "db_handlers.models",
+      "db_handlers.util",
+      "pydantic",
+      "uuid",
+      "datetime"
+    ]
+  },
+  "./backend/db_handlers/transcription_handler.py": {
+    "type": "Python",
+    "purpose": "Handles operations related to transcriptions in a Cosmos DB, including creation, retrieval, updating, and deletion of transcription records.",
+    "elements": [
+      "class:TranscriptionHandler - Manages transcription records in Cosmos DB.",
+      "function:__init__ - Initializes the TranscriptionHandler with Cosmos DB connection details.",
+      "function:create_transcription - Creates a new transcription entry in Cosmos DB.",
+      "function:get_transcription_by_recording - Retrieves a transcription by its associated recording ID.",
+      "function:get_transcription_by_az_id - Retrieves a transcription by its Azure transcription ID.",
+      "function:get_transcription - Retrieves a transcription by its ID.",
+      "function:update_transcription - Updates an existing transcription in Cosmos DB.",
+      "function:delete_transcription - Deletes a transcription from Cosmos DB."
+    ],
+    "path": "./backend/db_handlers/transcription_handler.py",
+    "kind": "file",
+    "md5sum": "3d4a68660776e7ba81730a217f79b084",
+    "passes_completed": 3,
+    "related": [
+      "./backend/db_handlers/models.py - Uses Transcription and TranscriptionStatus from this file.",
+      "./backend/routes/az_transcription_routes.py - May interact with transcriptions managed by this handler."
+    ],
+    "deps": [
+      "azure.cosmos",
+      "datetime",
+      "uuid",
+      "db_handlers.models",
+      "db_handlers.util"
+    ]
+  },
+  "./backend/db_handlers/models.py": {
+    "type": "Python",
+    "purpose": "Defines data models for the application using Pydantic and Enum for type validation and serialization.",
+    "elements": [
+      "class:Model - A root model class that can hold any type of data.",
+      "class:TranscriptionStatus - An enumeration representing the status of a transcription process.",
+      "class:Recording - A Pydantic model representing a recording with attributes related to transcription and user information.",
+      "class:SpeakerMapping - A Pydantic model representing a mapping of speaker names to reasoning.",
+      "class:Transcription - A Pydantic model representing a transcription with attributes for raw and processed transcription data.",
+      "class:User - A Pydantic model representing a user with attributes for identification and role information."
+    ],
+    "path": "./backend/db_handlers/models.py",
+    "kind": "file",
+    "md5sum": "1a181ef18aba42fa92df384f375e47f7",
+    "passes_completed": 3,
+    "related": [
+      "./backend/db_handlers/user_handler.py - Likely interacts with the User model for user-related database operations.",
+      "./backend/db_handlers/recording_handler.py - Likely interacts with the Recording model for recording-related database operations.",
+      "./backend/db_handlers/transcription_handler.py - Likely interacts with the Transcription model for transcription-related database operations."
+    ],
+    "deps": [
+      "enum",
+      "typing",
+      "pydantic"
+    ]
+  },
+  "./backend/db_handlers/__init__.py": {
+    "type": "Python",
+    "purpose": "This file marks the directory as a Python package.",
+    "elements": [],
+    "path": "./backend/db_handlers/__init__.py",
+    "kind": "file",
+    "md5sum": "681b4694985394ae6cc01faff587487b",
+    "passes_completed": 3,
+    "related": [
+      "./backend/db_handlers/user_handler.py - Part of the same package, likely related to user data handling.",
+      "./backend/db_handlers/recording_handler.py - Part of the same package, likely related to recording data handling.",
+      "./backend/db_handlers/transcription_handler.py - Part of the same package, likely related to transcription data handling.",
+      "./backend/db_handlers/models.py - Part of the same package, likely related to data models.",
+      "./backend/db_handlers/util.py - Part of the same package, likely related to utility functions.",
+      "./backend/db_handlers/handler_factory.py - Part of the same package, likely related to handler creation."
+    ],
+    "deps": []
+  },
+  "./backend/db_handlers/handler_factory.py": {
+    "type": "Python",
+    "purpose": "This file provides factory functions to create and retrieve handler instances for recordings, transcriptions, and users, ensuring they are stored in the Flask application context.",
+    "elements": [
+      "function:get_recording_handler - Retrieves or creates a RecordingHandler instance stored in the Flask application context.",
+      "function:get_transcription_handler - Retrieves or creates a TranscriptionHandler instance stored in the Flask application context.",
+      "function:get_user_handler - Retrieves or creates a UserHandler instance stored in the Flask application context.",
+      "function:create_recording_handler - Creates a new instance of RecordingHandler with configuration parameters.",
+      "function:create_transcription_handler - Creates a new instance of TranscriptionHandler with configuration parameters.",
+      "function:create_user_handler - Creates a new instance of UserHandler with configuration parameters."
+    ],
+    "path": "./backend/db_handlers/handler_factory.py",
+    "kind": "file",
+    "md5sum": "e61a1d387c98ab6e9a779622baa8078a",
+    "passes_completed": 3,
+    "related": [
+      "./backend/db_handlers/recording_handler.py - Provides the RecordingHandler class used to create recording handlers.",
+      "./backend/db_handlers/transcription_handler.py - Provides the TranscriptionHandler class used to create transcription handlers.",
+      "./backend/db_handlers/user_handler.py - Provides the UserHandler class used to create user handlers.",
+      "config - Provides configuration parameters required for handler creation."
+    ],
+    "deps": [
+      "recording_handler",
+      "transcription_handler",
+      "user_handler",
+      "config",
+      "flask.g"
+    ]
+  },
+  "./backend/generate_example_env.py": {
+    "type": "Python",
+    "purpose": "This script generates an example environment file by redacting sensitive information from an existing .env file.",
+    "elements": [
+      "function:<main> - Reads the .env file, redacts sensitive information, and writes the output to example.env"
+    ],
+    "path": "./backend/generate_example_env.py",
+    "kind": "file",
+    "md5sum": "9c03a06bea2a272d1c70dcff489a7d51",
+    "passes_completed": 3,
+    "related": [],
+    "deps": []
+  },
+  "./backend/generate_filelist.py": {
+    "type": "Python",
+    "purpose": "Generate a list of files based on include and exclude patterns specified in a .fileinclude file and write them to filelist.txt.",
+    "elements": [
+      "function:read_patterns - Reads include and exclude patterns from a specified file.",
+      "function:collect_files - Collects files in the current directory based on include and exclude patterns.",
+      "function:write_filelist - Writes the collected file list to an output file.",
+      "function:generate_filelist - Main function to orchestrate reading patterns, collecting files, and writing the file list."
+    ],
+    "path": "./backend/generate_filelist.py",
+    "kind": "file",
+    "md5sum": "492dfa91a24449bcfcbf977cf17bb39d",
+    "passes_completed": 3,
+    "related": [
+      "./backend/db_handlers/models.py - May be included or excluded based on patterns.",
+      "./backend/manage.py - May be included or excluded based on patterns.",
+      "./backend/routes/api.py - May be included or excluded based on patterns.",
+      "./backend/util.py - May be included or excluded based on patterns.",
+      "./backend/app.py - May be included or excluded based on patterns."
+    ],
+    "deps": [
+      "os",
+      "fnmatch",
+      "pathlib.Path"
+    ]
+  },
+  "./backend/api_version.py": {
+    "type": "Python",
+    "purpose": "Defines the current API version for the project.",
+    "elements": [
+      "structure:API_VERSION - A constant that holds the current version of the API."
+    ],
+    "path": "./backend/api_version.py",
+    "kind": "file",
+    "md5sum": "d48d2e0be2d62f65d062ab0bbd528251",
+    "passes_completed": 3,
+    "related": [
+      "./backend/app.py - May use the API_VERSION to inject or display the current API version.",
+      "./backend/routes/api.py - Functions like get_api_version might use or reference the API_VERSION.",
+      "./vite-frontend/src/api/util.ts - The getApiVersion function might retrieve or use this version information."
+    ],
+    "deps": []
+  },
+  "./backend/routes/az_transcription_routes.py": {
+    "type": "Python",
+    "purpose": "This file defines routes for handling Azure transcription services, including starting transcriptions, checking their status, and processing results.",
+    "elements": [
+      "function:start_transcription - Initiates a transcription process for a given recording using Azure Speech Services.",
+      "function:transcription_hello_world - A simple route that returns a 'Hello World' HTML page.",
+      "function:check_transcription_status - Checks the status of an ongoing transcription for a given recording.",
+      "function:check_in_progress_transcription - Helper function to check the status of a transcription in progress.",
+      "function:az_paginate - Handles pagination for API responses from Azure services.",
+      "function:get_speech_api_client - Initializes and returns a client for Azure Speech API.",
+      "function:az_transcribe - Submits a transcription request to Azure Speech Services and returns the transcription ID.",
+      "function:az_get_transcript - Retrieves the transcript of a completed transcription from Azure.",
+      "function:az_get_diarized_transcript - Generates a diarized transcript from JSON data."
+    ],
+    "path": "./backend/routes/az_transcription_routes.py",
+    "kind": "file",
+    "md5sum": "1b40dcee1a8ddb0cd9efca024d4a571d",
+    "passes_completed": 3,
+    "related": [
+      "./backend/db_handlers/transcription_handler.py - Used for handling transcription-related database operations.",
+      "./backend/db_handlers/recording_handler.py - Used for handling recording-related database operations.",
+      "./backend/db_handlers/models.py - Provides data models like TranscriptionStatus and Recording.",
+      "./backend/util.py - May provide utility functions used in transcription processing.",
+      "./backend/routes/api.py - May provide related API routes for user and recording management."
+    ],
+    "deps": [
+      "flask",
+      "db_handlers.transcription_handler",
+      "db_handlers.recording_handler",
+      "db_handlers.models",
+      "user_util",
+      "blob_util",
+      "azure.storage.blob",
+      "assemblyai",
+      "config",
+      "swagger_client",
+      "requests"
+    ]
+  },
+  "./backend/routes/audiostream.py": {
+    "type": "Python",
+    "purpose": "This file defines routes for handling audio streaming operations, including starting a session, uploading audio chunks, finishing a session, saving recordings, and checking for missing chunks.",
+    "elements": [
+      "function:start_stream - Starts a new audio streaming session.",
+      "function:receive_chunk - Receives and stores an audio chunk for a session.",
+      "function:finish_stream - Marks a session as finished and checks for missing chunks.",
+      "function:save_recording - Saves the complete audio recording after combining chunks.",
+      "function:check_missing_chunks - Checks for any missing audio chunks in a session.",
+      "function:get_full_audio - Retrieves the full combined audio for a session.",
+      "function:create_audio_recording_in_db - Simulates the creation of an audio recording in the database by combining chunks."
+    ],
+    "path": "./backend/routes/audiostream.py",
+    "kind": "file",
+    "md5sum": "d51faab145ce6689b7fc82a92d17c832",
+    "passes_completed": 3,
+    "related": [
+      "./backend/audiostream_api/in_memory_chunk_storage.py - Provides the InMemoryChunkStorage class used for storing audio chunks.",
+      "./backend/audiostream_api/audio_operations.py - Provides the function to combine MP3 chunks into a single channel file.",
+      "./backend/db_handlers/recording_handler.py - Likely related for handling recording operations in the database.",
+      "./backend/routes/api.py - May provide additional API routes related to user and recording management."
+    ],
+    "deps": [
+      "flask",
+      "audiostream_api.in_memory_chunk_storage",
+      "audiostream_api.audio_operations",
+      "werkzeug.utils",
+      "os",
+      "logging",
+      "base64",
+      "time",
+      "util",
+      "datetime",
+      "db_handlers.handler_factory",
+      "user_util",
+      "blob_util"
+    ]
+  },
+  "./backend/routes/api.py": {
+    "type": "Python",
+    "purpose": "This file defines API routes for handling users, recordings, and transcriptions, including CRUD operations and additional functionalities like file uploads and speaker summaries.",
+    "elements": [
+      "function:get_current_user - Helper function to retrieve the current user from the request.",
+      "function:get_api_version - Returns the current API version.",
+      "function:get_user_by_id - Retrieves a user by their ID.",
+      "function:list_users - Lists all users.",
+      "function:get_recording_by_id - Retrieves a recording by its ID.",
+      "function:list_recordings - Lists all recordings.",
+      "function:get_transcription_by_id - Retrieves a transcription by its ID.",
+      "function:get_user_transcriptions - Retrieves all transcriptions for a specific user.",
+      "function:get_user_recordings - Retrieves all recordings for a specific user.",
+      "function:get_users_by_ids - Retrieves users by a list of IDs.",
+      "function:get_recordings_by_ids - Retrieves recordings by a list of IDs.",
+      "function:get_transcriptions_by_ids - Retrieves transcriptions by a list of IDs.",
+      "function:delete_user - Deletes a user by ID.",
+      "function:delete_recording - Deletes a recording by ID.",
+      "function:delete_transcription - Deletes a transcription by ID.",
+      "function:update_user - Updates a user by ID.",
+      "function:update_recording - Updates a recording by ID.",
+      "function:update_transcription - Updates a transcription by ID.",
+      "function:get_speaker_summaries - Retrieves speaker summaries for a transcription.",
+      "function:update_speaker_labels - Updates speaker labels for a transcription.",
+      "function:infer_speaker_names - Infers speaker names for a transcription.",
+      "function:upload - Handles file uploads and processes audio files."
+    ],
+    "path": "./backend/routes/api.py",
+    "kind": "file",
+    "md5sum": "cab58a8cea80da3e3581da19bbd4df01",
+    "passes_completed": 3,
+    "related": [
+      "./backend/db_handlers/user_handler.py - Provides user-related database operations used in this file.",
+      "./backend/db_handlers/recording_handler.py - Provides recording-related database operations used in this file.",
+      "./backend/db_handlers/transcription_handler.py - Provides transcription-related database operations used in this file.",
+      "./backend/user_util.py - Contains utility functions for user management.",
+      "./backend/util.py - Contains utility functions for processing recordings and transcriptions.",
+      "./backend/llms.py - Provides functions for handling speaker summaries and mappings."
+    ],
+    "deps": [
+      "flask",
+      "db_handlers.handler_factory",
+      "user_util",
+      "db_handlers.models",
+      "util",
+      "llms",
+      "werkzeug.utils",
+      "blob_util",
+      "api_version"
+    ]
+  },
+  "./backend/test.py": {
+    "type": "Python",
+    "purpose": "This script processes JSON data to generate and print a formatted transcript based on recognized phrases and speakers.",
+    "elements": [
+      "function:generate_transcript - Generates a formatted transcript from recognized phrases in the provided JSON data."
+    ],
+    "path": "./backend/test.py",
+    "kind": "file",
+    "md5sum": "5573594ad1083526b467a937422237ed",
+    "passes_completed": 3,
+    "related": [
+      "./backend/routes/az_transcription_routes.py - May provide related transcription functionalities or data.",
+      "./backend/db_handlers/transcription_handler.py - Handles transcription data which might be related to the JSON data processed in this script."
+    ],
+    "deps": [
+      "json"
+    ]
+  },
+  "./backend/testing/test_audiostream_api.py": {
+    "type": "Python",
+    "purpose": "This file is a test script for the audiostream API, handling the process of splitting an audio file into chunks, uploading them to a server, and retrieving the combined audio.",
+    "elements": [
+      "function:split_audio - Splits an audio file into chunks of specified duration using ffmpeg.",
+      "function:upload_chunk - Uploads a single chunk to the server.",
+      "function:finish_recording - Notifies the server that the recording is complete.",
+      "function:get_full_audio - Retrieves the combined audio from the server and saves it as an MP3 file.",
+      "function:main - Orchestrates the process of splitting, uploading, and retrieving audio chunks."
+    ],
+    "path": "./backend/testing/test_audiostream_api.py",
+    "kind": "file",
+    "md5sum": "5caf44da23d62be81d1a49ec47737a6a",
+    "passes_completed": 3,
+    "related": [
+      "./backend/routes/audiostream.py - This file likely contains the server-side endpoints that the test script interacts with.",
+      "./backend/audiostream_api/audio_operations.py - May be related to audio processing operations.",
+      "./backend/audiostream_api/chunk_storage.py - May be related to handling chunk storage on the server.",
+      "./backend/audiostream_api/in_memory_chunk_storage.py - May be related to handling in-memory chunk storage on the server."
+    ],
+    "deps": [
+      "os",
+      "requests",
+      "base64",
+      "subprocess",
+      "sys",
+      "logging",
+      "uuid"
+    ]
+  },
+  "./backend/fixup_cosmos_data.py": {
+    "type": "Python",
+    "purpose": "This script is used to fix and update data in a Cosmos DB, specifically for recordings and transcriptions, ensuring data consistency and integrity.",
+    "elements": [
+      "function:fixup_recording - Updates recording data with missing fields and corrects file extensions in Azure Blob Storage.",
+      "function:fixup_recordings_for_transcription_id - Ensures each recording has the correct transcription ID associated with it.",
+      "function:fixup_remove_diarization_and_speaker_mapping - Removes unnecessary fields from transcription items in the database.",
+      "function:fixup_transcriptions - Cleans up transcription items by removing certain fields and updating specific items.",
+      "function:fixup_item - Examines and updates specific items in the database based on their ID.",
+      "function:main - Entry point of the script, calls the function to fix recordings for transcription IDs."
+    ],
+    "path": "./backend/fixup_cosmos_data.py",
+    "kind": "file",
+    "md5sum": "b75a2020ff2a9c8270889707b32a87de",
+    "passes_completed": 3,
+    "related": [
+      "./backend/db_handlers/models.py - Provides the TranscriptionStatus class used in the script.",
+      "./backend/db_handlers/recording_handler.py - Related through the creation of recording handlers.",
+      "./backend/db_handlers/transcription_handler.py - Related through the creation of transcription handlers.",
+      "./backend/db_handlers/user_handler.py - Potentially related through user data handling, though not directly used in this script."
+    ],
+    "deps": [
+      "config",
+      "db_handlers.handler_factory",
+      "db_handlers.models",
+      "datetime",
+      "azure.storage.blob",
+      "util",
+      "os",
+      "logging"
+    ]
+  },
+  "./backend/auth.py": {
+    "type": "Python",
+    "purpose": "Handles authentication using Microsoft Azure AD with MSAL in a Flask application.",
+    "elements": [
+      "function:build_msal_app - Initializes and returns a MSAL ConfidentialClientApplication for authentication.",
+      "function:login - Initiates the login process by redirecting to the Azure AD authorization URL.",
+      "function:handle_auth_callback - Handles the callback from Azure AD, processes the authorization code, and stores user information in the session.",
+      "function:get_user - Retrieves the current user information from the session."
+    ],
+    "path": "./backend/auth.py",
+    "kind": "file",
+    "md5sum": "b1333e6ed88c6882760e3d97a56522d4",
+    "passes_completed": 3,
+    "related": [
+      "./backend/config.py - Provides configuration settings such as client ID, client secret, and tenant ID used for authentication."
+    ],
+    "deps": [
+      "os",
+      "msal",
+      "flask.session",
+      "flask.redirect",
+      "flask.url_for",
+      "flask.request",
+      "config"
+    ]
+  },
+  "./backend/__init__.py": {
+    "type": "Python",
+    "purpose": "This file initializes the backend package by importing the configuration settings.",
+    "elements": [],
+    "path": "./backend/__init__.py",
+    "kind": "file",
+    "md5sum": "1c2f310086c60b1d807814dd514289df",
+    "passes_completed": 3,
+    "related": [
+      "./backend/config.py - This file is imported to provide configuration settings for the backend package."
+    ],
+    "deps": [
+      "config"
+    ]
+  },
+  "./backend/Makefile": {
+    "type": "Makefile",
+    "purpose": "Automates build, versioning, packaging, and deployment tasks for the project.",
+    "elements": [
+      "structure:RESOURCE_GROUP - Variable defining the Azure resource group name.",
+      "structure:APP_NAME - Variable defining the Azure web app name.",
+      "structure:SPEECH_CLIENT_DIR - Variable defining the directory for the Azure speech client.",
+      "structure:SHARED_DIR - Variable defining the shared directory path.",
+      "structure:build - Target to build the db_handlers/models.py from a TypeScript schema.",
+      "structure:build_packages - Target to build and copy Python packages from the speech client directory.",
+      "structure:bump_version - Target to bump the version of the application.",
+      "structure:build_zip - Target to create a zip file for deployment.",
+      "structure:deploy_azure - Target to deploy the application to Azure.",
+      "structure:deploy_to_test - Target to deploy the application to a test slot in Azure.",
+      "structure:deploy - Target to deploy the application using deploy_azure.",
+      "structure:clean - Target to clean up build artifacts."
+    ],
+    "path": "./backend/Makefile",
+    "kind": "file",
+    "md5sum": "eaf2e94f157e1323402fabd4b5dbede0",
+    "passes_completed": 3,
+    "related": [
+      "./backend/db_handlers/models.py - Generated by the build target from a TypeScript schema.",
+      "./backend/shared/Models.ts - Source TypeScript schema for generating models.",
+      "./backend/speech_client_dir - Directory containing the speech client for building packages.",
+      "./backend/api_version.py - Used in bump_version target to display the current API version.",
+      "./backend/generate_filelist.py - Script used in build_zip target to generate a list of files for zipping."
+    ],
+    "deps": [
+      "$(SHARED_DIR)/Models.ts",
+      "$(SPEECH_CLIENT_DIR)/dist/*whl",
+      "api_version.py",
+      "generate_filelist.py",
+      "filelist.txt"
+    ]
+  },
+  "./vite-frontend/src/components/AudioRecorder": {
+    "purpose": "The AudioRecorder directory is designed to provide components and hooks for recording audio, managing audio recording state, and visualizing audio volume levels within the application.",
+    "description": "The ./vite-frontend/src/components/AudioRecorder directory contains TypeScript and JavaScript files that collectively implement an audio recording feature. It includes a custom hook (useAudioRecorder.tsx) for managing audio recording using the MediaRecorder API, a React component (AudioRecorder.tsx) for user interaction with audio recording, and a visualizer component (VolumeVisualizer.tsx) for displaying audio volume levels. The directory depends on external libraries such as 'extendable-media-recorder' and '@mantine/core', and it interacts with other components like RecordingCompleteDialog and VolumeVisualizer to provide a comprehensive audio recording experience.",
+    "path": "./vite-frontend/src/components/AudioRecorder",
+    "kind": "directory",
+    "md5sum": "e4703df6cf0f89df9eaed9bce3fc9860",
+    "elements": [
+      "file:./vite-frontend/src/components/AudioRecorder/useAudioRecorder.tsx - Provides a custom hook for recording audio using the MediaRecorder API, handling audio data processing and streaming.",
+      "file:./vite-frontend/src/components/AudioRecorder/AudioRecorder.tsx - This file defines an audio recorder component that allows users to start and stop audio recordings, visualize volume levels, and handle the completion of recordings.",
+      "file:./vite-frontend/src/components/AudioRecorder/VolumeVisualizer.tsx - This file defines a React component that visualizes audio volume levels as a series of vertical bars."
+    ]
+  },
+  "./vite-frontend/src/components/ColorSchemeToggle": {
+    "purpose": "This directory contains a React component for toggling between different color schemes in the application.",
+    "description": "The ./vite-frontend/src/components/ColorSchemeToggle directory is dedicated to managing the color scheme toggle functionality within the project. It includes a React component, ColorSchemeToggle, which allows users to switch between light, dark, and auto color schemes using Mantine's color scheme management. This component is likely used in various parts of the application to provide a consistent user experience regarding theme preferences. The directory's functionality is closely related to theme management and may interact with other parts of the project, such as the theme configuration, global styles, and application layout.",
+    "path": "./vite-frontend/src/components/ColorSchemeToggle",
+    "kind": "directory",
+    "md5sum": "196bbf6915a2ba21011a9a9791d05d14",
+    "elements": [
+      "file:./vite-frontend/src/components/ColorSchemeToggle/ColorSchemeToggle.tsx - This file defines a React component for toggling between different color schemes using Mantine's color scheme management."
+    ]
+  },
+  "./vite-frontend/src/components/Welcome": {
+    "purpose": "The purpose of the ./vite-frontend/src/components/Welcome directory is to implement and manage the Welcome component, which is a React component that displays a welcome message using Mantine UI components.",
+    "description": "The ./vite-frontend/src/components/Welcome directory contains the implementation of the Welcome component, which is a React component designed to render a welcome message with styled text and a link to a guide. This directory includes the main component file (Welcome.tsx), a Storybook story file (Welcome.story.tsx) for visual testing and demonstration, and a test file (Welcome.test.tsx) to ensure the component functions correctly, particularly focusing on the Vite guide link. The component relies on Mantine UI components for styling and uses a CSS module for additional styles. This directory is relevant for tasks involving UI component development, testing, and documentation within the project.",
+    "path": "./vite-frontend/src/components/Welcome",
+    "kind": "directory",
+    "md5sum": "4f87ca73cd0f6f5cb69682d6dbe6009b",
+    "elements": [
+      "file:./vite-frontend/src/components/Welcome/Welcome.story.tsx - This file defines a Storybook story for the Welcome component.",
+      "file:./vite-frontend/src/components/Welcome/Welcome.test.tsx - This file contains tests for the Welcome component, ensuring it has the correct Vite guide link.",
+      "file:./vite-frontend/src/components/Welcome/Welcome.tsx - This file defines a React component that displays a welcome message using Mantine UI components."
+    ]
+  },
+  "./vite-frontend/src/interfaces": {
+    "purpose": "The purpose of the ./vite-frontend/src/interfaces directory is to define TypeScript interfaces for key entities used in the frontend of the application.",
+    "description": "The ./vite-frontend/src/interfaces directory contains TypeScript files that define interfaces for entities such as User, Recording, and Transcription. These interfaces are crucial for ensuring type safety and consistency across the frontend components that handle user data, recordings, and transcriptions. The Models.ts file within this directory outlines the structure of these entities, which are likely used by various components and pages in the frontend, such as Recording.tsx, RecordingCard.tsx, UploadPage.tsx, ViewTranscriptionPage.tsx, and RecordingsPage.tsx. This directory plays a vital role in maintaining a clear contract for data structures shared across the frontend application.",
+    "path": "./vite-frontend/src/interfaces",
+    "kind": "directory",
+    "md5sum": "d78da89aba4c9c4b85b41aaa8c11d18a",
+    "elements": [
+      "file:./vite-frontend/src/interfaces/Models.ts - Defines TypeScript interfaces for User, Recording, and Transcription entities used in the system."
+    ]
+  },
+  "./vite-frontend/src/pages": {
+    "purpose": "The './vite-frontend/src/pages' directory contains React component files that define the main pages of the application.",
+    "description": "This directory is responsible for housing the main page components of the application, each serving a specific function such as viewing transcriptions, managing recordings, uploading audio files, and streaming audio. The components within this directory are built using React and are styled with CSS modules. They interact with various APIs and components to provide a cohesive user experience. Dependencies include React, React Router, and various Mantine UI components, among others. This directory is crucial for the navigation and functionality of the application, as it defines the user interface for key features like transcription viewing, recording management, file uploads, and audio streaming.",
+    "path": "./vite-frontend/src/pages",
+    "kind": "directory",
+    "md5sum": "64c4bc9471844d7dde1f1813f3db3e78",
+    "elements": [
+      "file:./vite-frontend/src/pages/ViewTranscriptionPage.tsx - This file defines a React component for displaying and interacting with a transcription, allowing users to view and copy the transcription text.",
+      "file:./vite-frontend/src/pages/RecordingCardsPage.tsx - This file defines a React component page that displays a list of recording cards, allowing users to view and delete recordings.",
+      "file:./vite-frontend/src/pages/UploadPage.tsx - This file defines a React component for an upload page that allows users to upload audio files and provides feedback on the upload progress.",
+      "file:./vite-frontend/src/pages/AudioStreamPage.tsx - This file defines a React component for the AudioStreamPage, which allows users to start a new audio recording directly from their browser.",
+      "file:./vite-frontend/src/pages/Home.page.tsx - This file defines the HomePage component for a React application, providing a user interface for navigating to different sections of the app such as recordings, uploads, and audio streaming.",
+      "file:./vite-frontend/src/pages/RecordingsPage.tsx - This file defines the RecordingsPage component, which displays a list of recordings fetched from an API and provides navigation back to the home page."
+    ]
+  },
+  "./vite-frontend/src/api": {
+    "purpose": "The './vite-frontend/src/api' directory is responsible for handling API interactions for the frontend, specifically related to audio streaming, recordings, and transcriptions.",
+    "description": "The './vite-frontend/src/api' directory contains JavaScript files that define utility functions and API interaction logic for the frontend of the project. It includes 'util.ts' for general API utilities, 'audiostream.ts' for managing audio streaming sessions, and 'recordings.ts' for handling recordings and transcriptions. These files interact with backend endpoints to perform operations such as fetching API versions, managing audio streams, and handling recordings and transcriptions. Dependencies include libraries like 'axios' for HTTP requests, 'fs' for file system operations, and '@breezystack/lamejs' for audio encoding. The directory is crucial for enabling communication between the frontend and backend services.",
+    "path": "./vite-frontend/src/api",
+    "kind": "directory",
+    "md5sum": "de05b23318f0e0b5abca483938f171c2",
+    "elements": [
+      "file:./vite-frontend/src/api/util.ts - Utility functions for API interactions in the frontend.",
+      "file:./vite-frontend/src/api/audiostream.ts - This file provides functions to manage audio streaming sessions, including starting, uploading chunks, finishing sessions, checking for missing chunks, and encoding audio to MP3 format.",
+      "file:./vite-frontend/src/api/recordings.ts - This file provides API functions for managing recordings and transcriptions, including fetching, deleting, and checking transcription status."
+    ]
+  },
+  "./vite-frontend/src/components": {
+    "purpose": "The ./vite-frontend/src/components directory serves as a central location for React components used throughout the frontend application.",
+    "description": "The ./vite-frontend/src/components directory contains various React components that are essential for the application's user interface and functionality. This includes components for managing recordings (Recording, RecordingCard), dialogs for user interactions (RecordingCompleteDialog, SpeakerLabelDialog), and other UI elements like color scheme toggles and welcome messages. The components often rely on external libraries such as React, Mantine, and FontAwesome for UI elements and functionality. This directory is crucial for tasks involving UI development, user interaction handling, and component integration within the project.",
+    "path": "./vite-frontend/src/components",
+    "kind": "directory",
+    "md5sum": "add1e5ae9c96912b8783e29eac2c8d0a",
+    "elements": [
+      "file:./vite-frontend/src/components/RecordingCompleteDialog.tsx - This file defines a React component for a dialog that appears when a recording is complete, allowing the user to enter a title and description for the recording and either save or discard it.",
+      "file:./vite-frontend/src/components/SpeakerLabelDialog.tsx - This file defines a React component for a dialog that allows users to label speakers based on provided summaries.",
+      "file:./vite-frontend/src/components/Recording.tsx - This file defines a React component for displaying and managing a recording, including actions like transcription, downloading, and speaker labeling.",
+      "file:./vite-frontend/src/components/RecordingCard.tsx - This file defines a React component for displaying and interacting with a recording card, allowing users to manage recordings, such as starting transcription, viewing, downloading, and deleting recordings.",
+      "directory:./vite-frontend/src/components/AudioRecorder - The ./vite-frontend/src/components/AudioRecorder directory contains TypeScript and JavaScript files that collectively implement an audio recording feature. It includes a custom hook (useAudioRecorder.tsx) for managing audio recording using the MediaRecorder API, a React component (AudioRecorder.tsx) for user interaction with audio recording, and a visualizer component (VolumeVisualizer.tsx) for displaying audio volume levels. The directory depends on external libraries such as 'extendable-media-recorder' and '@mantine/core', and it interacts with other components like RecordingCompleteDialog and VolumeVisualizer to provide a comprehensive audio recording experience.",
+      "directory:./vite-frontend/src/components/ColorSchemeToggle - The ./vite-frontend/src/components/ColorSchemeToggle directory is dedicated to managing the color scheme toggle functionality within the project. It includes a React component, ColorSchemeToggle, which allows users to switch between light, dark, and auto color schemes using Mantine's color scheme management. This component is likely used in various parts of the application to provide a consistent user experience regarding theme preferences. The directory's functionality is closely related to theme management and may interact with other parts of the project, such as the theme configuration, global styles, and application layout.",
+      "directory:./vite-frontend/src/components/Welcome - The ./vite-frontend/src/components/Welcome directory contains the implementation of the Welcome component, which is a React component designed to render a welcome message with styled text and a link to a guide. This directory includes the main component file (Welcome.tsx), a Storybook story file (Welcome.story.tsx) for visual testing and demonstration, and a test file (Welcome.test.tsx) to ensure the component functions correctly, particularly focusing on the Vite guide link. The component relies on Mantine UI components for styling and uses a CSS module for additional styles. This directory is relevant for tasks involving UI component development, testing, and documentation within the project."
+    ]
+  },
+  "./backend/testing": {
+    "purpose": "The purpose of the ./backend/testing directory is to house test scripts for the backend components of the project, specifically focusing on testing the audiostream API.",
+    "description": "The ./backend/testing directory contains test scripts that are designed to validate the functionality of the backend components, particularly the audiostream API. This includes testing the process of splitting audio files into chunks, uploading them to a server, and retrieving the combined audio. The directory is crucial for ensuring that the audiostream API operates correctly and efficiently. The test script within this directory interacts with server-side endpoints and various audio processing operations, making it essential for quality assurance in the project's audio handling capabilities.",
+    "path": "./backend/testing",
+    "kind": "directory",
+    "md5sum": "7ad8b99aa0a101ba629725bc24c45d00",
+    "elements": [
+      "file:./backend/testing/test_audiostream_api.py - This file is a test script for the audiostream API, handling the process of splitting an audio file into chunks, uploading them to a server, and retrieving the combined audio."
+    ]
+  },
+  "./backend/audiostream_api": {
+    "purpose": "The audiostream_api directory is designed to handle audio streaming operations, including chunk storage and audio processing.",
+    "description": "The ./backend/audiostream_api directory contains the core components for managing audio streaming sessions. It includes implementations for chunk storage, such as the InMemoryChunkStorage class, which provides an in-memory solution for storing and retrieving audio data chunks. Additionally, it offers functionality for audio processing, like combining MP3 chunks into a single file using ffmpeg. The directory also defines an interface for chunk storage operations, ensuring a consistent approach to managing audio data across different implementations. This directory is essential for handling audio data in streaming applications, providing both storage and processing capabilities.",
+    "path": "./backend/audiostream_api",
+    "kind": "directory",
+    "md5sum": "20139303f90cc7be28e53420faba4351",
+    "elements": [
+      "file:./backend/audiostream_api/in_memory_chunk_storage.py - Provides an in-memory implementation of chunk storage for audio streaming sessions.",
+      "file:./backend/audiostream_api/audio_operations.py - This file provides functionality to combine multiple MP3 audio chunks into a single MP3 file with one audio channel using ffmpeg.",
+      "file:./backend/audiostream_api/__init__.py - Initialization file for the audiostream_api package, potentially used to set up package-level imports or configurations.",
+      "file:./backend/audiostream_api/chunk_storage.py - Defines an interface for chunk storage operations related to audio streaming sessions."
+    ]
+  },
+  "./vite-frontend/test-utils": {
+    "purpose": "The purpose of the ./vite-frontend/test-utils directory is to provide utility functions and components for testing React components within the project.",
+    "description": "The ./vite-frontend/test-utils directory contains TypeScript files that facilitate testing of React components. It includes an entry point file (index.ts) that re-exports functions and modules for easier imports in test files, and a render.tsx file that provides a custom render function. This custom render function is designed to test React components with Mantine theme support, wrapping UI components with MantineProvider using a specified theme. The directory depends on libraries such as @testing-library/react, @testing-library/user-event, and @mantine/core, and is relevant for developers looking to implement consistent testing practices across the project.",
+    "path": "./vite-frontend/test-utils",
+    "kind": "directory",
+    "md5sum": "3412322466be06522b53d09675bae5ae",
+    "elements": [
+      "file:./vite-frontend/test-utils/index.ts - This file serves as an entry point for test utilities, re-exporting functions and modules for easier imports in test files.",
+      "file:./vite-frontend/test-utils/render.tsx - Provides a custom render function for testing React components with Mantine theme support."
+    ]
+  },
+  "./backend/routes": {
+    "purpose": "The './backend/routes' directory is responsible for defining API routes for various backend services, including transcription, audio streaming, and user management.",
+    "description": "The './backend/routes' directory contains Python files that define API routes for handling different backend functionalities. It includes 'az_transcription_routes.py' for managing Azure transcription services, 'audiostream.py' for handling audio streaming operations, and 'api.py' for managing users, recordings, and transcriptions. These files facilitate CRUD operations, file uploads, and other functionalities related to audio processing and user management. The directory relies on dependencies such as Flask for routing, various database handlers for data operations, and utility modules for additional processing tasks.",
+    "path": "./backend/routes",
+    "kind": "directory",
+    "md5sum": "b3372670ce8027d9e169d0108d11006a",
+    "elements": [
+      "file:./backend/routes/az_transcription_routes.py - This file defines routes for handling Azure transcription services, including starting transcriptions, checking their status, and processing results.",
+      "file:./backend/routes/audiostream.py - This file defines routes for handling audio streaming operations, including starting a session, uploading audio chunks, finishing a session, saving recordings, and checking for missing chunks.",
+      "file:./backend/routes/api.py - This file defines API routes for handling users, recordings, and transcriptions, including CRUD operations and additional functionalities like file uploads and speaker summaries."
+    ]
+  },
+  "./vite-frontend/.storybook": {
+    "purpose": "The .storybook directory is used to configure and customize Storybook for the Vite-based React project.",
+    "description": "The .storybook directory contains configuration files necessary for setting up and customizing Storybook within the Vite-based React project. It includes 'main.ts', which defines core settings, stories paths, and addons for Storybook, and 'preview.tsx', which configures preview settings and applies global decorators for theming and layout. This directory is essential for developers looking to create and manage UI component stories, ensuring they are displayed correctly with the desired themes and layouts. Dependencies include '@storybook/react-vite', 'storybook-dark-mode', '@mantine/core', and 'react', indicating integration with Vite, theming capabilities, and React components.",
+    "path": "./vite-frontend/.storybook",
+    "kind": "directory",
+    "md5sum": "e306e1c7e97b064a1c3f1fe64f572218",
+    "elements": [
+      "file:./vite-frontend/.storybook/main.ts - Configuration file for setting up Storybook with Vite in a React project.",
+      "file:./vite-frontend/.storybook/preview.tsx - Configures Storybook preview settings and applies global decorators for theming and layout."
+    ]
+  },
+  "./vite-frontend/src": {
+    "purpose": "The './vite-frontend/src' directory serves as the main source directory for the frontend application, containing core components, utilities, and configurations necessary for the application's functionality.",
+    "description": "The './vite-frontend/src' directory is the central hub for the frontend application, housing essential files and subdirectories that define the application's structure and behavior. It includes utility functions, type definitions, global styles, theme configurations, and the main application entry point. Key components such as the main App component, routing configuration, and notification utilities are defined here. The directory also contains subdirectories for interfaces, pages, API interactions, and reusable components, each contributing to the application's overall functionality. Dependencies include React, Mantine UI, styled-components, and react-router-dom, among others. This directory is crucial for the development and maintenance of the frontend application, providing the necessary building blocks for user interface, styling, and API communication.",
+    "path": "./vite-frontend/src",
+    "kind": "directory",
+    "md5sum": "fbbaf26f597285ffffa78f1494bb6ff5",
+    "elements": [
+      "file:./vite-frontend/src/util.ts - Utility function to format a duration given in seconds into a human-readable string.",
+      "file:./vite-frontend/src/vite-env.d.ts - Provides TypeScript type definitions for Vite client environment.",
+      "file:./vite-frontend/src/GlobalStyle.ts - Defines global styles for the application using styled-components.",
+      "file:./vite-frontend/src/Common.ts - This file provides utility functions for displaying notifications based on API responses or errors.",
+      "file:./vite-frontend/src/Router.tsx - Defines the routing configuration for the application using react-router-dom.",
+      "file:./vite-frontend/src/theme.ts - Defines a custom theme configuration using Mantine's theming system.",
+      "file:./vite-frontend/src/main.tsx - Entry point for the React application, rendering the main App component.",
+      "file:./vite-frontend/src/App.tsx - Defines the main application component for a React application using Mantine UI framework.",
+      "directory:./vite-frontend/src/interfaces - The ./vite-frontend/src/interfaces directory contains TypeScript files that define interfaces for entities such as User, Recording, and Transcription. These interfaces are crucial for ensuring type safety and consistency across the frontend components that handle user data, recordings, and transcriptions. The Models.ts file within this directory outlines the structure of these entities, which are likely used by various components and pages in the frontend, such as Recording.tsx, RecordingCard.tsx, UploadPage.tsx, ViewTranscriptionPage.tsx, and RecordingsPage.tsx. This directory plays a vital role in maintaining a clear contract for data structures shared across the frontend application.",
+      "directory:./vite-frontend/src/pages - This directory is responsible for housing the main page components of the application, each serving a specific function such as viewing transcriptions, managing recordings, uploading audio files, and streaming audio. The components within this directory are built using React and are styled with CSS modules. They interact with various APIs and components to provide a cohesive user experience. Dependencies include React, React Router, and various Mantine UI components, among others. This directory is crucial for the navigation and functionality of the application, as it defines the user interface for key features like transcription viewing, recording management, file uploads, and audio streaming.",
+      "directory:./vite-frontend/src/api - The './vite-frontend/src/api' directory contains JavaScript files that define utility functions and API interaction logic for the frontend of the project. It includes 'util.ts' for general API utilities, 'audiostream.ts' for managing audio streaming sessions, and 'recordings.ts' for handling recordings and transcriptions. These files interact with backend endpoints to perform operations such as fetching API versions, managing audio streams, and handling recordings and transcriptions. Dependencies include libraries like 'axios' for HTTP requests, 'fs' for file system operations, and '@breezystack/lamejs' for audio encoding. The directory is crucial for enabling communication between the frontend and backend services.",
+      "directory:./vite-frontend/src/components - The ./vite-frontend/src/components directory contains various React components that are essential for the application's user interface and functionality. This includes components for managing recordings (Recording, RecordingCard), dialogs for user interactions (RecordingCompleteDialog, SpeakerLabelDialog), and other UI elements like color scheme toggles and welcome messages. The components often rely on external libraries such as React, Mantine, and FontAwesome for UI elements and functionality. This directory is crucial for tasks involving UI development, user interaction handling, and component integration within the project."
+    ]
+  },
+  "./backend/db_handlers": {
+    "purpose": "The db_handlers directory is responsible for managing database operations related to users, recordings, and transcriptions in a Cosmos DB.",
+    "description": "The ./backend/db_handlers directory contains modules that handle various database operations for a Cosmos DB, specifically focusing on users, recordings, and transcriptions. It includes utility functions for handling Cosmos DB documents, classes for managing user, recording, and transcription operations, and a factory for creating handler instances. The directory is integral for CRUD operations and data management within the application, utilizing Pydantic models for data validation and serialization. Dependencies include Azure Cosmos DB client, Pydantic, and Flask for application context management.",
+    "path": "./backend/db_handlers",
+    "kind": "directory",
+    "md5sum": "b0ece8ed298903eeefcaec86fa00e2b1",
+    "elements": [
+      "file:./backend/db_handlers/util.py - Utility functions for handling Cosmos DB documents.",
+      "file:./backend/db_handlers/user_handler.py - Handles user-related operations in Cosmos DB, including creating, retrieving, updating, and deleting users, as well as fetching user-related recordings and transcriptions.",
+      "file:./backend/db_handlers/recording_handler.py - Handles operations related to recordings in a Cosmos DB, including creation, retrieval, updating, and deletion of recording entries.",
+      "file:./backend/db_handlers/transcription_handler.py - Handles operations related to transcriptions in a Cosmos DB, including creation, retrieval, updating, and deletion of transcription records.",
+      "file:./backend/db_handlers/models.py - Defines data models for the application using Pydantic and Enum for type validation and serialization.",
+      "file:./backend/db_handlers/__init__.py - This file marks the directory as a Python package.",
+      "file:./backend/db_handlers/handler_factory.py - This file provides factory functions to create and retrieve handler instances for recordings, transcriptions, and users, ensuring they are stored in the Flask application context."
+    ]
+  },
+  "./scratch": {
+    "purpose": "The './scratch' directory serves as a workspace for scripts that interact with AI language models to perform various tasks such as generating commit messages, analyzing project files, and modifying code.",
+    "description": "The './scratch' directory contains Python scripts primarily focused on leveraging AI language models for different functionalities. Key components include scripts for generating AI-driven commit messages ('commit_with_llm_msg.py', 'gen_commit_message.py'), analyzing and indexing project files ('analysis.py'), and modifying code based on AI prompts ('rewrite_with_llm.py'). Additionally, there are utility scripts for copying file contents to the clipboard ('copy.py') and converting schema formats ('convert_index.py'). These scripts often share dependencies and functionalities, particularly the 'send_prompt_to_llm' function, which is used for interacting with language models. The directory is essential for tasks that require AI-driven insights or modifications within the project.",
+    "path": "./scratch",
+    "kind": "directory",
+    "md5sum": "ffe79d68a8c18749077174f8ddb984d7",
+    "elements": [
+      "file:./scratch/commit_with_llm_msg.py - This script generates a commit message using an AI model and commits changes to a Git repository with the generated message.",
+      "file:./scratch/copy.py - This script copies the contents of specified files to the Windows clipboard.",
+      "file:./scratch/analysis.py - This script is designed to index project files and directories, analyze their contents, and facilitate querying the indexed data. It also interacts with an LLM to extract and process information from the files.",
+      "file:./scratch/gen_commit_message.py - This script generates descriptive commit messages for Git changes using an AI language model.",
+      "file:./scratch/convert_index.py - This script converts an original schema JSON file into a new schema format and saves it.",
+      "file:./scratch/rewrite_with_llm.py - This script is designed to interact with a language model to either modify a primary file based on a given request or answer a question using optional context files."
+    ]
+  },
+  "./vite-frontend": {
+    "purpose": "The './vite-frontend' directory serves as the main frontend directory for the project, containing all necessary components, utilities, and configurations for the development and functionality of the frontend application.",
+    "description": "The './vite-frontend' directory is the primary directory for the frontend portion of the project, structured to support the development of a Vite-based React application. It includes subdirectories such as 'src' for core application components and logic, '.storybook' for Storybook configuration, and 'test-utils' for testing utilities. The 'src' directory is particularly significant, containing essential files and subdirectories for application components, routing, theming, and API interactions. Dependencies across the directory include React, Mantine UI, styled-components, react-router-dom, and various testing and Storybook libraries. This directory is crucial for developers working on the user interface, styling, component testing, and API communication within the frontend application.",
+    "path": "./vite-frontend",
+    "kind": "directory",
+    "md5sum": "30e817d4af74e1393eef53397259cff1",
+    "elements": [
+      "directory:./vite-frontend/test-utils - The ./vite-frontend/test-utils directory contains TypeScript files that facilitate testing of React components. It includes an entry point file (index.ts) that re-exports functions and modules for easier imports in test files, and a render.tsx file that provides a custom render function. This custom render function is designed to test React components with Mantine theme support, wrapping UI components with MantineProvider using a specified theme. The directory depends on libraries such as @testing-library/react, @testing-library/user-event, and @mantine/core, and is relevant for developers looking to implement consistent testing practices across the project.",
+      "directory:./vite-frontend/.storybook - The .storybook directory contains configuration files necessary for setting up and customizing Storybook within the Vite-based React project. It includes 'main.ts', which defines core settings, stories paths, and addons for Storybook, and 'preview.tsx', which configures preview settings and applies global decorators for theming and layout. This directory is essential for developers looking to create and manage UI component stories, ensuring they are displayed correctly with the desired themes and layouts. Dependencies include '@storybook/react-vite', 'storybook-dark-mode', '@mantine/core', and 'react', indicating integration with Vite, theming capabilities, and React components.",
+      "directory:./vite-frontend/src - The './vite-frontend/src' directory is the central hub for the frontend application, housing essential files and subdirectories that define the application's structure and behavior. It includes utility functions, type definitions, global styles, theme configurations, and the main application entry point. Key components such as the main App component, routing configuration, and notification utilities are defined here. The directory also contains subdirectories for interfaces, pages, API interactions, and reusable components, each contributing to the application's overall functionality. Dependencies include React, Mantine UI, styled-components, and react-router-dom, among others. This directory is crucial for the development and maintenance of the frontend application, providing the necessary building blocks for user interface, styling, and API communication."
+    ]
+  },
+  "./shared": {
+    "purpose": "The './shared' directory serves as a central location for defining data models and interfaces used across different parts of the project.",
+    "description": "The './shared' directory contains files that define data models and interfaces crucial for the project's functionality. It includes 'Models.ts', which provides TypeScript interfaces for entities like User, Recording, and Transcription, and 'models.py', which defines equivalent Python models using Pydantic. These files ensure consistent data structures across the frontend and backend, facilitating seamless data handling and interaction. The directory is essential for maintaining a unified data schema and is related to other parts of the project that handle similar data structures, such as frontend interfaces and backend database models.",
+    "path": "./shared",
+    "kind": "directory",
+    "md5sum": "99bf8a8c789bf39eab0d829fbe1a633d",
+    "elements": [
+      "file:./shared/Models.ts - Defines interfaces for User, Recording, and Transcription entities used in the system.",
+      "file:./shared/models.py - Defines data models using Pydantic for handling transcription-related data."
+    ]
+  },
+  "./backend": {
+    "purpose": "The './backend' directory serves as the core backend component of the project, providing functionalities for web application setup, API routing, database handling, and integration with Azure services.",
+    "description": "The './backend' directory contains the main backend components of the project, including scripts and modules for setting up a Flask web application, defining API routes, managing database operations, and integrating with Azure services. Key files include 'app.py' for application setup and routing, 'llms.py' for language model interactions, 'blob_util.py' for Azure Blob Storage operations, and 'manage.py' for command-line management of Azure resources. The directory also includes utility scripts for audio processing, user handling, and configuration management. Dependencies span across Flask for web application development, Azure SDKs for cloud services, and various Python libraries for data processing and API interactions. This directory is essential for the backend operations, providing the necessary infrastructure for handling web requests, managing data, and interfacing with external services.",
+    "path": "./backend",
+    "kind": "directory",
+    "md5sum": "e34e5a0b18b223169090094e7c059108",
+    "elements": [
+      "file:./backend/llms.py - This file interacts with an Azure OpenAI deployment to process and analyze transcripts, including inferring speaker names and generating speaker summaries.",
+      "file:./backend/blob_util.py - This file provides utility functions for storing recordings in Azure Blob Storage and generating SAS URLs for accessing these recordings.",
+      "file:./backend/app.py - This file sets up and runs a Flask web application, handling routing, authentication, and integration with Azure services.",
+      "file:./backend/manage.py - A command-line tool to manage Azure Blob Storage and Cosmos DB, providing functionalities like listing, showing, deleting entries, and checking consistency.",
+      "file:./backend/util.py - Utility functions for audio processing and text manipulation.",
+      "file:./backend/config.py - This file is used to configure environment variables for the application, loading them from a .env file and providing a Config class to access these variables.",
+      "file:./backend/user_util.py - Utility functions for handling user-related operations, primarily fetching user information.",
+      "file:./backend/generate_example_env.py - This script generates an example environment file by redacting sensitive information from an existing .env file.",
+      "file:./backend/generate_filelist.py - Generate a list of files based on include and exclude patterns specified in a .fileinclude file and write them to filelist.txt.",
+      "file:./backend/api_version.py - Defines the current API version for the project.",
+      "file:./backend/test.py - This script processes JSON data to generate and print a formatted transcript based on recognized phrases and speakers.",
+      "file:./backend/fixup_cosmos_data.py - This script is used to fix and update data in a Cosmos DB, specifically for recordings and transcriptions, ensuring data consistency and integrity.",
+      "file:./backend/auth.py - Handles authentication using Microsoft Azure AD with MSAL in a Flask application.",
+      "file:./backend/__init__.py - This file initializes the backend package by importing the configuration settings.",
+      "file:./backend/Makefile - Automates build, versioning, packaging, and deployment tasks for the project.",
+      "directory:./backend/testing - The ./backend/testing directory contains test scripts that are designed to validate the functionality of the backend components, particularly the audiostream API. This includes testing the process of splitting audio files into chunks, uploading them to a server, and retrieving the combined audio. The directory is crucial for ensuring that the audiostream API operates correctly and efficiently. The test script within this directory interacts with server-side endpoints and various audio processing operations, making it essential for quality assurance in the project's audio handling capabilities.",
+      "directory:./backend/audiostream_api - The ./backend/audiostream_api directory contains the core components for managing audio streaming sessions. It includes implementations for chunk storage, such as the InMemoryChunkStorage class, which provides an in-memory solution for storing and retrieving audio data chunks. Additionally, it offers functionality for audio processing, like combining MP3 chunks into a single file using ffmpeg. The directory also defines an interface for chunk storage operations, ensuring a consistent approach to managing audio data across different implementations. This directory is essential for handling audio data in streaming applications, providing both storage and processing capabilities.",
+      "directory:./backend/routes - The './backend/routes' directory contains Python files that define API routes for handling different backend functionalities. It includes 'az_transcription_routes.py' for managing Azure transcription services, 'audiostream.py' for handling audio streaming operations, and 'api.py' for managing users, recordings, and transcriptions. These files facilitate CRUD operations, file uploads, and other functionalities related to audio processing and user management. The directory relies on dependencies such as Flask for routing, various database handlers for data operations, and utility modules for additional processing tasks.",
+      "directory:./backend/db_handlers - The ./backend/db_handlers directory contains modules that handle various database operations for a Cosmos DB, specifically focusing on users, recordings, and transcriptions. It includes utility functions for handling Cosmos DB documents, classes for managing user, recording, and transcription operations, and a factory for creating handler instances. The directory is integral for CRUD operations and data management within the application, utilizing Pydantic models for data validation and serialization. Dependencies include Azure Cosmos DB client, Pydantic, and Flask for application context management."
+    ]
+  },
+  ".": {
+    "purpose": "The root directory serves as the main entry point and organizational structure for the entire project, encompassing all major components and functionalities.",
+    "description": "The root directory contains several key subdirectories that define the project's architecture and functionality. These include './scratch' for AI-driven scripts and utilities, './vite-frontend' for the frontend application built with Vite and React, './shared' for shared data models and interfaces, and './backend' for backend operations including API routing, database handling, and Azure integration. Each subdirectory has specific roles, such as AI interaction, frontend development, data modeling, and backend services, making the root directory essential for the overall project structure and coordination of its various components.",
+    "path": ".",
+    "kind": "directory",
+    "md5sum": "13e41a5ec87f22c95e25625355e0c8e5",
+    "elements": [
+      "directory:./scratch - The './scratch' directory contains Python scripts primarily focused on leveraging AI language models for different functionalities. Key components include scripts for generating AI-driven commit messages ('commit_with_llm_msg.py', 'gen_commit_message.py'), analyzing and indexing project files ('analysis.py'), and modifying code based on AI prompts ('rewrite_with_llm.py'). Additionally, there are utility scripts for copying file contents to the clipboard ('copy.py') and converting schema formats ('convert_index.py'). These scripts often share dependencies and functionalities, particularly the 'send_prompt_to_llm' function, which is used for interacting with language models. The directory is essential for tasks that require AI-driven insights or modifications within the project.",
+      "directory:./vite-frontend - The './vite-frontend' directory is the primary directory for the frontend portion of the project, structured to support the development of a Vite-based React application. It includes subdirectories such as 'src' for core application components and logic, '.storybook' for Storybook configuration, and 'test-utils' for testing utilities. The 'src' directory is particularly significant, containing essential files and subdirectories for application components, routing, theming, and API interactions. Dependencies across the directory include React, Mantine UI, styled-components, react-router-dom, and various testing and Storybook libraries. This directory is crucial for developers working on the user interface, styling, component testing, and API communication within the frontend application.",
+      "directory:./shared - The './shared' directory contains files that define data models and interfaces crucial for the project's functionality. It includes 'Models.ts', which provides TypeScript interfaces for entities like User, Recording, and Transcription, and 'models.py', which defines equivalent Python models using Pydantic. These files ensure consistent data structures across the frontend and backend, facilitating seamless data handling and interaction. The directory is essential for maintaining a unified data schema and is related to other parts of the project that handle similar data structures, such as frontend interfaces and backend database models.",
+      "directory:./backend - The './backend' directory contains the main backend components of the project, including scripts and modules for setting up a Flask web application, defining API routes, managing database operations, and integrating with Azure services. Key files include 'app.py' for application setup and routing, 'llms.py' for language model interactions, 'blob_util.py' for Azure Blob Storage operations, and 'manage.py' for command-line management of Azure resources. The directory also includes utility scripts for audio processing, user handling, and configuration management. Dependencies span across Flask for web application development, Azure SDKs for cloud services, and various Python libraries for data processing and API interactions. This directory is essential for the backend operations, providing the necessary infrastructure for handling web requests, managing data, and interfacing with external services."
+    ]
+  }
+}

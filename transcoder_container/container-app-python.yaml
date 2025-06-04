@@ -1,0 +1,39 @@
+# container-app-transcoder.yaml
+location: eastus
+resourceGroup: QuickScribeResourceGroup
+containerAppName: quickscribetranscoder
+properties:
+  configuration:
+    secrets:
+      - name: "storage-connection-string"
+        value: "YOUR_AZURE_STORAGE_CONNECTION_STRING"
+    ingress:
+      external: false  # No external traffic needed for queue processing
+  template:
+    containers:
+      - name: transcoder
+        image: quickscribecontainerregistry.azurecr.io/transcoder-container:latest
+        env:
+          # Storage connection string for queue and blob access
+          - name: AZURE_STORAGE_CONNECTION_STRING
+            secretRef: storage-connection-string
+          # Queue name for transcoding jobs
+          - name: TRANSCODING_QUEUE_NAME
+            value: "transcoding-queue"
+          # Log level for the container
+          - name: LOG_LEVEL
+            value: "INFO"
+        resources:
+          cpu: 1.0      # CPU for FFmpeg processing
+          memory: 2.0Gi # Memory for audio processing
+    scale:
+      minReplicas: 0  # Scale to zero when idle (saves cost)
+      maxReplicas: 1  # Scale up for multiple jobs
+      rules:
+        - name: "queue-scale-rule"
+          custom:
+            type: "azure-queue"
+            metadata:
+              queueName: "transcoding-queue"
+              queueLength: "1"  # Scale up when 1+ messages in queue
+              connectionFromEnv: "AZURE_STORAGE_CONNECTION_STRING"

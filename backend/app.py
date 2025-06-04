@@ -49,7 +49,7 @@ TRANSCRIPTION_IN_PROGRESS_TIMEOUT_SECONDS = 24 * 60 * 60 * 30 # 30 days
 
 app.register_blueprint(az_transcription_bp, url_prefix='/az_transcription')
 app.register_blueprint(api_bp, url_prefix='/api')
-app.register_blueprint(plaud_bp, url_prefix='/api/plaud')
+app.register_blueprint(plaud_bp, url_prefix='/plaud')
 
 # Initialize the BlobServiceClient
 blob_service_client = BlobServiceClient.from_connection_string(config.AZURE_STORAGE_CONNECTION_STRING)
@@ -72,7 +72,7 @@ def callback():
 @app.route("/<path:path>", endpoint='catch_all')
 def serve_static(path):
     logging.info(f"received request for: {path}")
-    if path.startswith( ("auth/", "api/", "az_transcription/") ):
+    if path.startswith( ("auth/", "api/", "az_transcription/", "plaud/") ):
         logging.info(f"API route detected, returning 404")
         return jsonify({"error": "Not found"}), 404  # Optional: Provide a custom error or redirect
 

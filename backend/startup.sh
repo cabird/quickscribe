@@ -21,7 +21,10 @@ if [ "$ENVIRONMENT" = "local" ]; then
     cp -r /app/.env.local /app/.env
     PORT=${PORT:-8000}
     echo "Using port: $PORT"
-    python -m flask run --host=0.0.0.0 --port=$PORT
+    export FLASK_APP=app.py
+    export FLASK_DEBUG=1
+    export FLASK_ENV=development
+    python -m flask run --host=0.0.0.0 --port=$PORT --debug --reload
 else
     echo "Starting the Flask app"
     # Use the PORT environment variable if set (for Azure), otherwise default to 8000

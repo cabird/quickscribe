@@ -192,10 +192,15 @@ class PlaudManager:
         # Create a more descriptive filename
         date_str = audio_file.recording_datetime.strftime("%Y-%m-%d_%H-%M-%S")
         sanitized_name = ''.join(c if c.isalnum() or c in ['-', '_'] else '_' for c in audio_file.filename)
-        filename = f"{date_str}_{sanitized_name}.{audio_file.file_extension}"
+
+        extension = audio_file.file_extension
+        # for some reason, plaud creates file with an opus extension but they actually are mp3 files
+        if extension == 'opus':
+            extension = 'mp3'
+        filename = f"{date_str}_{sanitized_name}.{extension}"
         full_path = os.path.join(output_dir, filename)
         
-        self.logger.info(f"Downloading file: {filename}")
+        self.logger.info(f"Downloading to file: {filename} ")
         
         # Get download URL and fetch the file
         url = self.get_file_amazon_url(audio_file.id)
@@ -329,7 +334,7 @@ def handle_plaud_sync(message_content: dict, logger, transcode_func, send_callba
                     
                     # STEP 2: Transcode to MP3
                     logger.info(f"Transcoding {downloaded_path} to MP3")
-                    mp3_output_path = os.path.splitext(downloaded_path)[0] + ".mp3"
+                    mp3_output_path = os.path.splitext(downloaded_path)[0] + "_transcoded.mp3"
                     transcode_func(downloaded_path, mp3_output_path)
                     logger.info(f"Transcoding complete: {mp3_output_path}")
                     
