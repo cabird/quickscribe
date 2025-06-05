@@ -25,6 +25,7 @@ const RecordingCard: React.FC<RecordingProps> = ({ recording, onDelete }) => {
     const [showSpeakerLabelDialog, setShowSpeakerLabelDialog] = useState(false);
     const [speakerSummaries, setSpeakerSummaries] = useState<{ [key: string]: string } | null>(null);
     const [transcriptionStatus, setTranscriptionStatus] = useState<string>(recording.transcription_status);
+    const [currentRecording, setCurrentRecording] = useState<RecordingModel>(recording);
 
     const copyTranscriptToClipboard = async (text: string) => {
         try {
@@ -69,17 +70,23 @@ const RecordingCard: React.FC<RecordingProps> = ({ recording, onDelete }) => {
 
     useEffect(() => {
         if (showSpeakerLabelDialog) {
-            fetch(`/api/get_speaker_summaries/${recording.transcription_id}`)
+            fetch(`/api/ai/get_speaker_summaries/${recording.transcription_id}`)
                 .then((response) => response.json())
                 .then((data) => setSpeakerSummaries(data))
                 .catch((error) => notifications.show({ title: 'Error', message: 'Failed to fetch speaker summaries', color: 'red' }));
         }
     }, [showSpeakerLabelDialog, recording.transcription_id]);
 
+    // Update local state when props change
+    useEffect(() => {
+        setCurrentRecording(recording);
+        setTranscriptionStatus(recording.transcription_status);
+    }, [recording]);
+
     // Periodic check for transcription status if in progress
     useEffect(() => {
         let intervalId: number;
-        if (recording.transcription_status === 'in_progress') {
+        if (transcriptionStatus === 'in_progress') {
             intervalId = window.setInterval(() => {
                 checkTranscriptionStatus(recording.id).then((response) => {
                     if (response.status !== 'in_progress') {
@@ -90,6 +97,9 @@ const RecordingCard: React.FC<RecordingProps> = ({ recording, onDelete }) => {
                         if (response.status === 'completed') {
                             fetchRecording(recording.id)
                                 .then(updatedRecording => {
+                                    // Update local state
+                                    setCurrentRecording(updatedRecording);
+                                    
                                     // Update the recording in-place by dispatching event
                                     window.dispatchEvent(new CustomEvent('recordingUpdated', { 
                                         detail: { recording: updatedRecording } 
@@ -115,14 +125,14 @@ const RecordingCard: React.FC<RecordingProps> = ({ recording, onDelete }) => {
             }, 15000); // Check every 15 seconds instead of 60 seconds
         }
         return () => clearInterval(intervalId);
-    }, [recording.id]);
+    }, [recording.id, transcriptionStatus]);
 
     return (
         <Card shadow="sm" padding="lg" radius="md" withBorder className={styles.recordingCard}>
             <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
                 <div style={{ flex: 1 }}>
-                    <Text fw={500}>{recording.original_filename}</Text>
-                    <Text size="sm" c="dimmed">Duration: {formatDuration(recording.duration || 0)}</Text>
+                    <Text fw={500}>{currentRecording.original_filename}</Text>
+                    <Text size="sm" c="dimmed">Duration: {formatDuration(currentRecording.duration || 0)}</Text>
                     <Group gap="xs">            
                         <Text size="sm" c={transcriptionStatus === 'completed' ? 'green.6' : 
                                          transcriptionStatus === 'in_progress' ? 'blue.6' : 'gray.6'}>
@@ -136,7 +146,24 @@ const RecordingCard: React.FC<RecordingProps> = ({ recording, onDelete }) => {
                 <Group mt="auto" justify="flex-end" gap="xs" className={styles.actionButtons}>
                     <Tooltip label="Start Transcription">
                         <Button
-                            onClick={() => startTranscription(recording.id).then(showNotificationFromApiResponse)}
+                            onClick={async () => {
+                                const response = await startTranscription(recording.id);
+                                showNotificationFromApiResponse(response);
+                                
+                                // Immediately fetch updated recording data
+                                try {
+                                    const updatedRecording = await fetchRecording(recording.id);
+                                    setCurrentRecording(updatedRecording);
+                                    setTranscriptionStatus(updatedRecording.transcription_status);
+                                    
+                                    // Also update parent component
+                                    window.dispatchEvent(new CustomEvent('recordingUpdated', { 
+                                        detail: { recording: updatedRecording } 
+                                    }));
+                                } catch (error) {
+                                    console.error('Failed to fetch updated recording after starting transcription:', error);
+                                }
+                            }}
                             disabled={transcriptionStatus === 'completed'}
                             variant="subtle"
                             size="sm"
@@ -147,7 +174,7 @@ const RecordingCard: React.FC<RecordingProps> = ({ recording, onDelete }) => {
                     <Tooltip label="View Transcription">
                         <Button
                             component={Link}
-                            to={`/view_transcription/${transcriptionStatus === 'completed' ? recording.transcription_id : -1}`}
+                            to={`/view_transcription/${transcriptionStatus === 'completed' ? currentRecording.transcription_id : -1}`}
                             disabled={transcriptionStatus !== 'completed'}
                             variant="subtle"
                             size="sm"
@@ -158,7 +185,7 @@ const RecordingCard: React.FC<RecordingProps> = ({ recording, onDelete }) => {
                     <Tooltip label="Infer Speaker Names">
                         <Button
                             component="a"
-                            href={`/infer_speaker_names/${recording.id}`}
+                            href={`/api/ai/infer_speaker_names/${currentRecording.transcription_id}`}
                             disabled={transcriptionStatus !== 'completed'}
                             variant="subtle"
                             size="sm"

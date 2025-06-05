@@ -98,7 +98,7 @@ const Recording: React.FC<RecordingProps> = ({ recording, refreshTrigger }) => {
 
     useEffect(() => {
         if (showSpeakerLabelDialog) {
-            fetch(`/api/get_speaker_summaries/${recording.transcription_id}`)
+            fetch(`/api/ai/get_speaker_summaries/${recording.transcription_id}`)
                 .then((response) => response.json())
                 .then((data) => {
                     setSpeakerSummaries(data);
@@ -215,7 +215,7 @@ const Recording: React.FC<RecordingProps> = ({ recording, refreshTrigger }) => {
                     <Tooltip label="Infer Speaker Names">
                         <Button
                             component="a"
-                            href={`/infer_speaker_names/${recording.id}`}
+                            href={`/api/ai/infer_speaker_names/${recordingData.transcription_id}`}
                             disabled={transcriptionStatus !== 'completed'}
                             variant="subtle"
                             className="icon-button"

@@ -4,7 +4,6 @@ from db_handlers.handler_factory import get_user_handler, get_recording_handler,
 from user_util import get_current_user
 from db_handlers.models import User, Recording, Transcription, TranscodingStatus, TranscriptionStatus
 from util import update_diarized_transcript, convert_to_mp3, get_recording_duration_in_seconds
-from llms import get_speaker_summaries_via_llm, get_speaker_mapping
 import uuid
 import os
 from werkzeug.utils import secure_filename
@@ -162,17 +161,6 @@ def update_transcription(transcription_id):
         return jsonify(updated_transcription.model_dump()), 200
     return jsonify({'error': 'Transcription not found'}), 404
 
-@api_bp.route('/get_speaker_summaries/<transcription_id>', methods=['GET'])
-def get_speaker_summaries(transcription_id):
-    logger.info(f"get_speaker_summaries: transcription_id {transcription_id}")
-    transcription_handler = get_transcription_handler()
-    transcription = transcription_handler.get_transcription(transcription_id)
-    if transcription and transcription.diarized_transcript:
-        logger.info(f"get_speaker_summaries: found diarized transcript")
-        summaries = get_speaker_summaries_via_llm(transcription.diarized_transcript)
-        logger.info(f"get_speaker_summaries: summaries {summaries}")
-        return jsonify(summaries), 200
-    return jsonify({'error': 'Transcription not found or does not have a diarized transcript'}), 404
 
 @api_bp.route('/update_speaker_labels/<transcription_id>', methods=['POST'])
 def update_speaker_labels(transcription_id):
@@ -194,21 +182,6 @@ def update_speaker_labels(transcription_id):
     return jsonify({'error': 'Transcription not found or does not have a diarized transcript'}), 404
 
 
-@api_bp.route("/infer_speaker_names/<transcription_id>")
-def infer_speaker_names(transcription_id):
-    transcription_handler = get_transcription_handler()
-    transcription = transcription_handler.get_transcription(transcription_id)
-    if transcription and transcription.diarized_transcript:
-        if True: # TODO - uncomment this when we don't want to allow inferring multiple times... not transcription.speaker_mapping:
-            speaker_mapping, diarized_text = get_speaker_mapping(transcription.diarized_transcript)
-            transcription.speaker_mapping = speaker_mapping
-            transcription.diarized_transcript = diarized_text
-            transcription_handler.update_transcription(transcription)
-            return jsonify({'message': 'Speaker names successfully inferred'}), 200
-        else:
-            return jsonify({'message': 'Speaker names already inferred'}), 200
-    else:
-        return jsonify({'error': 'Transcription not found'}), 404
 
 #support upload from iphone share context menu
 @api_bp.route("/upload_from_ios_share", methods=['POST'])
