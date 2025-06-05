@@ -85,9 +85,17 @@ def transcription_hello_world():
 @az_transcription_bp.route("/check_transcription_status/<recording_id>", methods=["GET"])
 def check_transcription_status(recording_id):
     logger.info(f"Checking transcription status: {recording_id}")
-    recording = recording_handler.get_recording(recording_id)
-    status, error = check_in_progress_transcription(recording)
-    return jsonify({'status': status, 'error': error}), 200
+    try:
+        recording = recording_handler.get_recording(recording_id)
+        status, error = check_in_progress_transcription(recording)
+        return jsonify({'status': status, 'error': error}), 200
+    except Exception as e:
+        logger.error(f"Database timeout or error checking transcription status for {recording_id}: {e}")
+        # Return a graceful response instead of 500 error
+        return jsonify({
+            'status': 'checking', 
+            'error': 'Temporary database issue, please try again in a moment'
+        }), 200
 
 def check_in_progress_transcription(recording: Recording) -> tuple[str, str]:
     client = get_speech_api_client()
@@ -110,10 +118,15 @@ def check_in_progress_transcription(recording: Recording) -> tuple[str, str]:
     error_message = ""
     if status == TranscriptionStatus.completed.value:
         logger.info(f"Transcription succeeded: {az_transcription_id}")
-        transcription = transcription_handler.get_transcription_by_recording(recording.id)
-        if not transcription:
-            logger.info(f"No transcription found, creating new transcription")
-            transcription = transcription_handler.create_transcription(recording.user_id, recording.id)
+        try:
+            transcription = transcription_handler.get_transcription_by_recording(recording.id)
+            if not transcription:
+                logger.info(f"No transcription found, creating new transcription")
+                transcription = transcription_handler.create_transcription(recording.user_id, recording.id)
+        except Exception as e:
+            logger.error(f"Database timeout getting transcription for recording {recording.id}: {e}")
+            # Return in_progress status so client will retry later
+            return TranscriptionStatus.in_progress.value, "Database temporarily unavailable, will retry"
         transcription.az_transcription_id = az_transcription_id
         transcription.az_raw_transcription = str(az_transcription)
         

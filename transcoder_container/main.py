@@ -371,6 +371,7 @@ class TranscodingProcessor:
     def run(self):
         """Main processing loop"""
         logger.info(f"Starting transcoding processor v{CONTAINER_APP_VERSION}...")
+        logger.info(f"Connecting to queue: {TRANSCODING_QUEUE_NAME}")
         
         queue_client = self.get_queue_client()
         try:

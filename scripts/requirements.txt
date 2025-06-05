@@ -14,6 +14,8 @@ autogen-core==0.4.0.dev11
 autogen-ext==0.4.0.dev11
 Automat==22.10.0
 azure-core==1.32.0
+azure-cosmos==4.2.0
+azure-storage-blob==12.19.0
 azure-identity==1.19.0
 azure-keyvault==4.2.0
 azure-keyvault-certificates==4.8.0

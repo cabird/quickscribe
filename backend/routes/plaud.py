@@ -138,12 +138,21 @@ def start_plaud_sync():
         logger.info(f"Found {len(processed_ids)} previously synced Plaud recordings for user {user.id}")
         
         # Prepare sync message for queue
+        # Ensure lastSyncTimestamp is JSON serializable (handle both datetime and string)
+        last_sync_timestamp = plaud_settings.lastSyncTimestamp
+        if last_sync_timestamp is not None:
+            if isinstance(last_sync_timestamp, datetime):
+                last_sync_timestamp = last_sync_timestamp.isoformat()
+            elif isinstance(last_sync_timestamp, str):
+                # Already a string, keep as-is
+                pass
+        
         sync_message = {
             'action': 'plaud_sync',
             'user_id': user.id,
             'bearerToken': plaud_settings.bearerToken, 
             #what happens to recordings that didn't sync the last time and are before lastSyncTimestamp?
-            'lastSyncTimestamp': plaud_settings.lastSyncTimestamp, 
+            'lastSyncTimestamp': last_sync_timestamp, 
             'processedPlaudIds': processed_ids,
             'callbacks': callbacks,
             'callback_token': sync_token,
@@ -311,7 +320,7 @@ def handle_plaud_recording_registration(data):
         
         for existing in existing_recordings:
             if (existing.plaudMetadata and 
-                existing.plaudMetadata.get('plaudId') == plaud_id):
+                existing.plaudMetadata.plaudId == plaud_id):
                 return jsonify({
                     'success': False,
                     'error': f'Recording with Plaud ID {plaud_id} already exists'
@@ -332,15 +341,17 @@ def handle_plaud_recording_registration(data):
         }
         
         # Create recording record
+        from db_handlers.models import Source
         recording = recording_handler.create_recording(
             user_id=user_id,
             original_filename=original_filename,
             unique_filename=unique_filename,
-            source='plaud'
+            source=Source.plaud
         )
         
         # Update recording with Plaud metadata and duration
-        recording.plaudMetadata = plaud_metadata
+        from db_handlers.models import PlaudMetadata
+        recording.plaudMetadata = PlaudMetadata(**plaud_metadata)
         recording.duration = duration
         recording.upload_timestamp = datetime.now(UTC).isoformat()
         recording_handler.update_recording(recording)

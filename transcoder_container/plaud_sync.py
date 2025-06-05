@@ -303,8 +303,15 @@ def handle_plaud_sync(message_content: dict, logger, transcode_func, send_callba
             if last_sync:
                 try:
                     last_sync_dt = datetime.fromisoformat(last_sync)
+                    # Ensure last_sync_dt is timezone-aware
+                    if last_sync_dt.tzinfo is None:
+                        # If no timezone, assume UTC
+                        last_sync_dt = last_sync_dt.replace(tzinfo=timezone.utc)
+                    
+                    # Compare in UTC to avoid timezone issues
                     new_recordings = [r for r in new_recordings 
-                                     if r.recording_datetime > last_sync_dt]
+                                     if r.recording_datetime.astimezone(timezone.utc) > last_sync_dt.astimezone(timezone.utc)]
+                    
                     logger.info(f"After timestamp filtering: {len(new_recordings)} new recordings")
                 except Exception as e:
                     logger.error(f"Error parsing timestamp {last_sync}: {e}")

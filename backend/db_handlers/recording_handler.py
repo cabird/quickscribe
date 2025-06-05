@@ -43,7 +43,8 @@ class RecordingHandler:
 
     def create_recording(self, user_id: str, original_filename: str, unique_filename: str, 
                          transcription_status: models.TranscriptionStatus = models.TranscriptionStatus.not_started,
-                         transcoding_status: models.TranscodingStatus = models.TranscodingStatus.not_started) -> Recording:
+                         transcoding_status: models.TranscodingStatus = models.TranscodingStatus.not_started,
+                         source: Optional[models.Source] = None) -> Recording:
         """Create a new recording entry in Cosmos DB and return as a Recording model."""
         recording_id = str(uuid.uuid4())
         recording_item = {
@@ -56,6 +57,10 @@ class RecordingHandler:
             "transcoding_retry_count": 0,
             "partitionKey": "recording"
         }
+        
+        # Add source if provided
+        if source is not None:
+            recording_item["source"] = source.value if hasattr(source, 'value') else source
         item = self.container.create_item(body=recording_item)
         return Recording(**filter_cosmos_fields(item))
 

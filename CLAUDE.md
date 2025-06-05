@@ -162,7 +162,98 @@ Critical variables:
 - Service selection in `backend/src/services/transcription_service.py`
 
 ### Plaud Device Integration
-- Sync endpoint: `/api/plaud/sync`
+- Sync endpoint: `/plaud/sync/start`
 - Downloads recordings from Plaud API
 - Creates recording entries in CosmosDB
 - Queues for transcription processing
+
+## Pydantic Model Architecture
+
+### Extended Models with Serialization
+The codebase uses extended Pydantic models in `backend/db_handlers/user_handler.py` that override base models from `backend/db_handlers/models.py` to add proper datetime handling:
+
+```python
+class PlaudSettings(models.PlaudSettings):
+    # Override datetime fields to use actual datetime objects
+    activeSyncStarted: Optional[datetime] = None
+    lastSyncTimestamp: Optional[datetime] = None
+    
+    @field_validator('activeSyncStarted', 'lastSyncTimestamp', mode='before')
+    @classmethod
+    def parse_datetime(cls, v):
+        # Handles ISO strings from CosmosDB → datetime objects
+    
+    @field_serializer('activeSyncStarted', 'lastSyncTimestamp')
+    def serialize_datetime(self, value) -> Optional[str]:
+        # Handles datetime objects → ISO strings for storage
+```
+
+**Best Practice**: Use `user_handler.save_user(user)` instead of manual dictionary conversion. Routes should work with model objects directly:
+```python
+# Good:
+user.plaudSettings.activeSyncToken = sync_token
+user.plaudSettings.activeSyncStarted = datetime.now(UTC)
+user_handler.save_user(user)
+
+# Avoid:
+plaud_dict = user.plaudSettings.model_dump()
+plaud_dict['activeSyncToken'] = sync_token
+user_handler.update_user(user_id, plaudSettingsDict=plaud_dict)
+```
+
+## Testing Strategy
+
+### CosmosDB Serialization Testing
+Use `scripts/test_cosmosdb_serialization.py` to validate complete database round-trips:
+- Tests all datetime field serialization/deserialization
+- Validates field modifications persist through save/retrieve cycles
+- Ensures None values handled correctly
+- Verifies legacy method compatibility
+
+Run with: `scripts/.venv/bin/python scripts/test_cosmosdb_serialization.py`
+
+### Model-Only Testing  
+Use `scripts/test_user_models.py` for faster Pydantic validation without database:
+- Field validator testing
+- Serialization format verification
+- Edge case handling
+
+## Local Development Patterns
+
+### Hot Reloading
+Backend configured for hot reloading in `startup.sh`:
+```bash
+export FLASK_APP=app.py
+export FLASK_DEBUG=1
+export FLASK_ENV=development
+python -m flask run --host=0.0.0.0 --port=$PORT --debug --reload
+```
+
+### Virtual Environment Usage
+Scripts require the virtual environment: `scripts/.venv/bin/python script_name.py`
+
+### Route Structure
+- Main API routes: `/api/*` 
+- Plaud-specific routes: `/plaud/*` (not under `/api/plaud`)
+- Static file exclusions in `app.py` catch-all route include `"plaud/"`
+
+## Common Issues & Solutions
+
+### Pydantic Dictionary Access
+❌ **Don't**: `user.plaudSettings['field'] = value` (treats model as dict)
+✅ **Do**: `user.plaudSettings.field = value` (uses model fields)
+
+### DateTime Serialization
+❌ **Don't**: Manual `.isoformat()` conversion in routes
+✅ **Do**: Let Pydantic field serializers handle it automatically
+
+### User Updates
+❌ **Don't**: `update_user(user_id, plaudSettingsDict=dict)` 
+✅ **Do**: `save_user(user)` for clean model-based API
+
+### Plaud File Extensions
+Plaud devices create `.opus` files that are actually MP3 format. Handle in transcoder:
+```python
+if extension == 'opus':
+    extension = 'mp3'
+```
