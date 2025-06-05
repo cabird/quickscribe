@@ -168,8 +168,16 @@ const Recording: React.FC<RecordingProps> = ({ recording, refreshTrigger }) => {
             <tr className="recording-row">
                 <td>
                     <a href={`/download_recording/${recording.id}`} download>
-                        {recording.original_filename}
+                        {recordingData.title || recordingData.original_filename}
                     </a>
+                    {recordingData.recorded_timestamp && (
+                        <>
+                            <br />
+                            <small style={{ color: '#666' }}>
+                                Recorded: {new Date(recordingData.recorded_timestamp).toLocaleDateString()}
+                            </small>
+                        </>
+                    )}
                 </td>
                 <td>{formatDuration(recording.duration || 0)}</td>
                 <td>

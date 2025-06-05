@@ -1,4 +1,5 @@
 import jinja2
+import re
 from mutagen.mp3 import MP3
 from mutagen.mp4 import MP4
 from pydub import AudioSegment
@@ -52,21 +53,17 @@ def ellide(text, max_length):
     else:
         return text
 
-AudioSegment.ffmpeg = "/usr/bin/ffmpeg"
-valid_file_extensions = ["mp3", "m4a"] # TODO - are there other valid file extensions?
-def convert_to_mp3(source_file_path: str, target_file_path: str):
-    extension = source_file_path.lower().split(".")[-1]
-    if extension not in valid_file_extensions:
-        raise ValueError(f"Unsupported file type. Only {', '.join(valid_file_extensions)} files are supported.")
-    if extension == "m4a":
-        audio = AudioSegment.from_file(source_file_path, format="m4a")
-    elif extension == "mp3":
-        audio = AudioSegment.from_file(source_file_path, format="mp3")
-    else:
-        raise ValueError(f"Unsupported file type. Only {', '.join(valid_file_extensions)} files are supported.")
-    audio.export(target_file_path, format="mp3", bitrate="128k", parameters=["-ac", "1"])
-
 def update_diarized_transcript(diarized_transcript: str, speaker_labels: Dict[str, str]) -> str:
     for original_speaker, new_label in speaker_labels.items():
         diarized_transcript = diarized_transcript.replace(original_speaker, new_label)
     return diarized_transcript
+
+def slugify(text: str) -> str:
+    """Convert text to a slug suitable for tag IDs and other URL-safe identifiers."""
+    # Convert to lowercase
+    text = text.lower()
+    # Replace spaces and special characters with hyphens
+    text = re.sub(r'[^\w\s-]', '', text)
+    text = re.sub(r'[-\s]+', '-', text)
+    # Remove leading/trailing hyphens
+    return text.strip('-')

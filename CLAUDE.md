@@ -2,6 +2,23 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Quick Reference
+
+📋 For a comprehensive understanding of the codebase structure, see [`DIRECTORY_MAPPING.md`](./DIRECTORY_MAPPING.md). This document provides detailed summaries of every major file and directory, making it easy to understand the project architecture and locate specific functionality.
+
+📝 For current development priorities and implementation plans, see [`TODOs`](./TODOs). This file contains prioritized tasks with detailed implementation steps for ongoing development work.
+
+## General Instructions
+
+**Planning Before Implementation**: Always present a detailed implementation plan before writing any code. The plan should include:
+- Clear understanding of the requirements
+- Proposed approach and architecture
+- Potential alternatives or trade-offs
+- Questions for clarification
+
+**Confirmation Process**: After presenting the plan and resolving any questions, explicitly ask for confirmation before proceeding with implementation. This ensures alignment and prevents unnecessary rework.
+
+
 ## Overview
 
 QuickScribe is a full-stack audio transcription application with three main components:
@@ -55,6 +72,13 @@ yarn typecheck
 yarn lint
 ```
 
+#### Frontend Package Management Setup
+- **Package Manager**: Yarn v4.5.1 (Modern Yarn with Plug'n'Play)
+- **Important**: Uses Yarn PnP, so `node_modules/` may appear empty - this is normal
+- **Dependencies**: Already installed if `yarn.lock` exists and `dist/` directory is present
+- **No Manual Setup Needed**: Frontend environment is ready to use if files exist
+- **API Routing**: Uses Vite proxy in development (`/api` → `http://backend:8000`), same-domain in production
+
 ### Transcoder Container
 ```bash
 cd transcoder_container
@@ -84,9 +108,17 @@ make logs
 
 ### Shared Models
 - Models shared amongst the backend, transcoding container, and frontend are stored in <repo>/shared/Models.ts
-- Generated Python models in `backend/src/models/api_models.py`
-- Build with `make build` in backend directory
-- TypeScript models in `vite-frontend/src/api/models.ts`
+- Generated Python models in `backend/db_handlers/models.py`
+- Build with `make build` in backend directory (requires virtual environment: `source venv/bin/activate`)
+- TypeScript models in `vite-frontend/src/interfaces/Models.ts`
+
+#### Model Synchronization Workflow
+1. Edit `shared/Models.ts` 
+2. Run `make build` in backend directory
+3. Copy to frontend: `cp shared/Models.ts vite-frontend/src/interfaces/Models.ts`
+4. Update frontend components to handle optional fields safely
+
+**Note**: Frontend models are not auto-synchronized - must be manually copied after changes.
 
 ### Database Structure
 - **CosmosDB** containers: `recordings`, `users`, `transcripts`
@@ -131,9 +163,18 @@ Critical variables:
 - Run specific test: `yarn test <filename>`
 
 ### Backend Testing
-- No automated tests currently implemented
-- Manual testing via `/test` endpoint
-- Use `test_api.http` for API testing
+- **Pytest Framework**: Comprehensive test suite with unit, integration, and E2E tests
+- **Test Categories**:
+  - `python run_tests.py unit` - Unit tests for individual components
+  - `python run_tests.py integration` - API endpoint and service integration tests  
+  - `python run_tests.py e2e` - Complete workflow tests
+  - `python run_tests.py fast` - Quick tests (excludes slow tests)
+  - `python run_tests.py all` - Full test suite with coverage
+- **Test Structure**: `tests/{unit,integration,e2e}/` with shared fixtures in `conftest.py`
+- **Coverage**: Current coverage at 41%, target goal of 70%
+- **Mock Strategy**: Tests use proper mock patching at route import level to prevent database hits
+- **Requirements**: Tests require virtual environment activation (`source venv/bin/activate`)
+- **Legacy Scripts**: Standalone test scripts in `/scripts/` directory (being migrated)
 
 ## Deployment Process
 
@@ -218,6 +259,13 @@ Use `scripts/test_user_models.py` for faster Pydantic validation without databas
 - Serialization format verification
 - Edge case handling
 
+### Testing the backend
+
+Look in <repo>/docker-compose.yml to see how the local setup runs.  Write tests against the 
+backend assuming it's running locally.  Look in backend/routes/api.py for a set of
+local endpoints to handle things like loggin in locally, managing test users, etc.
+The routes have "local" in their names.
+
 ## Local Development Patterns
 
 ### Hot Reloading
@@ -235,7 +283,14 @@ Scripts require the virtual environment: `scripts/.venv/bin/python script_name.p
 ### Route Structure
 - Main API routes: `/api/*` 
 - Plaud-specific routes: `/plaud/*` (not under `/api/plaud`)
+- AI routes: `/api/ai/*` (in `backend/routes/ai_routes.py`)
 - Static file exclusions in `app.py` catch-all route include `"plaud/"`
+
+#### AI Route Architecture
+- All AI operations go under `/api/ai/` prefix
+- File: `backend/routes/ai_routes.py` with `ai_bp` blueprint
+- Register in `app.py`: `app.register_blueprint(ai_bp, url_prefix='/api/ai')`
+- Speaker inference uses `transcription_id` not `recording_id`
 
 ## Common Issues & Solutions
 
@@ -257,3 +312,35 @@ Plaud devices create `.opus` files that are actually MP3 format. Handle in trans
 if extension == 'opus':
     extension = 'mp3'
 ```
+
+### Database Migration & Backward Compatibility
+When adding required fields to models, use the extended Recording class in `recording_handler.py` to provide defaults in `__init__()` for missing fields:
+```python
+def __init__(self, **data):
+    # Handle migration: provide defaults for missing required fields
+    if 'title' not in data or data['title'] is None:
+        data['title'] = data.get('original_filename', 'Unknown')
+    if 'recorded_timestamp' not in data or data['recorded_timestamp'] is None:
+        data['recorded_timestamp'] = data.get('upload_timestamp', datetime.now(UTC).isoformat())
+    super().__init__(**data)
+```
+- Make new fields optional in `Models.ts` initially, then migrate existing data
+- Pattern: `data['new_field'] = data.get('fallback_field', default_value)`
+
+### Frontend Component State Management
+
+#### Recording Card Update Mechanism
+- RecordingCard components dispatch `'recordingUpdated'` CustomEvents
+- RecordingCardsPage listens for these events to update state in-place:
+```javascript
+window.dispatchEvent(new CustomEvent('recordingUpdated', { 
+    detail: { recording: updatedRecording } 
+}));
+```
+- Prevents need for full page reloads after transcription actions
+
+#### Safe Field Access Patterns
+- Always provide fallbacks: `{recording.title || recording.original_filename}`
+- Conditional rendering for optional fields: `{field && <Component />}`
+- Use TypeScript optional fields (`field?: type`) during migrations
+- Handle both prop updates and internal state changes in components

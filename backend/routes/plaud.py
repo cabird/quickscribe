@@ -346,7 +346,9 @@ def handle_plaud_recording_registration(data):
             user_id=user_id,
             original_filename=original_filename,
             unique_filename=unique_filename,
-            source=Source.plaud
+            source=Source.plaud,
+            title=original_filename,  # Default title to filename
+            recorded_timestamp=original_timestamp  # Use the actual recording timestamp from Plaud
         )
         
         # Update recording with Plaud metadata and duration

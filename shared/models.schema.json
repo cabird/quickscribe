@@ -86,6 +86,9 @@
                 "id": {
                     "type": "string"
                 },
+                "is_dummy_recording": {
+                    "type": "boolean"
+                },
                 "original_filename": {
                     "type": "string"
                 },
@@ -95,12 +98,24 @@
                 "plaudMetadata": {
                     "$ref": "#/definitions/PlaudMetadata"
                 },
+                "recorded_timestamp": {
+                    "type": "string"
+                },
                 "source": {
                     "enum": [
                         "plaud",
                         "stream",
                         "upload"
                     ],
+                    "type": "string"
+                },
+                "tagIds": {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array"
+                },
+                "title": {
                     "type": "string"
                 },
                 "transcoding_completed_at": {
@@ -161,6 +176,8 @@
                 "user_id",
                 "original_filename",
                 "unique_filename",
+                "title",
+                "recorded_timestamp",
                 "duration",
                 "transcription_status",
                 "transcription_status_updated_at",
@@ -176,7 +193,9 @@
                 "upload_timestamp",
                 "source",
                 "plaudMetadata",
-                "partitionKey"
+                "partitionKey",
+                "tagIds",
+                "is_dummy_recording"
             ],
             "required": [
                 "id",
@@ -184,6 +203,30 @@
                 "partitionKey",
                 "unique_filename",
                 "user_id"
+            ],
+            "type": "object"
+        },
+        "Tag": {
+            "properties": {
+                "color": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                }
+            },
+            "propertyOrder": [
+                "id",
+                "name",
+                "color"
+            ],
+            "required": [
+                "color",
+                "id",
+                "name"
             ],
             "type": "object"
         },
@@ -288,6 +331,12 @@
                 },
                 "role": {
                     "type": "string"
+                },
+                "tags": {
+                    "items": {
+                        "$ref": "#/definitions/Tag"
+                    },
+                    "type": "array"
                 }
             },
             "propertyOrder": [
@@ -299,7 +348,8 @@
                 "last_login",
                 "plaudSettings",
                 "partitionKey",
-                "is_test_user"
+                "is_test_user",
+                "tags"
             ],
             "required": [
                 "id",

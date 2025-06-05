@@ -22,6 +22,20 @@ export interface PlaudMetadata {
     syncedAt: string;             // When this recording was imported to QuickScribe
 }
 
+// Represents a tag that can be applied to recordings
+export interface Tag {
+    id: string;        // Unique identifier (slugified name)
+    name: string;      // Display name
+    color: string;     // Hex color code (e.g., "#FF5733")
+}
+
+// Default tags for new users
+export const DEFAULT_TAGS: Tag[] = [
+    { id: "meeting", name: "Meeting", color: "#4444FF" },
+    { id: "personal", name: "Personal", color: "#BB44BB" },
+    { id: "self-memos", name: "Self Memos", color: "#44BB44" }
+];
+
 // Represents a user in the system
 export interface User {
     id: string; // Unique identifier for the user
@@ -33,6 +47,7 @@ export interface User {
     plaudSettings?: PlaudSettings; // Plaud integration settings
     partitionKey: string;
     is_test_user?: boolean; // Indicates if this is a test user for local development
+    tags?: Tag[]; // User's custom tags
 }
 
 // Represents a recording entity
@@ -41,6 +56,8 @@ export interface Recording {
     user_id: string; // References the user who uploaded the recording
     original_filename: string; // Original filename of the uploaded file
     unique_filename: string; // Unique filename assigned to the uploaded file
+    title?: string; // User-editable title for the recording (defaults to original_filename)
+    recorded_timestamp?: string; // ISO timestamp when the recording was actually made
     duration?: number; // Duration of the recording in seconds (may be unknown)
     
     // Transcription related fields
@@ -62,6 +79,8 @@ export interface Recording {
     source?: "upload" | "plaud" | "stream"; // Source of the recording
     plaudMetadata?: PlaudMetadata;          // Plaud-specific metadata (only present for Plaud recordings)
     partitionKey: string;
+    tagIds?: string[]; // Array of tag IDs assigned to this recording
+    is_dummy_recording?: boolean; // Indicates if this is a dummy recording for testing
 }
 
 // Represents a transcription entity

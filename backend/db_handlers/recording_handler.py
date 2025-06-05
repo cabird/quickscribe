@@ -19,6 +19,14 @@ class Recording(models.Recording):
             data['transcription_status'] = models.TranscriptionStatus(data['transcription_status'])
         if 'transcoding_status' in data and isinstance(data['transcoding_status'], str):
             data['transcoding_status'] = models.TranscodingStatus(data['transcoding_status'])
+            
+        # Handle migration: provide defaults for missing required fields
+        if 'title' not in data or data['title'] is None:
+            data['title'] = data.get('original_filename', 'Unknown')
+        if 'recorded_timestamp' not in data or data['recorded_timestamp'] is None:
+            # Use upload_timestamp if available, otherwise use current time
+            data['recorded_timestamp'] = data.get('upload_timestamp', datetime.now(UTC).isoformat())
+            
         super().__init__(**data)
     
     def model_dump(self, **kwargs) -> Dict[str, Any]:
@@ -44,14 +52,25 @@ class RecordingHandler:
     def create_recording(self, user_id: str, original_filename: str, unique_filename: str, 
                          transcription_status: models.TranscriptionStatus = models.TranscriptionStatus.not_started,
                          transcoding_status: models.TranscodingStatus = models.TranscodingStatus.not_started,
-                         source: Optional[models.Source] = None) -> Recording:
+                         source: Optional[models.Source] = None,
+                         title: Optional[str] = None,
+                         recorded_timestamp: Optional[str] = None) -> Recording:
         """Create a new recording entry in Cosmos DB and return as a Recording model."""
         recording_id = str(uuid.uuid4())
+        
+        # Set default values for title and recorded_timestamp
+        if title is None:
+            title = original_filename
+        if recorded_timestamp is None:
+            recorded_timestamp = datetime.now(UTC).isoformat()
+            
         recording_item = {
             "id": recording_id,
             "user_id": user_id,
             "original_filename": original_filename,
             "unique_filename": unique_filename,
+            "title": title,
+            "recorded_timestamp": recorded_timestamp,
             "transcription_status": transcription_status.value,
             "transcoding_status": transcoding_status.value,
             "transcoding_retry_count": 0,
@@ -128,3 +147,63 @@ class RecordingHandler:
             recording_data['id'] = recording.id
         updated_record = self.container.replace_item(item=recording_data['id'], body=recording_data)
         return Recording(**filter_cosmos_fields(updated_record))
+    
+    # Tag-related methods
+    def add_tags_to_recording(self, recording_id: str, tag_ids: List[str]) -> Optional[Recording]:
+        """Add tags to a recording."""
+        recording = self.get_recording(recording_id)
+        if not recording:
+            return None
+        
+        # Initialize tagIds if not present
+        if not recording.tagIds:
+            recording.tagIds = []
+        
+        # Add new tags, avoiding duplicates
+        for tag_id in tag_ids:
+            if tag_id not in recording.tagIds:
+                recording.tagIds.append(tag_id)
+        
+        return self.update_recording(recording)
+    
+    def remove_tags_from_recording(self, recording_id: str, tag_ids: List[str]) -> Optional[Recording]:
+        """Remove specific tags from a recording."""
+        recording = self.get_recording(recording_id)
+        if not recording or not recording.tagIds:
+            return recording
+        
+        # Remove specified tags
+        recording.tagIds = [tag_id for tag_id in recording.tagIds if tag_id not in tag_ids]
+        
+        return self.update_recording(recording)
+    
+    def remove_tag_from_all_user_recordings(self, user_id: str, tag_id: str) -> int:
+        """Remove a tag from all recordings belonging to a user. Returns count of updated recordings."""
+        # Query all recordings for the user that have this tag
+        query = """
+        SELECT * FROM c 
+        WHERE c.user_id = @user_id 
+        AND c.partitionKey = 'recording' 
+        AND ARRAY_CONTAINS(c.tagIds, @tag_id)
+        """
+        parameters = [
+            {"name": "@user_id", "value": user_id},
+            {"name": "@tag_id", "value": tag_id}
+        ]
+        
+        recordings = list(self.container.query_items(
+            query=query, 
+            parameters=parameters, 
+            partition_key="recording"
+        ))
+        
+        update_count = 0
+        for rec_data in recordings:
+            recording = Recording(**filter_cosmos_fields(rec_data))
+            if recording.tagIds and tag_id in recording.tagIds:
+                recording.tagIds = [tid for tid in recording.tagIds if tid != tag_id]
+                self.update_recording(recording)
+                update_count += 1
+        
+        logger.info(f"Removed tag {tag_id} from {update_count} recordings for user {user_id}")
+        return update_count

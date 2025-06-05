@@ -131,8 +131,11 @@ const RecordingCard: React.FC<RecordingProps> = ({ recording, onDelete }) => {
         <Card shadow="sm" padding="lg" radius="md" withBorder className={styles.recordingCard}>
             <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
                 <div style={{ flex: 1 }}>
-                    <Text fw={500}>{currentRecording.original_filename}</Text>
+                    <Text fw={500}>{currentRecording.title || currentRecording.original_filename}</Text>
                     <Text size="sm" c="dimmed">Duration: {formatDuration(currentRecording.duration || 0)}</Text>
+                    {currentRecording.recorded_timestamp && (
+                        <Text size="xs" c="dimmed">Recorded: {new Date(currentRecording.recorded_timestamp).toLocaleDateString()}</Text>
+                    )}
                     <Group gap="xs">            
                         <Text size="sm" c={transcriptionStatus === 'completed' ? 'green.6' : 
                                          transcriptionStatus === 'in_progress' ? 'blue.6' : 'gray.6'}>

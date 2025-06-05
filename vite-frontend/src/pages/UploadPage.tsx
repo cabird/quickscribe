@@ -74,10 +74,13 @@ const UploadPage: React.FC = () => {
                 openRef={openRef}
                 onDrop={handleFileSelect}
                 onReject={() => setError('File type not supported')}
-                maxSize={100 * 1024 ** 2} // 10 MB max file size
+                maxSize={100 * 1024 ** 2} // 100 MB max file size
                 accept={{
-                    'audio/mp3': ['.mp3'],
+                    'audio/mpeg': ['.mp3'],
                     'audio/mp4': ['.m4a'],
+                    'audio/wav': ['.wav'],
+                    'audio/ogg': ['.ogg'],
+                    'audio/opus': ['.opus'],
                 }}
                 style={{ marginBottom: '1rem' }}
             >
@@ -93,6 +96,8 @@ const UploadPage: React.FC = () => {
                     </Dropzone.Idle>
                     <Text size="sm" mt="xs" c="dimmed">
                         Drag audio files here or click to select files
+                        <br />
+                        <Text size="xs" c="dimmed">Supports MP3, M4A, WAV, OGG, OPUS (max 100MB)</Text>
                     </Text>
                 </div>
             </Dropzone>

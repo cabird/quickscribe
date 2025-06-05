@@ -2,10 +2,18 @@ from azure.cosmos import CosmosClient
 from datetime import datetime, UTC
 import uuid
 from db_handlers import models
-from db_handlers.models import User, Recording, Transcription  # Import the Pydantic models
+from db_handlers.models import User, Recording, Transcription, Tag  # Import the Pydantic models
 from db_handlers.util import filter_cosmos_fields  # Import the utility function
+from util import slugify  # Import slugify from util
 from typing import Optional, List, Dict, Any
 from pydantic import field_validator, field_serializer
+
+# Default tags for new users
+DEFAULT_TAGS = [
+    Tag(id="meeting", name="Meeting", color="#4444FF"),
+    Tag(id="personal", name="Personal", color="#BB44BB"),
+    Tag(id="self-memos", name="Self Memos", color="#44BB44")
+]
 
 class PlaudSettings(models.PlaudSettings):
     """Extended PlaudSettings with datetime handling"""
@@ -169,3 +177,120 @@ class UserHandler:
         query = "SELECT c.id, c.name FROM c WHERE c.is_test_user = true AND c.partitionKey = 'user'"
         users = list(self.container.query_items(query=query, enable_cross_partition_query=True))
         return [{"id": user["id"], "name": user["name"]} for user in users]
+    
+    # Tag-related methods
+    def ensure_default_tags(self, user: User) -> User:
+        """Ensure user has default tags if they don't have any tags yet."""
+        if not user.tags:
+            user.tags = [tag.model_copy() for tag in DEFAULT_TAGS]
+            return self.save_user(user)
+        return user
+    
+    def get_user_tags(self, user_id: str) -> List[Tag]:
+        """Get all tags for a user, initializing defaults if needed."""
+        user = self.get_user(user_id)
+        if not user:
+            return []
+        
+        # Ensure default tags exist
+        user = self.ensure_default_tags(user)
+        return user.tags or []
+    
+    def create_tag(self, user_id: str, name: str, color: str) -> Optional[Tag]:
+        """Create a new tag for a user."""
+        user = self.get_user(user_id)
+        if not user:
+            return None
+        
+        # Ensure user has tags array
+        if not user.tags:
+            user.tags = []
+        
+        # Check for duplicate names (case insensitive)
+        name_lower = name.lower()
+        for tag in user.tags:
+            if tag.name.lower() == name_lower:
+                return None  # Tag with this name already exists
+        
+        # Generate unique slug
+        base_slug = slugify(name)
+        slug = base_slug
+        counter = 2
+        
+        # Check for slug conflicts
+        existing_ids = {tag.id for tag in user.tags}
+        while slug in existing_ids:
+            slug = f"{base_slug}-{counter}"
+            counter += 1
+        
+        # Create new tag
+        new_tag = Tag(id=slug, name=name[:32], color=color)  # Enforce 32 char limit
+        user.tags.append(new_tag)
+        
+        # Save user
+        updated_user = self.save_user(user)
+        if updated_user:
+            # Return the newly created tag
+            for tag in updated_user.tags:
+                if tag.id == slug:
+                    return tag
+        return None
+    
+    def update_tag(self, user_id: str, tag_id: str, name: Optional[str] = None, color: Optional[str] = None) -> Optional[Tag]:
+        """Update an existing tag (name and/or color only, not ID)."""
+        user = self.get_user(user_id)
+        if not user or not user.tags:
+            return None
+        
+        # Find the tag to update
+        for i, tag in enumerate(user.tags):
+            if tag.id == tag_id:
+                # Check for duplicate names if name is being changed
+                if name and name.lower() != tag.name.lower():
+                    name_lower = name.lower()
+                    for other_tag in user.tags:
+                        if other_tag.id != tag_id and other_tag.name.lower() == name_lower:
+                            return None  # Another tag with this name exists
+                
+                # Update tag
+                if name:
+                    tag.name = name[:32]  # Enforce 32 char limit
+                if color:
+                    tag.color = color
+                
+                # Save user
+                updated_user = self.save_user(user)
+                if updated_user:
+                    return updated_user.tags[i]
+                return None
+        
+        return None  # Tag not found
+    
+    def delete_tag(self, user_id: str, tag_id: str) -> bool:
+        """Delete a tag and remove it from all user's recordings."""
+        user = self.get_user(user_id)
+        if not user or not user.tags:
+            return False
+        
+        # Find and remove the tag
+        original_count = len(user.tags)
+        user.tags = [tag for tag in user.tags if tag.id != tag_id]
+        
+        if len(user.tags) == original_count:
+            return False  # Tag not found
+        
+        # Save user
+        if not self.save_user(user):
+            return False
+        
+        # Remove tag from all user's recordings
+        from db_handlers.recording_handler import RecordingHandler
+        recording_handler = RecordingHandler(
+            self.client.client_connection._endpoint,
+            self.client.client_connection.master_key,
+            self.database.id,
+            "recordings"
+        )
+        recording_handler.remove_tag_from_all_user_recordings(user_id, tag_id)
+        
+        return True

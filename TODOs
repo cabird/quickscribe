@@ -1,0 +1,67 @@
+# QuickScribe TODOs
+
+## 🔥 High Priority
+
+### 1. Fix drag and drop file upload functionality
+**Issue**: The drag and drop of an audio file doesn't work
+
+**Implementation Plan**:
+1. Fix MIME type configuration in `vite-frontend/src/pages/UploadPage.tsx`
+   - Change `'audio/mp3'` to `'audio/mpeg'` 
+   - Add support for additional formats (`audio/wav`, `audio/ogg`, `audio/opus`)
+2. Verify authentication headers are included in XMLHttpRequest
+3. Update API URL to use environment variable instead of hardcoded path
+4. Test upload functionality with various file formats
+5. Add proper error handling for failed uploads
+
+### 2. Implement systematic backend testing approach
+**Issue**: Currently using a bunch of scripts that don't get run anywhere near as often as they should
+
+**Implementation Plan**:
+1. Set up pytest framework in backend directory
+   - Create `tests/` directory structure
+   - Add `pytest.ini` configuration file
+   - Install pytest dependencies in requirements.txt
+2. Create test categories:
+   - Unit tests for database handlers
+   - Integration tests for API endpoints
+   - End-to-end tests for complete workflows
+3. Set up test database configuration (separate from production)
+4. Create test fixtures and utilities
+5. Add CI/CD pipeline integration to run tests automatically
+6. Migrate existing test scripts to proper test framework
+7. Add test coverage reporting
+
+## 📋 Medium Priority
+
+### 3. Refactor test scripts to use db_handlers
+**Issue**: Test scripts should use the db_handlers where possible instead of direct database access
+
+**Implementation Plan**:
+1. Audit all scripts in `/scripts/` directory
+2. Identify scripts doing direct database operations
+3. Refactor scripts to use handler factory pattern:
+   - Import from `db_handlers.handler_factory`
+   - Use `get_user_handler()`, `get_recording_handler()`, `get_transcription_handler()`
+   - Replace direct Cosmos DB calls with handler methods
+4. Update script documentation and usage examples
+5. Test all refactored scripts to ensure functionality is preserved
+
+### 4. Create recording deletion endpoint
+**Issue**: Need an endpoint that deletes a recording record
+
+**Implementation Plan**:
+1. Verify if DELETE endpoint already exists in `backend/routes/api.py`
+2. If missing, implement DELETE `/api/recordings/{recording_id}` endpoint:
+   - Add authentication check
+   - Verify user owns the recording
+   - Delete associated transcriptions
+   - Delete blob storage files
+   - Remove recording from database
+   - Return appropriate status codes
+3. Add error handling for:
+   - Recording not found
+   - Unauthorized access
+   - Blob deletion failures
+4. Update frontend to use the deletion endpoint
+5. Add tests for the deletion functionality

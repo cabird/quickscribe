@@ -2,8 +2,9 @@
 from flask import Blueprint, request, jsonify, url_for
 from db_handlers.handler_factory import get_user_handler, get_recording_handler, get_transcription_handler
 from user_util import get_current_user
-from db_handlers.models import User, Recording, Transcription, TranscodingStatus, TranscriptionStatus
-from util import update_diarized_transcript, convert_to_mp3, get_recording_duration_in_seconds
+from db_handlers.models import User, Recording, Transcription, TranscodingStatus, TranscriptionStatus, Tag
+from util import update_diarized_transcript, get_recording_duration_in_seconds
+import re
 import uuid
 import os
 from werkzeug.utils import secure_filename
@@ -18,6 +19,10 @@ logger = get_logger('api', API_VERSION)
 logger.info(f"Starting QuickScribe API ({API_VERSION})")
 
 api_bp = Blueprint('api', __name__)
+
+def validate_hex_color(color: str) -> bool:
+    """Validate that a string is a valid hex color code."""
+    return bool(re.match(r'^#[0-9A-Fa-f]{6}$', color))
 
 @api_bp.route('/get_api_version', methods=['GET'])
 def get_api_version():
@@ -232,8 +237,14 @@ def upload_from_ios_share():
             recording_handler = get_recording_handler()
             user = get_current_user()
 
-            recording = recording_handler.create_recording(user.id, original_filename, unique_original_filename,
-                                                           transcoding_status=TranscodingStatus.queued)
+            recording = recording_handler.create_recording(
+                user.id, 
+                original_filename, 
+                unique_original_filename,
+                transcoding_status=TranscodingStatus.queued,
+                title=original_filename,  # Default title to filename
+                recorded_timestamp=datetime.now(UTC).isoformat()  # Use upload time as fallback
+            )
             recording.upload_timestamp = datetime.now(UTC).isoformat()
             recording.duration = get_recording_duration_in_seconds(temp_path)
             recording_handler.update_recording(recording)
@@ -325,7 +336,9 @@ def upload():
                 user.id, 
                 original_filename, 
                 unique_original_filename,  # This will be the final transcoded filename
-                transcoding_status=TranscodingStatus.queued
+                transcoding_status=TranscodingStatus.queued,
+                title=original_filename,  # Default title to filename
+                recorded_timestamp=datetime.now(UTC).isoformat()  # Use upload time as fallback
             )
             recording.upload_timestamp = datetime.now(UTC).isoformat()
             recording.transcoding_token = str(uuid.uuid4())
@@ -454,103 +467,173 @@ def transcoding_callback():
         logger.error(f"Error processing transcoding callback: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
-# ============================================================================
-# Local Development Auth Endpoints
-# ============================================================================
 
-@api_bp.route('/local/users', methods=['GET'])
-def get_local_test_users():
-    """Get list of test users for local development"""
-    if not os.getenv('LOCAL_AUTH_ENABLED'):
-        return jsonify({'error': 'Local auth not enabled'}), 403
-        
+# Tag routes
+@api_bp.route('/tags/get', methods=['GET'])
+def get_user_tags():
+    """Get all tags for the current user."""
+    current_user = get_current_user()
+    if not current_user:
+        return jsonify({'error': 'User not authenticated'}), 401
+    
     try:
         user_handler = get_user_handler()
-        test_users = user_handler.get_test_users()
-        return jsonify(test_users), 200
+        tags = user_handler.get_user_tags(current_user.id)
+        return jsonify([tag.model_dump() for tag in tags]), 200
     except Exception as e:
-        logger.error(f"Error getting test users: {e}")
+        logger.error(f"Error getting user tags: {e}")
         return jsonify({'error': str(e)}), 500
 
-@api_bp.route('/local/login', methods=['POST'])
-def local_login():
-    """Set current user session for local development"""
-    if not os.getenv('LOCAL_AUTH_ENABLED'):
-        return jsonify({'error': 'Local auth not enabled'}), 403
-        
+@api_bp.route('/tags/create', methods=['POST'])
+def create_tag():
+    """Create a new tag for the current user."""
+    current_user = get_current_user()
+    if not current_user:
+        return jsonify({'error': 'User not authenticated'}), 401
+    
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'JSON data required'}), 400
+    
+    name = data.get('name', '').strip()
+    color = data.get('color', '').strip()
+    
+    # Validation
+    if not name:
+        return jsonify({'error': 'Tag name is required'}), 400
+    if len(name) > 32:
+        return jsonify({'error': 'Tag name must be 32 characters or less'}), 400
+    if not color:
+        return jsonify({'error': 'Tag color is required'}), 400
+    if not validate_hex_color(color):
+        return jsonify({'error': 'Color must be a valid hex code (e.g., #FF5733)'}), 400
+    
     try:
-        data = request.get_json()
-        if not data or 'user_id' not in data:
-            return jsonify({'error': 'user_id required'}), 400
-            
-        user_id = data['user_id']
-        
-        # Verify user exists and is a test user
         user_handler = get_user_handler()
-        user = user_handler.get_user(user_id)
-        if not user or not user.is_test_user:
-            return jsonify({'error': 'Invalid test user'}), 400
-            
-        # Store user ID in session
-        from flask import session
-        session['local_user_id'] = user_id
-        
-        return jsonify({'message': 'Logged in successfully', 'user': {'id': user.id, 'name': user.name}}), 200
-        
+        tag = user_handler.create_tag(current_user.id, name, color)
+        if tag:
+            return jsonify(tag.model_dump()), 201
+        else:
+            return jsonify({'error': 'Tag with this name already exists'}), 409
     except Exception as e:
-        logger.error(f"Error during local login: {e}")
+        logger.error(f"Error creating tag: {e}")
         return jsonify({'error': str(e)}), 500
 
-@api_bp.route('/local/reset-user/<user_id>', methods=['POST'])
-def reset_test_user(user_id):
-    """Reset all data for a test user"""
-    if not os.getenv('LOCAL_AUTH_ENABLED'):
-        return jsonify({'error': 'Local auth not enabled'}), 403
-        
+@api_bp.route('/tags/update', methods=['POST'])
+def update_tag():
+    """Update an existing tag."""
+    current_user = get_current_user()
+    if not current_user:
+        return jsonify({'error': 'User not authenticated'}), 401
+    
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'JSON data required'}), 400
+    
+    tag_id = data.get('tagId', '').strip()
+    name = data.get('name', '').strip() if 'name' in data else None
+    color = data.get('color', '').strip() if 'color' in data else None
+    
+    if not tag_id:
+        return jsonify({'error': 'Tag ID is required'}), 400
+    
+    # Validation
+    if name is not None:
+        if not name:
+            return jsonify({'error': 'Tag name cannot be empty'}), 400
+        if len(name) > 32:
+            return jsonify({'error': 'Tag name must be 32 characters or less'}), 400
+    
+    if color is not None:
+        if not color:
+            return jsonify({'error': 'Tag color cannot be empty'}), 400
+        if not validate_hex_color(color):
+            return jsonify({'error': 'Color must be a valid hex code (e.g., #FF5733)'}), 400
+    
+    if name is None and color is None:
+        return jsonify({'error': 'At least one field (name or color) must be provided'}), 400
+    
     try:
-        # Verify user exists and is a test user
         user_handler = get_user_handler()
-        user = user_handler.get_user(user_id)
-        if not user or not user.is_test_user:
-            return jsonify({'error': 'Invalid test user'}), 400
-            
+        tag = user_handler.update_tag(current_user.id, tag_id, name, color)
+        if tag:
+            return jsonify(tag.model_dump()), 200
+        else:
+            return jsonify({'error': 'Tag not found or name already exists'}), 404
+    except Exception as e:
+        logger.error(f"Error updating tag: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@api_bp.route('/tags/delete/<tag_id>', methods=['GET'])
+def delete_tag(tag_id):
+    """Delete a tag and remove it from all recordings."""
+    current_user = get_current_user()
+    if not current_user:
+        return jsonify({'error': 'User not authenticated'}), 401
+    
+    try:
+        user_handler = get_user_handler()
+        success = user_handler.delete_tag(current_user.id, tag_id)
+        if success:
+            return jsonify({'message': 'Tag deleted successfully'}), 200
+        else:
+            return jsonify({'error': 'Tag not found'}), 404
+    except Exception as e:
+        logger.error(f"Error deleting tag: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@api_bp.route('/recordings/<recording_id>/add_tag/<tag_id>', methods=['GET'])
+def add_tag_to_recording(recording_id, tag_id):
+    """Add a single tag to a recording."""
+    current_user = get_current_user()
+    if not current_user:
+        return jsonify({'error': 'User not authenticated'}), 401
+    
+    try:
+        # First verify the recording belongs to the user
         recording_handler = get_recording_handler()
-        transcription_handler = get_transcription_handler()
+        recording = recording_handler.get_recording(recording_id)
+        if not recording or recording.user_id != current_user.id:
+            return jsonify({'error': 'Recording not found'}), 404
         
-        # Get all user's recordings
-        recordings = recording_handler.get_user_recordings(user_id)
+        # Verify tag belongs to the user
+        user_handler = get_user_handler()
+        user_tags = user_handler.get_user_tags(current_user.id)
+        valid_tag_ids = {tag.id for tag in user_tags}
         
-        # Delete blob files from Azure Storage
-        from blob_util import delete_recording_blob
-        for recording in recordings:
-            try:
-                delete_recording_blob(recording.unique_filename)
-            except Exception as blob_error:
-                logger.warning(f"Failed to delete blob {recording.unique_filename}: {blob_error}")
+        if tag_id not in valid_tag_ids:
+            return jsonify({'error': 'Tag not found'}), 404
         
-        # Delete all recordings from database
-        for recording in recordings:
-            recording_handler.delete_recording(recording.id)
-            
-        # Delete all transcriptions from database
-        transcriptions = user_handler.get_user_transcriptions(user_id)
-        for transcription in transcriptions:
-            transcription_handler.delete_transcription(transcription.id)
-            
-        # Reset user's Plaud settings
-        user = user_handler.get_user(user_id)
-        if user:
-            user.plaudSettings = None
-            user_handler.save_user(user)
-        
-        logger.info(f"Reset test user {user_id}: deleted {len(recordings)} recordings and {len(transcriptions)} transcriptions")
-        
-        return jsonify({
-            'message': f'User data reset successfully',
-            'deleted_recordings': len(recordings),
-            'deleted_transcriptions': len(transcriptions)
-        }), 200
-        
+        # Add tag to recording
+        updated_recording = recording_handler.add_tags_to_recording(recording_id, [tag_id])
+        if updated_recording:
+            return jsonify(updated_recording.model_dump()), 200
+        else:
+            return jsonify({'error': 'Failed to update recording'}), 500
     except Exception as e:
-        logger.error(f"Error resetting test user: {e}")
+        logger.error(f"Error adding tag to recording: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@api_bp.route('/recordings/<recording_id>/remove_tag/<tag_id>', methods=['GET'])
+def remove_tag_from_recording(recording_id, tag_id):
+    """Remove a specific tag from a recording."""
+    current_user = get_current_user()
+    if not current_user:
+        return jsonify({'error': 'User not authenticated'}), 401
+    
+    try:
+        # First verify the recording belongs to the user
+        recording_handler = get_recording_handler()
+        recording = recording_handler.get_recording(recording_id)
+        if not recording or recording.user_id != current_user.id:
+            return jsonify({'error': 'Recording not found'}), 404
+        
+        # Remove tag from recording
+        updated_recording = recording_handler.remove_tags_from_recording(recording_id, [tag_id])
+        if updated_recording:
+            return jsonify(updated_recording.model_dump()), 200
+        else:
+            return jsonify({'error': 'Failed to update recording'}), 500
+    except Exception as e:
+        logger.error(f"Error removing tag from recording: {e}")
         return jsonify({'error': str(e)}), 500
