@@ -1,13 +1,16 @@
 // src/components/RecordingCard.tsx
 
 import React, { useEffect, useState } from 'react';
-import { Recording as RecordingModel } from '../interfaces/Models';
+import { Recording as RecordingModel, Tag } from '../interfaces/Models';
 import SpeakerLabelDialog from './SpeakerLabelDialog';
-import { Card, Group, Text, Button, Tooltip, Stack, stylesToString } from '@mantine/core';
+import TagBadge from './TagBadge';
+import TagSelector from './TagSelector';
+import { Card, Group, Text, Button, Tooltip, Stack, Modal, Flex } from '@mantine/core';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faFileLines, faUserTag, faDownload, faTrashAlt, faTag } from '@fortawesome/free-solid-svg-icons';
 import { faCopy, faFileAudio } from '@fortawesome/free-regular-svg-icons';
 import { checkTranscriptionStatus, deleteRecording, deleteTranscription, fetchRecording, startTranscription } from '../api/recordings';
+import { addTagToRecording, removeTagFromRecording } from '../api/tags';
 import { notifications } from '@mantine/notifications';
 import { IconAlertCircle, IconCheck, IconLoader } from '@tabler/icons-react';
 import { formatDuration } from '../util';
@@ -19,13 +22,163 @@ import { IconProp } from '@fortawesome/fontawesome-svg-core';
 interface RecordingProps {
     recording: RecordingModel;
     onDelete: (id: string) => void;
+    userTags: Tag[];
 }
 
-const RecordingCard: React.FC<RecordingProps> = ({ recording, onDelete }) => {
+const RecordingCard: React.FC<RecordingProps> = ({ recording, onDelete, userTags }) => {
     const [showSpeakerLabelDialog, setShowSpeakerLabelDialog] = useState(false);
     const [speakerSummaries, setSpeakerSummaries] = useState<{ [key: string]: string } | null>(null);
     const [transcriptionStatus, setTranscriptionStatus] = useState<string>(recording.transcription_status);
     const [currentRecording, setCurrentRecording] = useState<RecordingModel>(recording);
+    const [showTagDialog, setShowTagDialog] = useState(false);
+    const [tagsLoading, setTagsLoading] = useState(false);
+
+
+    // Get tags for current recording
+    const getRecordingTags = (): Tag[] => {
+        if (!currentRecording.tagIds || !userTags.length) return [];
+        return userTags.filter(tag => currentRecording.tagIds?.includes(tag.id));
+    };
+
+    // Handle adding/removing tags with optimistic updates
+    const handleTagsChange = async (newTagIds: string[]) => {
+        const currentTagIds = currentRecording.tagIds || [];
+        const addedTags = newTagIds.filter(id => !currentTagIds.includes(id));
+        const removedTags = currentTagIds.filter(id => !newTagIds.includes(id));
+
+        // Optimistically update UI immediately
+        const optimisticRecording = {
+            ...currentRecording,
+            tagIds: newTagIds
+        };
+        setCurrentRecording(optimisticRecording);
+        
+        // Update parent component optimistically
+        window.dispatchEvent(new CustomEvent('recordingUpdated', { 
+            detail: { recording: optimisticRecording } 
+        }));
+
+        // Process added tags in background
+        for (const tagId of addedTags) {
+            try {
+                const response = await addTagToRecording(currentRecording.id, tagId);
+                if (response.status !== 'success') {
+                    // Revert optimistic update on failure
+                    const revertedRecording = {
+                        ...currentRecording,
+                        tagIds: currentTagIds
+                    };
+                    setCurrentRecording(revertedRecording);
+                    window.dispatchEvent(new CustomEvent('recordingUpdated', { 
+                        detail: { recording: revertedRecording } 
+                    }));
+                    showNotificationFromApiResponse(response);
+                    return;
+                }
+            } catch (error) {
+                // Revert on network error
+                const revertedRecording = {
+                    ...currentRecording,
+                    tagIds: currentTagIds
+                };
+                setCurrentRecording(revertedRecording);
+                window.dispatchEvent(new CustomEvent('recordingUpdated', { 
+                    detail: { recording: revertedRecording } 
+                }));
+                notifications.show({
+                    title: 'Error',
+                    message: 'Failed to add tag',
+                    color: 'red'
+                });
+                return;
+            }
+        }
+
+        // Process removed tags in background
+        for (const tagId of removedTags) {
+            try {
+                const response = await removeTagFromRecording(currentRecording.id, tagId);
+                if (response.status !== 'success') {
+                    // Revert optimistic update on failure
+                    const revertedRecording = {
+                        ...currentRecording,
+                        tagIds: currentTagIds
+                    };
+                    setCurrentRecording(revertedRecording);
+                    window.dispatchEvent(new CustomEvent('recordingUpdated', { 
+                        detail: { recording: revertedRecording } 
+                    }));
+                    showNotificationFromApiResponse(response);
+                    return;
+                }
+            } catch (error) {
+                // Revert on network error
+                const revertedRecording = {
+                    ...currentRecording,
+                    tagIds: currentTagIds
+                };
+                setCurrentRecording(revertedRecording);
+                window.dispatchEvent(new CustomEvent('recordingUpdated', { 
+                    detail: { recording: revertedRecording } 
+                }));
+                notifications.show({
+                    title: 'Error',
+                    message: 'Failed to remove tag',
+                    color: 'red'
+                });
+                return;
+            }
+        }
+    };
+
+    // Handle tag removal from badge with optimistic updates
+    const handleRemoveTag = async (tagId: string) => {
+        const currentTagIds = currentRecording.tagIds || [];
+        const newTagIds = currentTagIds.filter(id => id !== tagId);
+
+        // Optimistically update UI immediately
+        const optimisticRecording = {
+            ...currentRecording,
+            tagIds: newTagIds
+        };
+        setCurrentRecording(optimisticRecording);
+        
+        // Update parent component optimistically
+        window.dispatchEvent(new CustomEvent('recordingUpdated', { 
+            detail: { recording: optimisticRecording } 
+        }));
+
+        try {
+            const response = await removeTagFromRecording(currentRecording.id, tagId);
+            if (response.status !== 'success') {
+                // Revert optimistic update on failure
+                const revertedRecording = {
+                    ...currentRecording,
+                    tagIds: currentTagIds
+                };
+                setCurrentRecording(revertedRecording);
+                window.dispatchEvent(new CustomEvent('recordingUpdated', { 
+                    detail: { recording: revertedRecording } 
+                }));
+                showNotificationFromApiResponse(response);
+            }
+        } catch (error) {
+            // Revert on network error
+            const revertedRecording = {
+                ...currentRecording,
+                tagIds: currentTagIds
+            };
+            setCurrentRecording(revertedRecording);
+            window.dispatchEvent(new CustomEvent('recordingUpdated', { 
+                detail: { recording: revertedRecording } 
+            }));
+            notifications.show({
+                title: 'Error',
+                message: 'Failed to remove tag',
+                color: 'red'
+            });
+        }
+    };
 
     const copyTranscriptToClipboard = async (text: string) => {
         try {
@@ -76,6 +229,7 @@ const RecordingCard: React.FC<RecordingProps> = ({ recording, onDelete }) => {
                 .catch((error) => notifications.show({ title: 'Error', message: 'Failed to fetch speaker summaries', color: 'red' }));
         }
     }, [showSpeakerLabelDialog, recording.transcription_id]);
+
 
     // Update local state when props change
     useEffect(() => {
@@ -144,6 +298,21 @@ const RecordingCard: React.FC<RecordingProps> = ({ recording, onDelete }) => {
                             {transcriptionStatus === 'not_started' && "• Not Started"}
                         </Text>
                     </Group>
+                    
+                    {/* Tags Display */}
+                    {userTags.length > 0 && getRecordingTags().length > 0 && (
+                        <Group gap="xs" mt="xs">
+                            {getRecordingTags().map(tag => (
+                                <TagBadge 
+                                    key={tag.id} 
+                                    tag={tag} 
+                                    removable 
+                                    onRemove={handleRemoveTag}
+                                    size="xs"
+                                />
+                            ))}
+                        </Group>
+                    )}
                 </div>
 
                 <Group mt="auto" justify="flex-end" gap="xs" className={styles.actionButtons}>
@@ -206,6 +375,11 @@ const RecordingCard: React.FC<RecordingProps> = ({ recording, onDelete }) => {
                             <FontAwesomeIcon icon={faCopy as IconProp} />
                         </Button>
                     </Tooltip>
+                    <Tooltip label="Manage Tags">
+                        <Button onClick={() => setShowTagDialog(true)} variant="subtle" size="sm">
+                            <FontAwesomeIcon icon={faTag} />
+                        </Button>
+                    </Tooltip>
                     <Tooltip label="Delete">
                         <Button onClick={handleDelete} variant="subtle" size="sm" color="red">
                             <FontAwesomeIcon icon={faTrashAlt} />
@@ -213,7 +387,7 @@ const RecordingCard: React.FC<RecordingProps> = ({ recording, onDelete }) => {
                     </Tooltip>
                     <Tooltip label="Label Speakers">
                         <Button onClick={handleLabelSpeakers} disabled={transcriptionStatus !== 'completed'} variant="subtle" size="sm">
-                            <FontAwesomeIcon icon={faTag} />
+                            <FontAwesomeIcon icon={faUserTag} />
                         </Button>
                     </Tooltip>
                 </Group>
@@ -226,6 +400,40 @@ const RecordingCard: React.FC<RecordingProps> = ({ recording, onDelete }) => {
                     onClose={() => setShowSpeakerLabelDialog(false)}
                     onAccept={handleAcceptSpeakerLabels}
                 />
+            )}
+
+            {showTagDialog && (
+                <Modal
+                    opened={showTagDialog}
+                    onClose={() => setShowTagDialog(false)}
+                    title="Manage Recording Tags"
+                    size="md"
+                >
+                    <Stack gap="md">
+                        <TagSelector
+                            selectedTagIds={currentRecording.tagIds || []}
+                            onTagsChange={handleTagsChange}
+                            disabled={tagsLoading}
+                        />
+                        
+                        {getRecordingTags().length > 0 && (
+                            <Group gap="xs">
+                                <Text size="sm" fw={500}>Current tags:</Text>
+                                <Flex gap="xs" wrap="wrap">
+                                    {getRecordingTags().map(tag => (
+                                        <TagBadge 
+                                            key={tag.id} 
+                                            tag={tag} 
+                                            removable 
+                                            onRemove={handleRemoveTag}
+                                            size="sm"
+                                        />
+                                    ))}
+                                </Flex>
+                            </Group>
+                        )}
+                    </Stack>
+                </Modal>
             )}
         </Card>
     );
