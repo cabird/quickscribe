@@ -8,6 +8,18 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 📝 For current development priorities and implementation plans, see [`TODOs`](./TODOs). This file contains prioritized tasks with detailed implementation steps for ongoing development work.
 
+🎨 For the new frontend architecture and implementation details, see [`frontend_new/ARCHITECTURE.md`](./frontend_new/ARCHITECTURE.md). This document provides comprehensive technical details about the modern React frontend, including component architecture, state management, and integration patterns.
+
+🚀 For new frontend setup and usage instructions, see [`frontend_new/README.md`](./frontend_new/README.md). This covers installation, development workflow, and deployment procedures for the new frontend.
+
+⚙️ For backend architecture and implementation details, see [`backend/ARCHITECTURE.md`](./backend/ARCHITECTURE.md). This document provides comprehensive technical details about the Flask API server, database handlers, Azure services integration, and microservices communication patterns.
+
+🔧 For backend setup and usage instructions, see [`backend/README.md`](./backend/README.md). This covers installation, configuration, testing, and deployment procedures for the backend API server.
+
+🐳 For transcoder container architecture and implementation details, see [`transcoder_container/ARCHITECTURE.md`](./transcoder_container/ARCHITECTURE.md). This document provides comprehensive technical details about the containerized audio processing service, queue-based processing, and Azure Container Apps deployment.
+
+📦 For transcoder container setup and usage instructions, see [`transcoder_container/README.md`](./transcoder_container/README.md). This covers building, configuration, testing, and deployment procedures for the audio processing microservice.
+
 ## General Instructions
 
 **Planning Before Implementation**: Always present a detailed implementation plan before writing any code. The plan should include:
