@@ -16,9 +16,10 @@ else
     echo "No .whl files found in local_packages"
 fi
 
-if [ "$ENVIRONMENT" = "local" ]; then
-    echo "Starting the Flask app on port"
-    cp -r /app/.env.local /app/.env
+# Check if running in Azure (WEBSITE_INSTANCE_ID is always set in Azure App Service)
+if [ -z "$WEBSITE_INSTANCE_ID" ]; then
+    echo "Starting the Flask app in local development mode"
+    echo "Environment variables will be loaded from .env.local by config.py"
     PORT=${PORT:-8000}
     echo "Using port: $PORT"
     export FLASK_APP=app.py
@@ -26,7 +27,9 @@ if [ "$ENVIRONMENT" = "local" ]; then
     export FLASK_ENV=development
     python -m flask run --host=0.0.0.0 --port=$PORT --debug --reload
 else
-    echo "Starting the Flask app"
+    echo "Starting the Flask app in Azure production mode"
+    echo "Environment variables will be loaded from .env.production by config.py"
+    echo "WEBSITE_INSTANCE_ID detected: $WEBSITE_INSTANCE_ID"
     # Use the PORT environment variable if set (for Azure), otherwise default to 8000
     PORT=${PORT:-8000}
     echo "Using port: $PORT"

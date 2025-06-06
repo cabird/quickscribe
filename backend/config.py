@@ -1,9 +1,28 @@
 import os
 from dotenv import load_dotenv
 
-load_dotenv()
+# Load appropriate .env file based on environment
+if os.getenv('WEBSITE_INSTANCE_ID'):  # Running in Azure
+    if os.path.exists('.env.production'):
+        load_dotenv('.env.production')
+        print("Loaded environment from .env.production (Azure)")
+    else:
+        print("WARNING: .env.production not found in Azure environment")
+else:  # Local development
+    if os.path.exists('.env.local'):
+        load_dotenv('.env.local')
+        print("Loaded environment from .env.local (Local)")
+    elif os.path.exists('.env'):
+        load_dotenv('.env')
+        print("Loaded environment from .env (Local fallback)")
+    else:
+        print("WARNING: No .env file found for local development")
 
 class Config:
+    # Environment detection - single source of truth
+    RUNNING_IN_AZURE = bool(os.getenv('WEBSITE_INSTANCE_ID'))
+    IS_LOCAL_DEVELOPMENT = not RUNNING_IN_AZURE
+    
     SECRET_KEY = os.getenv('SECRET_KEY', 'supersecretkey')
     AZURE_STORAGE_CONNECTION_STRING = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
     AZURE_RECORDING_BLOB_CONTAINER = os.getenv("AZURE_RECORDING_BLOB_CONTAINER")
@@ -15,10 +34,6 @@ class Config:
     AZURE_STORAGE_ACCOUNT_KEY = os.getenv("AZURE_STORAGE_ACCOUNT_KEY")
 
     TRANSCODING_QUEUE_NAME = os.getenv("TRANSCODING_QUEUE_NAME")
-    
-    # this is a workaround to determine if we're running in a container
-    # https://stackoverflow.com/questions/71411665/how-to-determine-if-a-python-flask-application-is-running-in-a-container
-    RUNNING_IN_CONTAINER = "WEBSITE_INSTANCE_ID" in os.environ
     
     #Azure Authentication
     AZ_AUTH_CLIENT_ID = os.getenv("AZ_AUTH_CLIENT_ID")

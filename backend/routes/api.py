@@ -12,6 +12,7 @@ from datetime import datetime, UTC
 import time
 from blob_util import store_recording_as_blob, send_to_transcoding_queue
 from api_version import API_VERSION
+from config import config
 
 from logging_config import get_logger
 # Initialize logger
@@ -288,8 +289,8 @@ def generate_callbacks(request, callback_token):
     
     callbacks.append( { "url": callback_url, "token": callback_token })
     
-    # TODO - move this to config or something
-    if os.getenv('ENVIRONMENT') != 'local':
+    # Add test webhook for production environments
+    if config.RUNNING_IN_AZURE:
         callbacks.append( { "url": "https://www.postb.in/1747433051215-4530967178288", "token": callback_token })
     
     return callbacks
