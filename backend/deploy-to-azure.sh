@@ -10,7 +10,8 @@ APP_SERVICE_PLAN_NAME="quickscribe-container-appservice-plan"
 CONTAINER_REGISTRY="quickscribecontainerregistry"
 APP_SERVICE_PLAN_SKU="B2"
 IMAGE_NAME="quickscribe-backend"
-IMAGE_TAG=$(date +"%Y%m%d%H%M")
+# Extract version from api_version.py
+IMAGE_TAG=$(python -c "import sys; sys.path.append('.'); from api_version import API_VERSION; print(API_VERSION)")
 TEMP_DEPLOY_DIR="./quickscribe_deploy_${IMAGE_TAG}"
 
 # Function for cleanup
@@ -125,10 +126,10 @@ if [ -z "$APP_EXISTS" ]; then
 else
     echo "Updating existing web app..."
     az webapp config container set --resource-group $RESOURCE_GROUP --name $APP_NAME \
-        --docker-custom-image-name "$ACR_LOGIN_SERVER/$IMAGE_NAME:$IMAGE_TAG" \
-        --docker-registry-server-url "https://$ACR_LOGIN_SERVER" \
-        --docker-registry-server-user "$ACR_USERNAME" \
-        --docker-registry-server-password "$ACR_PASSWORD"
+        --container-image-name "$ACR_LOGIN_SERVER/$IMAGE_NAME:$IMAGE_TAG" \
+        --container-registry-url "https://$ACR_LOGIN_SERVER" \
+        --container-registry-user "$ACR_USERNAME" \
+        --container-registry-password "$ACR_PASSWORD"
 fi
 
 # Configure the web app

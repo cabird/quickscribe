@@ -1,9 +1,35 @@
 from azure.cosmos import CosmosClient, PartitionKey
 from datetime import datetime
 import uuid
-from db_handlers.models import Transcription, TranscriptionStatus  # Import the Pydantic Transcription model and TranscriptionStatus enum
+from db_handlers.models import Transcription as BaseTranscription, TranscriptionStatus, SpeakerMapping  # Import the Pydantic Transcription model and TranscriptionStatus enum
 from db_handlers.util import filter_cosmos_fields  # Import the utility function
-from typing import Optional, List
+from typing import Optional, List, Dict
+from pydantic import field_validator
+
+class Transcription(BaseTranscription):
+    """Extended Transcription model with proper speaker_mapping handling."""
+    
+    @field_validator('speaker_mapping', mode='before')
+    @classmethod
+    def parse_speaker_mapping(cls, v):
+        """Convert dict values to SpeakerMapping objects if needed."""
+        if v is None:
+            return v
+        if isinstance(v, dict):
+            # Convert each value to SpeakerMapping if it's a plain dict
+            converted = {}
+            for speaker_label, mapping_data in v.items():
+                if isinstance(mapping_data, dict):
+                    # Convert dict to SpeakerMapping
+                    converted[speaker_label] = SpeakerMapping(**mapping_data)
+                elif isinstance(mapping_data, SpeakerMapping):
+                    # Already a SpeakerMapping object
+                    converted[speaker_label] = mapping_data
+                else:
+                    # Unexpected type, keep as-is
+                    converted[speaker_label] = mapping_data
+            return converted
+        return v
 
 class TranscriptionHandler:
     def __init__(self, cosmos_url: str, cosmos_key: str, database_name: str, container_name: str):
@@ -89,7 +115,7 @@ class TranscriptionHandler:
         :param transcription: Transcription model instance with updated data.
         :return: Updated Transcription model instance.
         """
-        transcription_data = transcription.dict(exclude_unset=True)
+        transcription_data = transcription.model_dump(exclude_unset=True)
         updated_item = self.container.upsert_item(body=transcription_data)
         return Transcription(**filter_cosmos_fields(updated_item))
 
