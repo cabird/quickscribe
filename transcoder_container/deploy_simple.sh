@@ -1,5 +1,5 @@
 #!/bin/bash
-# deploy-explicit.sh - Fixed version with correct update syntax
+# deploy_simple.sh - Deploy to Azure Container Jobs
 
 set -e
 
@@ -8,7 +8,7 @@ set -a
 source .env
 set +a
 
-echo "?? Deploying transcoder container app..."
+echo "🚀 Deploying transcoder container job..."
 
 # Get version
 VERSION=$(python -c "exec(open('container_app_version.py').read()); print(CONTAINER_APP_VERSION)")
@@ -18,69 +18,66 @@ echo "🔑 Getting ACR credentials..."
 ACR_USERNAME=$(az acr credential show --name quickscribecontainerregistry --query username --output tsv)
 ACR_PASSWORD=$(az acr credential show --name quickscribecontainerregistry --query passwords[0].value --output tsv)
 
-
-# Check if container app exists
-if az containerapp show --name quickscribetranscoder --resource-group QuickScribeResourceGroup >/dev/null 2>&1; then
-    echo "?? Container app exists, updating..."
+# Check if container job exists
+if az containerapp job show --name quickscribetranscoderjobs --resource-group QuickScribeResourceGroup >/dev/null 2>&1; then
+    echo "📝 Container job exists, updating..."
     
-    # Update existing container app (without scale settings)
-    az containerapp update \
-      --name quickscribetranscoder \
+    # Update existing container job
+    az containerapp job update \
+      --name quickscribetranscoderjobs \
       --resource-group QuickScribeResourceGroup \
       --image $AZURE_ACR_LOGIN_SERVER/transcoder-container:$VERSION \
       --cpu 1.0 \
-      --memory 2.0Gi
-      #--replace-env-vars AZURE_STORAGE_CONNECTION_STRING="$AZURE_STORAGE_CONNECTION_STRING" \
-      #                   TRANSCODING_QUEUE_NAME="$TRANSCODING_QUEUE_NAME" \
-      #                   LOG_LEVEL="$LOG_LEVEL" \
-      #                   CONTAINER_VERSION="$VERSION" \
-    
+      --memory 2.0Gi \
+      --set-env-vars "AZURE_STORAGE_CONNECTION_STRING=secretref:azure-storage-connection" \
+                     "TRANSCODING_QUEUE_NAME=$TRANSCODING_QUEUE_NAME" \
+                     "LOG_LEVEL=$LOG_LEVEL" \
+                     "CONTAINER_VERSION=$VERSION"
    
-    echo "? Container app updated successfully!"
+    echo "✅ Container job updated successfully!"
     
 else
-    echo "?? Container app doesn't exist, creating..."
+    echo "🆕 Container job doesn't exist, creating..."
     
-    # Create new container app with all settings
-    az containerapp create \
-      --name quickscribetranscoder \
+    # Create new container job with all settings
+    az containerapp job create \
+      --name quickscribetranscoderjobs \
       --resource-group QuickScribeResourceGroup \
       --environment $AZURE_CONTAINER_APP_ENV \
+      --trigger-type Event \
+      --replica-timeout 300 \
+      --replica-retry-limit 2 \
+      --replica-completion-count 1 \
+      --parallelism 1 \
+      --polling-interval 30 \
+      --min-executions 0 \
+      --max-executions 1 \
+      --scale-rule-name queue-scale \
+      --scale-rule-type azure-queue \
+      --scale-rule-metadata "queueLength=1" "queueName=$TRANSCODING_QUEUE_NAME" "accountName=quickscribestorage" \
+      --scale-rule-auth "connection=azure-storage-connection" \
       --image $AZURE_ACR_LOGIN_SERVER/transcoder-container:$VERSION \
       --registry-server $AZURE_ACR_LOGIN_SERVER \
       --registry-username $ACR_USERNAME \
       --registry-password $ACR_PASSWORD \
-      --env-vars AZURE_STORAGE_CONNECTION_STRING="$AZURE_STORAGE_CONNECTION_STRING" \
-                 TRANSCODING_QUEUE_NAME="$TRANSCODING_QUEUE_NAME" \
-                 LOG_LEVEL="$LOG_LEVEL" \
-                 CONTAINER_VERSION="$VERSION" \
-      --min-replicas 0 \
-      --max-replicas 1 \
       --cpu 1.0 \
       --memory 2.0Gi \
+      --secrets "azure-storage-connection=$AZURE_STORAGE_CONNECTION_STRING" \
+      --env-vars "AZURE_STORAGE_CONNECTION_STRING=secretref:azure-storage-connection" \
+                 "TRANSCODING_QUEUE_NAME=$TRANSCODING_QUEUE_NAME" \
+                 "LOG_LEVEL=$LOG_LEVEL" \
+                 "CONTAINER_VERSION=$VERSION"
     
-    echo "? Container app created successfully!"
+    echo "✅ Container job created successfully!"
 fi
 
-# Configure queue-based scaling (this will also set min/max replicas)
-echo "?? Configuring queue-based scaling..."
-az containerapp update \
-  --name quickscribetranscoder \
-  --resource-group QuickScribeResourceGroup \
-  --scale-rule-name queue-scale \
-  --scale-rule-type azure-queue \
-  --scale-rule-metadata queueName="$TRANSCODING_QUEUE_NAME" queueLength="1" \
-  --scale-rule-auth connection=AZURE_STORAGE_CONNECTION_STRING \
-  --min-replicas 0 \
-  --max-replicas 1
-
-echo "?? Deployment complete!"
+echo "🎉 Deployment complete!"
 
 # Show current status
 echo ""
-echo "?? Current Status:"
-az containerapp show \
-  --name quickscribetranscoder \
+echo "📊 Current Status:"
+az containerapp job show \
+  --name quickscribetranscoderjobs \
   --resource-group QuickScribeResourceGroup \
-  --query "{Name:name, Status:properties.provisioningState, Image:properties.template.containers[0].image}" \
+  --query "{Name:name, Status:properties.provisioningState, Image:properties.template.containers[0].image, TriggerType:properties.configuration.triggerType}" \
   --output table

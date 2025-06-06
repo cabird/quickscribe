@@ -1,7 +1,7 @@
 # Makefile for Transcoder Container App
 
 # Configuration
-APP_NAME = quickscribetranscoder
+JOB_NAME = quickscribetranscoderjobs
 IMAGE_NAME = transcoder-container
 CONTAINER_NAME = $(IMAGE_NAME)-local
 VERSION = $(shell grep CONTAINER_APP_VERSION container_app_version.py | cut -d '=' -f2 | sed "s/['\"]//g" | tr -d '[:space:]')
@@ -43,6 +43,7 @@ help:
 	@echo "  $(GREEN)deploy-local$(RESET) - Deploy with docker-compose"
 	@echo "  $(GREEN)dev$(RESET)          - Start development environment"
 	@echo "  $(GREEN)bump-deploy$(RESET)  - Bump version, build, and deploy in one command"
+	@echo "  $(GREEN)azure-deploy$(RESET) - Deploy to Azure Container Jobs"
 	@echo ""
 
 # Bump version and deploy in a single command
@@ -70,7 +71,7 @@ build:
 azure-build:
 	@echo "$(YELLOW)Building and tagging for Azure with version: $(call get_version)$(RESET)"
 	docker build -t $(IMAGE_NAME):$(call get_version) .
-	docker tag $(IMAGE_NAME):$(call get_version) $(REGISTRY)/$(APP_NAME):$(call get_version)
+	docker tag $(IMAGE_NAME):$(call get_version) $(REGISTRY)/$(IMAGE_NAME):$(call get_version)
 	@echo "$(GREEN)Built and tagged version $(call get_version)$(RESET)"
 
 # Azure push with current version
@@ -81,32 +82,26 @@ azure-push:
 	docker push $(REGISTRY)/$(IMAGE_NAME):$(call get_version)
 	@echo "$(GREEN)Pushed version $(call get_version)$(RESET)"
 
-# Azure deploy with current version
+# Azure deploy to Container Jobs
 azure-deploy: azure-build azure-push
-	@echo "$(YELLOW)Deploying version $(call get_version) to Azure Container Apps...$(RESET)"
-	az containerapp update \
-		--name $(APP_NAME) \
+	@echo "$(YELLOW)Deploying version $(call get_version) to Azure Container Jobs...$(RESET)"
+	az containerapp job update \
+		--name $(JOB_NAME) \
 		--resource-group $(AZURE_RESOURCE_GROUP) \
 		--image $(REGISTRY)/$(IMAGE_NAME):$(call get_version) \
 		--cpu 1.0 \
-      	--memory 2.0Gi
-	@echo "$(YELLOW)add queue scaling rules to Azure Container Apps...$(RESET)"
-	az containerapp update \
-		--name quickscribetranscoder \
-		--resource-group QuickScribeResourceGroup \
-		--scale-rule-name queue-scale \
-		--scale-rule-type azure-queue \
-		--scale-rule-metadata queueName="$(TRANSCODING_QUEUE_NAME)" queueLength="1" \
-		--scale-rule-auth connection=AZURE_STORAGE_CONNECTION_STRING \
-		--min-replicas 0 \
-		--max-replicas 1
+		--memory 2.0Gi \
+		--set-env-vars "AZURE_STORAGE_CONNECTION_STRING=secretref:azure-storage-connection" \
+		               "TRANSCODING_QUEUE_NAME=$(TRANSCODING_QUEUE_NAME)" \
+		               "LOG_LEVEL=INFO" \
+		               "CONTAINER_VERSION=$(call get_version)"
 	@echo "$(YELLOW)Checking deployment status...$(RESET)"
-	az containerapp show \
-		--name quickscribetranscoder \
-		--resource-group QuickScribeResourceGroup \
-		--query "{Name:name, Status:properties.provisioningState, Image:properties.template.containers[0].image}" \
+	az containerapp job show \
+		--name $(JOB_NAME) \
+		--resource-group $(AZURE_RESOURCE_GROUP) \
+		--query "{Name:name, Status:properties.provisioningState, Image:properties.template.containers[0].image, TriggerType:properties.configuration.triggerType}" \
 		--output table
-	@echo "$(GREEN)Deployed version $(call get_version)$(RESET)"
+	@echo "$(GREEN)Deployed Container Job version $(call get_version)$(RESET)"
 
 
 # Run the container locally
