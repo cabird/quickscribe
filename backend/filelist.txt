@@ -7,11 +7,9 @@ auth.py
 blob_util.py
 config.py
 db_handlers/__init__.py
-db_handlers/fix_serialization.py
 db_handlers/handler_factory.py
 db_handlers/models.py
 db_handlers/recording_handler.py
-db_handlers/recording_new.py
 db_handlers/transcription_handler.py
 db_handlers/user_handler.py
 db_handlers/util.py
@@ -19,7 +17,7 @@ debug_pydantic.py
 fixup_cosmos_data.py
 frontend-dist/assets
 frontend-dist/assets/favicon-Bt4n31A2.svg
-frontend-dist/assets/index-BEaQ6oam.js
+frontend-dist/assets/index-CVEWxv4d.js
 frontend-dist/assets/index-Cnlk990w.css
 frontend-dist/index.html
 llms.py
@@ -27,9 +25,12 @@ local_packages/swagger_client-1.0.0-py3-none-any.whl
 logging_config.py
 prompts.yaml
 requirements.txt
+routes/ai_routes.py
 routes/api.py
 routes/az_transcription_routes.py
+routes/local_routes.py
 routes/plaud.py
+run_tests.py
 startup.sh
 static/styles.css
 templates/base.html

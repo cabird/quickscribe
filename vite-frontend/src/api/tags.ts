@@ -19,8 +19,7 @@ export const createTag = async (name: string, color: string): Promise<apiRespons
         });
         return {
             status: 'success',
-            message: 'Tag created successfully',
-            data: response.data
+            message: 'Tag created successfully'
         };
     } catch (error: any) {
         console.error('Error creating tag:', error);
@@ -41,8 +40,7 @@ export const updateTag = async (tagId: string, name?: string, color?: string): P
         const response = await axios.post('/api/tags/update', updateData);
         return {
             status: 'success',
-            message: 'Tag updated successfully',
-            data: response.data
+            message: 'Tag updated successfully'
         };
     } catch (error: any) {
         console.error('Error updating tag:', error);
@@ -76,8 +74,7 @@ export const addTagToRecording = async (recordingId: string, tagId: string): Pro
         const response = await axios.get(`/api/recordings/${recordingId}/add_tag/${tagId}`);
         return {
             status: 'success',
-            message: 'Tag added to recording',
-            data: response.data
+            message: 'Tag added to recording'
         };
     } catch (error: any) {
         console.error('Error adding tag to recording:', error);
@@ -94,8 +91,7 @@ export const removeTagFromRecording = async (recordingId: string, tagId: string)
         const response = await axios.get(`/api/recordings/${recordingId}/remove_tag/${tagId}`);
         return {
             status: 'success',
-            message: 'Tag removed from recording',
-            data: response.data
+            message: 'Tag removed from recording'
         };
     } catch (error: any) {
         console.error('Error removing tag from recording:', error);

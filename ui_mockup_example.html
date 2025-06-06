@@ -1,0 +1,1936 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QuickScribe - Tabbed Sidebar + AI Modal</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .app-container {
+            display: flex;
+            height: 100vh;
+        }
+
+        .sidebar {
+            width: 340px;
+            background: white;
+            box-shadow: 2px 0 15px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            z-index: 100;
+        }
+
+        .sidebar-header {
+            padding: 1.5rem;
+            border-bottom: 1px solid #eee;
+        }
+
+        .logo {
+            font-size: 1.8rem;
+            font-weight: bold;
+            text-align: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .logo .quick { color: #333; }
+        .logo .scribe { color: #ff7849; }
+
+        .sidebar-tabs {
+            display: flex;
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 0.25rem;
+        }
+
+        .tab-btn {
+            flex: 1;
+            background: none;
+            border: none;
+            padding: 0.75rem 0.5rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 500;
+            font-size: 0.8rem;
+            transition: all 0.3s ease;
+            color: #666;
+        }
+
+        .tab-btn.active {
+            background: white;
+            color: #4a9eff;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .tab-icon {
+            display: block;
+            font-size: 1.2rem;
+            margin-bottom: 0.25rem;
+        }
+
+        .sidebar-content {
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        .tab-panel {
+            display: none;
+            padding: 1.5rem;
+            height: 100%;
+        }
+
+        .tab-panel.active {
+            display: block;
+        }
+
+        /* Upload Tab */
+        .upload-panel h3 {
+            margin-bottom: 1rem;
+            color: #333;
+        }
+
+        .upload-zone {
+            border: 2px dashed #ccc;
+            border-radius: 12px;
+            padding: 3rem 2rem;
+            text-align: center;
+            margin-bottom: 1.5rem;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .upload-zone:hover, .upload-zone.dragover {
+            border-color: #4a9eff;
+            background: linear-gradient(135deg, #f8fbff 0%, #f0f8ff 100%);
+        }
+
+        .upload-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            color: #666;
+        }
+
+        .upload-options {
+            margin-bottom: 1.5rem;
+        }
+
+        .option-group {
+            margin-bottom: 1rem;
+        }
+
+        .option-label {
+            font-weight: 500;
+            margin-bottom: 0.5rem;
+            color: #333;
+            font-size: 0.9rem;
+        }
+
+        .checkbox-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .checkbox-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .checkbox {
+            width: 16px;
+            height: 16px;
+            border: 2px solid #ddd;
+            border-radius: 3px;
+            cursor: pointer;
+            position: relative;
+            transition: all 0.3s ease;
+        }
+
+        .checkbox.checked {
+            background: #4a9eff;
+            border-color: #4a9eff;
+        }
+
+        .checkbox.checked::after {
+            content: '✓';
+            position: absolute;
+            top: -2px;
+            left: 1px;
+            color: white;
+            font-size: 0.8rem;
+            font-weight: bold;
+        }
+
+        .upload-btn {
+            background: linear-gradient(135deg, #4a9eff 0%, #0084ff 100%);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            cursor: pointer;
+            width: 100%;
+            font-weight: 500;
+            margin-bottom: 1rem;
+        }
+
+        .sync-btn {
+            background: #ff7849;
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            cursor: pointer;
+            width: 100%;
+            font-weight: 500;
+        }
+
+        /* Browse Tab */
+        .browse-panel h3 {
+            margin-bottom: 1rem;
+            color: #333;
+        }
+
+        .filter-section {
+            margin-bottom: 2rem;
+        }
+
+        .filter-title {
+            font-weight: 600;
+            margin-bottom: 0.75rem;
+            color: #333;
+            font-size: 0.9rem;
+        }
+
+        .filter-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
+        .filter-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.75rem 1rem;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .filter-item:hover {
+            background: #f8fbff;
+        }
+
+        .filter-item.active {
+            background: #f0f8ff;
+            color: #4a9eff;
+            font-weight: 500;
+        }
+
+        .filter-label {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .filter-count {
+            background: #e0e0e0;
+            color: #666;
+            font-size: 0.7rem;
+            padding: 0.2rem 0.5rem;
+            border-radius: 10px;
+            font-weight: 500;
+        }
+
+        .filter-item.active .filter-count {
+            background: #4a9eff;
+            color: white;
+        }
+
+        .search-box {
+            margin-bottom: 1.5rem;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 0.9rem;
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: #4a9eff;
+            box-shadow: 0 0 0 3px rgba(74, 158, 255, 0.1);
+        }
+
+        /* Tags Section */
+        .tags-section {
+            margin-bottom: 2rem;
+        }
+
+        .tags-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .add-tag-btn {
+            background: #4a9eff;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+
+        .tags-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .tag-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.5rem 0.75rem;
+            background: #f8f9fa;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .tag-item:hover {
+            background: #f0f8ff;
+        }
+
+        .tag-item.active {
+            background: #4a9eff;
+            color: white;
+        }
+
+        .tag-info {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .tag-color {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            border: 2px solid #fff;
+            box-shadow: 0 0 0 1px rgba(0,0,0,0.1);
+        }
+
+        .tag-name {
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+
+        .tag-count {
+            font-size: 0.7rem;
+            background: rgba(255,255,255,0.3);
+            padding: 0.15rem 0.4rem;
+            border-radius: 8px;
+        }
+
+        .tag-actions {
+            display: flex;
+            gap: 0.25rem;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .tag-item:hover .tag-actions {
+            opacity: 1;
+        }
+
+        .tag-action-btn {
+            background: none;
+            border: none;
+            padding: 0.25rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.7rem;
+            color: #666;
+        }
+
+        .tag-action-btn:hover {
+            background: rgba(255,255,255,0.3);
+        }
+
+        /* Settings Tab */
+        .settings-panel h3 {
+            margin-bottom: 1rem;
+            color: #333;
+        }
+
+        .settings-group {
+            margin-bottom: 2rem;
+        }
+
+        .settings-group-title {
+            font-weight: 600;
+            margin-bottom: 1rem;
+            color: #333;
+            font-size: 0.9rem;
+        }
+
+        .setting-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 1rem 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .setting-item:last-child {
+            border-bottom: none;
+        }
+
+        .setting-info {
+            flex: 1;
+        }
+
+        .setting-label {
+            font-size: 0.9rem;
+            color: #333;
+            margin-bottom: 0.25rem;
+        }
+
+        .setting-desc {
+            font-size: 0.8rem;
+            color: #666;
+        }
+
+        .toggle-switch {
+            width: 44px;
+            height: 24px;
+            background: #ddd;
+            border-radius: 12px;
+            position: relative;
+            cursor: pointer;
+            transition: background 0.3s ease;
+        }
+
+        .toggle-switch.active {
+            background: #4a9eff;
+        }
+
+        .toggle-switch::after {
+            content: '';
+            width: 20px;
+            height: 20px;
+            background: white;
+            border-radius: 50%;
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            transition: transform 0.3s ease;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .toggle-switch.active::after {
+            transform: translateX(20px);
+        }
+
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            padding: 2rem;
+            overflow-y: auto;
+        }
+
+        .content-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+        }
+
+        .content-title {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .content-actions {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+
+        .view-toggle {
+            display: flex;
+            background: white;
+            border-radius: 8px;
+            padding: 0.25rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .toggle-btn {
+            background: none;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+
+        .toggle-btn.active {
+            background: #4a9eff;
+            color: white;
+        }
+
+        .recordings-section {
+            background: white;
+            border-radius: 16px;
+            padding: 2rem;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+
+        .recordings-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .recording-card {
+            border: 1px solid #e0e0e0;
+            border-radius: 12px;
+            padding: 1.5rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: #fafafa;
+        }
+
+        .recording-card:hover {
+            border-color: #4a9eff;
+            box-shadow: 0 8px 25px rgba(74, 158, 255, 0.15);
+            transform: translateY(-4px);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 1rem;
+        }
+
+        .card-title {
+            font-weight: 600;
+            line-height: 1.3;
+            color: #333;
+            margin-bottom: 0.5rem;
+        }
+
+        .card-meta {
+            font-size: 0.85rem;
+            color: #666;
+        }
+
+        .card-actions {
+            display: flex;
+            gap: 0.5rem;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .recording-card:hover .card-actions {
+            opacity: 1;
+        }
+
+        .action-btn {
+            background: none;
+            border: none;
+            padding: 0.5rem;
+            border-radius: 8px;
+            cursor: pointer;
+            color: #666;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+
+        .action-btn:hover {
+            background: #f0f8ff;
+            color: #4a9eff;
+        }
+
+        .status-badge {
+            font-size: 0.8rem;
+            font-weight: 500;
+            padding: 0.25rem 0.75rem;
+            border-radius: 16px;
+            display: inline-block;
+            margin-bottom: 1rem;
+        }
+
+        .status-complete {
+            background: #e8f5e8;
+            color: #2ecc71;
+        }
+
+        .status-processing {
+            background: #fff3cd;
+            color: #f39c12;
+        }
+
+        .recording-tags {
+            display: flex;
+            gap: 0.5rem;
+            margin: 1rem 0;
+            flex-wrap: wrap;
+        }
+
+        .recording-tag {
+            background: #f0f0f0;
+            color: #666;
+            font-size: 0.7rem;
+            padding: 0.25rem 0.6rem;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+
+        .recording-tag .tag-color {
+            width: 8px;
+            height: 8px;
+        }
+
+        .ai-indicators {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .ai-chip {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            font-size: 0.7rem;
+            padding: 0.25rem 0.6rem;
+            border-radius: 10px;
+            border: none;
+            cursor: pointer;
+        }
+
+        .ai-action-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 0.75rem 1rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 500;
+            margin-top: 1rem;
+            width: 100%;
+            transition: all 0.3s ease;
+        }
+
+        .ai-action-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        .ai-action-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        /* AI Workspace Modal */
+        .ai-workspace-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(8px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .ai-workspace-overlay.open {
+            display: flex;
+            opacity: 1;
+        }
+
+        .ai-workspace {
+            background: white;
+            border-radius: 20px;
+            max-width: 1200px;
+            width: 95%;
+            max-height: 90vh;
+            overflow: hidden;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            transform: scale(0.9);
+            transition: transform 0.3s ease;
+        }
+
+        .ai-workspace-overlay.open .ai-workspace {
+            transform: scale(1);
+        }
+
+        .workspace-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .workspace-title {
+            font-size: 1.5rem;
+            font-weight: bold;
+        }
+
+        .workspace-subtitle {
+            font-size: 0.9rem;
+            opacity: 0.9;
+            margin-top: 0.25rem;
+        }
+
+        .close-workspace {
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            color: white;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 1.2rem;
+            transition: all 0.3s ease;
+        }
+
+        .close-workspace:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: scale(1.1);
+        }
+
+        .workspace-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            height: calc(90vh - 120px);
+            overflow: hidden;
+        }
+
+        .recording-panel {
+            padding: 2rem;
+            border-right: 1px solid #eee;
+            overflow-y: auto;
+        }
+
+        .selected-recording-card {
+            background: linear-gradient(135deg, #f8fbff 0%, #f0f8ff 100%);
+            border: 2px solid #4a9eff;
+            border-radius: 16px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .recording-title {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 1rem;
+        }
+
+        .recording-meta {
+            font-size: 0.9rem;
+            color: #666;
+            margin-bottom: 1rem;
+        }
+
+        .recording-status {
+            background: #e8f5e8;
+            color: #2ecc71;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            display: inline-block;
+            margin-bottom: 1.5rem;
+        }
+
+        .transcript-preview {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .preview-title {
+            font-weight: 600;
+            margin-bottom: 1rem;
+            color: #333;
+        }
+
+        .transcript-sample {
+            font-size: 0.9rem;
+            line-height: 1.6;
+            color: #555;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .speaker-line {
+            margin-bottom: 1rem;
+        }
+
+        .speaker-label {
+            font-weight: 600;
+            color: #4a9eff;
+            margin-bottom: 0.25rem;
+        }
+
+        .expand-transcript {
+            background: #4a9eff;
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 500;
+            margin-top: 1rem;
+            width: 100%;
+        }
+
+        .ai-tools-panel {
+            padding: 2rem;
+            overflow-y: auto;
+        }
+
+        .tools-section {
+            margin-bottom: 2.5rem;
+        }
+
+        .section-title {
+            font-size: 1.1rem;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .ai-tools-grid {
+            display: grid;
+            gap: 1rem;
+        }
+
+        .ai-tool {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 1.5rem;
+            border-radius: 12px;
+            cursor: pointer;
+            text-align: left;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .ai-tool:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+        }
+
+        .ai-tool:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .ai-tool.processing {
+            background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%);
+        }
+
+        .ai-tool.completed {
+            background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);
+        }
+
+        .tool-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 0.75rem;
+        }
+
+        .tool-icon {
+            font-size: 1.5rem;
+            margin-right: 1rem;
+        }
+
+        .tool-info {
+            flex: 1;
+        }
+
+        .tool-name {
+            font-size: 1rem;
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+        }
+
+        .tool-description {
+            font-size: 0.85rem;
+            opacity: 0.9;
+            line-height: 1.4;
+        }
+
+        .tool-status {
+            font-size: 0.8rem;
+            margin-top: 0.5rem;
+            opacity: 0.9;
+        }
+
+        .progress-bar {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            height: 4px;
+            background: rgba(255,255,255,0.3);
+            border-radius: 0 0 12px 12px;
+            transition: width 0.3s ease;
+        }
+
+        .results-section {
+            margin-top: 2rem;
+            padding-top: 2rem;
+            border-top: 2px solid #f0f0f0;
+        }
+
+        .result-item {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            border-left: 4px solid #4a9eff;
+        }
+
+        .result-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .result-title {
+            font-weight: 600;
+            color: #333;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .result-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .result-btn {
+            background: white;
+            border: 1px solid #ddd;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            transition: all 0.3s ease;
+        }
+
+        .result-btn:hover {
+            background: #f0f8ff;
+            border-color: #4a9eff;
+            color: #4a9eff;
+        }
+
+        .result-content {
+            font-size: 0.9rem;
+            color: #555;
+            line-height: 1.6;
+        }
+
+        @media (max-width: 1024px) {
+            .workspace-content {
+                grid-template-columns: 1fr;
+                grid-template-rows: auto 1fr;
+            }
+            
+            .recording-panel {
+                border-right: none;
+                border-bottom: 1px solid #eee;
+                max-height: 300px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Tabbed Sidebar -->
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <div class="logo">
+                    <span class="quick">Quick</span><span class="scribe">Scribe</span>
+                </div>
+                
+                <div class="sidebar-tabs">
+                    <button class="tab-btn" onclick="switchTab('upload')">
+                        <span class="tab-icon">📁</span>
+                        Upload
+                    </button>
+                    <button class="tab-btn active" onclick="switchTab('browse')">
+                        <span class="tab-icon">🗂️</span>
+                        Browse
+                    </button>
+                    <button class="tab-btn" onclick="switchTab('settings')">
+                        <span class="tab-icon">⚙️</span>
+                        Settings
+                    </button>
+                </div>
+            </div>
+            
+            <div class="sidebar-content">
+                <!-- Upload Tab -->
+                <div class="tab-panel" id="upload-panel">
+                    <div class="upload-panel">
+                        <h3>Upload Audio Files</h3>
+                        
+                        <div class="upload-zone" onclick="triggerUpload()">
+                            <div class="upload-icon">🎤</div>
+                            <div style="font-weight: 500; margin-bottom: 0.5rem;">Drop files here</div>
+                            <div style="font-size: 0.8rem; color: #666;">or click to browse</div>
+                        </div>
+                        
+                        <div class="upload-options">
+                            <div class="option-group">
+                                <div class="option-label">Processing Options</div>
+                                <div class="checkbox-group">
+                                    <div class="checkbox-item">
+                                        <div class="checkbox checked" onclick="toggleCheckbox(this)"></div>
+                                        <span>Auto-transcribe</span>
+                                    </div>
+                                    <div class="checkbox-item">
+                                        <div class="checkbox checked" onclick="toggleCheckbox(this)"></div>
+                                        <span>Speaker identification</span>
+                                    </div>
+                                    <div class="checkbox-item">
+                                        <div class="checkbox" onclick="toggleCheckbox(this)"></div>
+                                        <span>Remove background noise</span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="option-group">
+                                <div class="option-label">Auto-tagging</div>
+                                <div class="checkbox-group">
+                                    <div class="checkbox-item">
+                                        <div class="checkbox checked" onclick="toggleCheckbox(this)"></div>
+                                        <span>Detect content type</span>
+                                    </div>
+                                    <div class="checkbox-item">
+                                        <div class="checkbox" onclick="toggleCheckbox(this)"></div>
+                                        <span>Suggest tags</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <button class="upload-btn">📂 Select Files</button>
+                        <button class="sync-btn">🔄 Sync from Plaud</button>
+                    </div>
+                </div>
+                
+                <!-- Browse Tab -->
+                <div class="tab-panel active" id="browse-panel">
+                    <div class="browse-panel">
+                        <h3>Browse & Filter</h3>
+                        
+                        <div class="search-box">
+                            <input type="text" class="search-input" placeholder="Search recordings...">
+                        </div>
+                        
+                        <div class="filter-section">
+                            <div class="filter-title">Status</div>
+                            <div class="filter-list">
+                                <div class="filter-item active">
+                                    <div class="filter-label">
+                                        <span>🎵</span>
+                                        All Recordings
+                                    </div>
+                                    <span class="filter-count">12</span>
+                                </div>
+                                <div class="filter-item">
+                                    <div class="filter-label">
+                                        <span>⏰</span>
+                                        Recent
+                                    </div>
+                                    <span class="filter-count">3</span>
+                                </div>
+                                <div class="filter-item">
+                                    <div class="filter-label">
+                                        <span>⚙️</span>
+                                        Processing
+                                    </div>
+                                    <span class="filter-count">1</span>
+                                </div>
+                                <div class="filter-item">
+                                    <div class="filter-label">
+                                        <span>✅</span>
+                                        Completed
+                                    </div>
+                                    <span class="filter-count">11</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="tags-section">
+                            <div class="tags-header">
+                                <div class="filter-title">Tags</div>
+                                <button class="add-tag-btn" onclick="addNewTag()">+ Add</button>
+                            </div>
+                            <div class="tags-list">
+                                <div class="tag-item active" onclick="toggleTag(this)">
+                                    <div class="tag-info">
+                                        <div class="tag-color" style="background: #ff6b6b;"></div>
+                                        <div class="tag-name">Meetings</div>
+                                    </div>
+                                    <div class="tag-count">3</div>
+                                    <div class="tag-actions">
+                                        <button class="tag-action-btn" onclick="editTag(this)">✏️</button>
+                                        <button class="tag-action-btn" onclick="deleteTag(this)">🗑️</button>
+                                    </div>
+                                </div>
+                                
+                                <div class="tag-item" onclick="toggleTag(this)">
+                                    <div class="tag-info">
+                                        <div class="tag-color" style="background: #4ecdc4;"></div>
+                                        <div class="tag-name">Podcasts</div>
+                                    </div>
+                                    <div class="tag-count">2</div>
+                                    <div class="tag-actions">
+                                        <button class="tag-action-btn" onclick="editTag(this)">✏️</button>
+                                        <button class="tag-action-btn" onclick="deleteTag(this)">🗑️</button>
+                                    </div>
+                                </div>
+                                
+                                <div class="tag-item" onclick="toggleTag(this)">
+                                    <div class="tag-info">
+                                        <div class="tag-color" style="background: #45b7d1;"></div>
+                                        <div class="tag-name">Therapy</div>
+                                    </div>
+                                    <div class="tag-count">4</div>
+                                    <div class="tag-actions">
+                                        <button class="tag-action-btn" onclick="editTag(this)">✏️</button>
+                                        <button class="tag-action-btn" onclick="deleteTag(this)">🗑️</button>
+                                    </div>
+                                </div>
+                                
+                                <div class="tag-item" onclick="toggleTag(this)">
+                                    <div class="tag-info">
+                                        <div class="tag-color" style="background: #f7b731;"></div>
+                                        <div class="tag-name">Interviews</div>
+                                    </div>
+                                    <div class="tag-count">1</div>
+                                    <div class="tag-actions">
+                                        <button class="tag-action-btn" onclick="editTag(this)">✏️</button>
+                                        <button class="tag-action-btn" onclick="deleteTag(this)">🗑️</button>
+                                    </div>
+                                </div>
+                                
+                                <div class="tag-item" onclick="toggleTag(this)">
+                                    <div class="tag-info">
+                                        <div class="tag-color" style="background: #5f27cd;"></div>
+                                        <div class="tag-name">Personal</div>
+                                    </div>
+                                    <div class="tag-count">2</div>
+                                    <div class="tag-actions">
+                                        <button class="tag-action-btn" onclick="editTag(this)">✏️</button>
+                                        <button class="tag-action-btn" onclick="deleteTag(this)">🗑️</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Settings Tab -->
+                <div class="tab-panel" id="settings-panel">
+                    <div class="settings-panel">
+                        <h3>Settings & Preferences</h3>
+                        
+                        <div class="settings-group">
+                            <div class="settings-group-title">Transcription</div>
+                            <div class="setting-item">
+                                <div class="setting-info">
+                                    <div class="setting-label">Auto-transcribe uploads</div>
+                                    <div class="setting-desc">Automatically start transcription when files are uploaded</div>
+                                </div>
+                                <div class="toggle-switch active" onclick="toggleSetting(this)"></div>
+                            </div>
+                            <div class="setting-item">
+                                <div class="setting-info">
+                                    <div class="setting-label">Speaker identification</div>
+                                    <div class="setting-desc">Automatically identify different speakers</div>
+                                </div>
+                                <div class="toggle-switch active" onclick="toggleSetting(this)"></div>
+                            </div>
+                            <div class="setting-item">
+                                <div class="setting-info">
+                                    <div class="setting-label">Background noise removal</div>
+                                    <div class="setting-desc">Clean up audio before transcription</div>
+                                </div>
+                                <div class="toggle-switch" onclick="toggleSetting(this)"></div>
+                            </div>
+                        </div>
+                        
+                        <div class="settings-group">
+                            <div class="settings-group-title">Tagging</div>
+                            <div class="setting-item">
+                                <div class="setting-info">
+                                    <div class="setting-label">Auto-suggest tags</div>
+                                    <div class="setting-desc">Automatically suggest tags based on content</div>
+                                </div>
+                                <div class="toggle-switch active" onclick="toggleSetting(this)"></div>
+                            </div>
+                            <div class="setting-item">
+                                <div class="setting-info">
+                                    <div class="setting-label">Require tags for uploads</div>
+                                    <div class="setting-desc">Force users to tag recordings before saving</div>
+                                </div>
+                                <div class="toggle-switch" onclick="toggleSetting(this)"></div>
+                            </div>
+                        </div>
+                        
+                        <div class="settings-group">
+                            <div class="settings-group-title">Notifications</div>
+                            <div class="setting-item">
+                                <div class="setting-info">
+                                    <div class="setting-label">Email notifications</div>
+                                    <div class="setting-desc">Get notified when transcriptions complete</div>
+                                </div>
+                                <div class="toggle-switch" onclick="toggleSetting(this)"></div>
+                            </div>
+                            <div class="setting-item">
+                                <div class="setting-info">
+                                    <div class="setting-label">Push notifications</div>
+                                    <div class="setting-desc">Browser notifications for updates</div>
+                                </div>
+                                <div class="toggle-switch active" onclick="toggleSetting(this)"></div>
+                            </div>
+                        </div>
+                        
+                        <div class="settings-group">
+                            <div class="settings-group-title">Appearance</div>
+                            <div class="setting-item">
+                                <div class="setting-info">
+                                    <div class="setting-label">Dark mode</div>
+                                    <div class="setting-desc">Use dark theme interface</div>
+                                </div>
+                                <div class="toggle-switch" onclick="toggleSetting(this)"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <div class="content-header">
+                <h1 class="content-title">All Recordings</h1>
+                <div class="content-actions">
+                    <div class="view-toggle">
+                        <button class="toggle-btn active">Grid</button>
+                        <button class="toggle-btn">List</button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="recordings-section">
+                <div class="recordings-grid">
+                    <div class="recording-card" onclick="openAIWorkspace('Episode 2: They Lived Resentfully Ever After', '50m 35s', 'Oct 15, 2024')">
+                        <div class="card-header">
+                            <div>
+                                <div class="card-title">Episode 2: They Lived Resentfully Ever After</div>
+                                <div class="card-meta">Duration: 50m 35s • Oct 15, 2024</div>
+                            </div>
+                            <div class="card-actions">
+                                <button class="action-btn" title="View Transcription" onclick="event.stopPropagation()">👁️</button>
+                                <button class="action-btn" title="Download" onclick="event.stopPropagation()">⬇️</button>
+                                <button class="action-btn" title="Add Tags" onclick="event.stopPropagation()">🏷️</button>
+                            </div>
+                        </div>
+                        <div class="status-badge status-complete">✅ Transcription Complete</div>
+                        <div class="recording-tags">
+                            <div class="recording-tag">
+                                <div class="tag-color" style="background: #45b7d1;"></div>
+                                Therapy
+                            </div>
+                            <div class="recording-tag">
+                                <div class="tag-color" style="background: #4ecdc4;"></div>
+                                Podcasts
+                            </div>
+                        </div>
+                        <div class="ai-indicators">
+                            <div class="ai-chip">📝 Summary</div>
+                            <div class="ai-chip">🏷️ Keywords</div>
+                            <div class="ai-chip">❓ Q&A</div>
+                        </div>
+                        <button class="ai-action-btn">🤖 Open AI Workspace</button>
+                    </div>
+                    
+                    <div class="recording-card" onclick="openAIWorkspace('Short Therapy Session for P.m4a', '3m 30s', 'Oct 28, 2024')">
+                        <div class="card-header">
+                            <div>
+                                <div class="card-title">Short Therapy Session for P.m4a</div>
+                                <div class="card-meta">Duration: 3m 30s • Oct 28, 2024</div>
+                            </div>
+                            <div class="card-actions">
+                                <button class="action-btn" title="View Transcription" onclick="event.stopPropagation()">👁️</button>
+                                <button class="action-btn" title="Download" onclick="event.stopPropagation()">⬇️</button>
+                                <button class="action-btn" title="Add Tags" onclick="event.stopPropagation()">🏷️</button>
+                            </div>
+                        </div>
+                        <div class="status-badge status-complete">✅ Transcription Complete</div>
+                        <div class="recording-tags">
+                            <div class="recording-tag">
+                                <div class="tag-color" style="background: #45b7d1;"></div>
+                                Therapy
+                            </div>
+                            <div class="recording-tag">
+                                <div class="tag-color" style="background: #5f27cd;"></div>
+                                Personal
+                            </div>
+                        </div>
+                        <div class="ai-indicators">
+                            <div class="ai-chip">📝 Summary</div>
+                            <div class="ai-chip">🎯 Sentiment</div>
+                        </div>
+                        <button class="ai-action-btn">🤖 Open AI Workspace</button>
+                    </div>
+                    
+                    <div class="recording-card" onclick="openAIWorkspace('Nicole Meeting 10-22.m4a', '24m 25s', 'Oct 30, 2024')">
+                        <div class="card-header">
+                            <div>
+                                <div class="card-title">Nicole Meeting 10-22.m4a</div>
+                                <div class="card-meta">Duration: 24m 25s • Oct 30, 2024</div>
+                            </div>
+                            <div class="card-actions">
+                                <button class="action-btn" title="View Transcription" onclick="event.stopPropagation()">👁️</button>
+                                <button class="action-btn" title="Download" onclick="event.stopPropagation()">⬇️</button>
+                                <button class="action-btn" title="Add Tags" onclick="event.stopPropagation()">🏷️</button>
+                            </div>
+                        </div>
+                        <div class="status-badge status-complete">✅ Transcription Complete</div>
+                        <div class="recording-tags">
+                            <div class="recording-tag">
+                                <div class="tag-color" style="background: #ff6b6b;"></div>
+                                Meetings
+                            </div>
+                        </div>
+                        <div class="ai-indicators">
+                            <div class="ai-chip">📝 Summary</div>
+                            <div class="ai-chip">📋 Actions</div>
+                            <div class="ai-chip">🏷️ Keywords</div>
+                        </div>
+                        <button class="ai-action-btn">🤖 Open AI Workspace</button>
+                    </div>
+                    
+                    <div class="recording-card">
+                        <div class="card-header">
+                            <div>
+                                <div class="card-title">Kristy Session 10-19-2024.m4a</div>
+                                <div class="card-meta">Duration: 55m 32s • Oct 30, 2024</div>
+                            </div>
+                            <div class="card-actions">
+                                <button class="action-btn" title="Cancel" onclick="event.stopPropagation()">⏹️</button>
+                            </div>
+                        </div>
+                        <div class="status-badge status-processing">⏳ Processing 65%</div>
+                        <button class="ai-action-btn" disabled>🤖 AI Workspace (Transcription Required)</button>
+                    </div>
+                    
+                    <div class="recording-card" onclick="openAIWorkspace('Marilee 10-1-2024.m4a', '1h 0m', 'Oct 30, 2024')">
+                        <div class="card-header">
+                            <div>
+                                <div class="card-title">Marilee 10-1-2024.m4a</div>
+                                <div class="card-meta">Duration: 1h 0m • Oct 30, 2024</div>
+                            </div>
+                            <div class="card-actions">
+                                <button class="action-btn" title="View Transcription" onclick="event.stopPropagation()">👁️</button>
+                                <button class="action-btn" title="Download" onclick="event.stopPropagation()">⬇️</button>
+                                <button class="action-btn" title="Add Tags" onclick="event.stopPropagation()">🏷️</button>
+                            </div>
+                        </div>
+                        <div class="status-badge status-complete">✅ Transcription Complete</div>
+                        <div class="recording-tags">
+                            <div class="recording-tag">
+                                <div class="tag-color" style="background: #45b7d1;"></div>
+                                Therapy
+                            </div>
+                        </div>
+                        <div class="ai-indicators">
+                            <div class="ai-chip">📝 Summary</div>
+                            <div class="ai-chip">🏷️ Keywords</div>
+                        </div>
+                        <button class="ai-action-btn">🤖 Open AI Workspace</button>
+                    </div>
+                    
+                    <div class="recording-card" onclick="openAIWorkspace('Meta Chat with Kristian.m4a', '18m 53s', 'Oct 31, 2024')">
+                        <div class="card-header">
+                            <div>
+                                <div class="card-title">Meta Chat with Kristian.m4a</div>
+                                <div class="card-meta">Duration: 18m 53s • Oct 31, 2024</div>
+                            </div>
+                            <div class="card-actions">
+                                <button class="action-btn" title="View Transcription" onclick="event.stopPropagation()">👁️</button>
+                                <button class="action-btn" title="Download" onclick="event.stopPropagation()">⬇️</button>
+                                <button class="action-btn" title="Add Tags" onclick="event.stopPropagation()">🏷️</button>
+                            </div>
+                        </div>
+                        <div class="status-badge status-complete">✅ Transcription Complete</div>
+                        <div class="recording-tags">
+                            <div class="recording-tag">
+                                <div class="tag-color" style="background: #ff6b6b;"></div>
+                                Meetings
+                            </div>
+                            <div class="recording-tag">
+                                <div class="tag-color" style="background: #5f27cd;"></div>
+                                Personal
+                            </div>
+                        </div>
+                        <div class="ai-indicators">
+                            <div class="ai-chip">📝 Summary</div>
+                            <div class="ai-chip">📋 Actions</div>
+                        </div>
+                        <button class="ai-action-btn">🤖 Open AI Workspace</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- AI Workspace Modal -->
+    <div class="ai-workspace-overlay" id="aiWorkspaceOverlay">
+        <div class="ai-workspace">
+            <div class="workspace-header">
+                <div>
+                    <div class="workspace-title" id="workspaceTitle">AI Analysis Workspace</div>
+                    <div class="workspace-subtitle" id="workspaceSubtitle">Episode 2: They Lived Resentfully Ever After</div>
+                </div>
+                <button class="close-workspace" onclick="closeAIWorkspace()">✕</button>
+            </div>
+            
+            <div class="workspace-content">
+                <!-- Recording Panel -->
+                <div class="recording-panel">
+                    <div class="selected-recording-card">
+                        <div class="recording-title" id="selectedTitle">Episode 2: They Lived Resentfully Ever After</div>
+                        <div class="recording-meta" id="selectedMeta">Duration: 50m 35s • Recorded: Oct 15, 2024</div>
+                        <div class="recording-status">✅ Transcription Complete</div>
+                        <div class="recording-tags">
+                            <div class="recording-tag">
+                                <div class="tag-color" style="background: #45b7d1;"></div>
+                                Therapy
+                            </div>
+                            <div class="recording-tag">
+                                <div class="tag-color" style="background: #4ecdc4;"></div>
+                                Podcasts
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="transcript-preview">
+                        <div class="preview-title">📝 Transcript Preview</div>
+                        <div class="transcript-sample">
+                            <div class="speaker-line">
+                                <div class="speaker-label">Speaker 1:</div>
+                                <div>Before I introduce today's bonus room for two episode, I wanted to let you know that our Black Friday sale is live. Through this weekend. You'll be able to get 20% off of any of Doctor Finlayson Fife's online courses. Plus you will also receive a free bound workbook with each course purchased.</div>
+                            </div>
+                            
+                            <div class="speaker-line">
+                                <div class="speaker-label">Speaker 2:</div>
+                                <div>So hi, Kathy, welcome to the Room for Two podcast. Tell me what? What's your question?</div>
+                            </div>
+                            
+                            <div class="speaker-line">
+                                <div class="speaker-label">Speaker 3 (Kathy):</div>
+                                <div>Thanks, Jennifer. So for the past 10 years I have been in an over functioning, I would say marriage where I over function and I've kind of after living listening to a lot of your language, realize that I tend to want to feel needed and desire and that's why I over function in all the aspects of my marriage.</div>
+                            </div>
+                        </div>
+                        <button class="expand-transcript">📄 View Full Transcript</button>
+                    </div>
+                </div>
+                
+                <!-- AI Tools Panel -->
+                <div class="ai-tools-panel">
+                    <div class="tools-section">
+                        <div class="section-title">
+                            <span>🚀</span>
+                            Quick Analysis Tools
+                        </div>
+                        <div class="ai-tools-grid">
+                            <button class="ai-tool completed" onclick="runAITool('summary', this)">
+                                <div class="tool-header">
+                                    <span class="tool-icon">📝</span>
+                                    <div class="tool-info">
+                                        <div class="tool-name">Generate Summary</div>
+                                        <div class="tool-description">Create a concise overview of the main topics and key points discussed in the recording</div>
+                                        <div class="tool-status">✅ Generated 2 minutes ago</div>
+                                    </div>
+                                </div>
+                            </button>
+                            
+                            <button class="ai-tool processing" onclick="runAITool('keywords', this)" disabled>
+                                <div class="tool-header">
+                                    <span class="tool-icon">🏷️</span>
+                                    <div class="tool-info">
+                                        <div class="tool-name">Extract Keywords</div>
+                                        <div class="tool-description">Identify and extract the most important keywords, topics, and themes from the conversation</div>
+                                        <div class="tool-status">⏳ Processing... 65%</div>
+                                    </div>
+                                </div>
+                                <div class="progress-bar" style="width: 65%;"></div>
+                            </button>
+                            
+                            <button class="ai-tool" onclick="runAITool('qa', this)">
+                                <div class="tool-header">
+                                    <span class="tool-icon">❓</span>
+                                    <div class="tool-info">
+                                        <div class="tool-name">Create Q&A</div>
+                                        <div class="tool-description">Generate relevant questions and answers based on the content to create study material or quick reference</div>
+                                    </div>
+                                </div>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="tools-section">
+                        <div class="section-title">
+                            <span>📊</span>
+                            Advanced Analysis
+                        </div>
+                        <div class="ai-tools-grid">
+                            <button class="ai-tool" onclick="runAITool('sentiment', this)">
+                                <div class="tool-header">
+                                    <span class="tool-icon">🎯</span>
+                                    <div class="tool-info">
+                                        <div class="tool-name">Sentiment Analysis</div>
+                                        <div class="tool-description">Analyze the emotional tone and sentiment patterns throughout the conversation</div>
+                                    </div>
+                                </div>
+                            </button>
+                            
+                            <button class="ai-tool" onclick="runAITool('topics', this)">
+                                <div class="tool-header">
+                                    <span class="tool-icon">🔍</span>
+                                    <div class="tool-info">
+                                        <div class="tool-name">Topic Detection</div>
+                                        <div class="tool-description">Automatically identify and categorize the main discussion topics and themes</div>
+                                    </div>
+                                </div>
+                            </button>
+                            
+                            <button class="ai-tool" onclick="runAITool('actions', this)">
+                                <div class="tool-header">
+                                    <span class="tool-icon">📋</span>
+                                    <div class="tool-info">
+                                        <div class="tool-name">Action Items</div>
+                                        <div class="tool-description">Extract actionable tasks, decisions, and follow-up items mentioned in the conversation</div>
+                                    </div>
+                                </div>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Results Section -->
+                    <div class="results-section" id="workspaceResults">
+                        <div class="section-title">
+                            <span>📋</span>
+                            Generated Analysis
+                        </div>
+                        
+                        <div class="result-item">
+                            <div class="result-header">
+                                <div class="result-title">📝 Summary</div>
+                                <div class="result-actions">
+                                    <button class="result-btn" onclick="copyResult(this)">📋 Copy</button>
+                                    <button class="result-btn" onclick="editResult(this)">✏️ Edit</button>
+                                    <button class="result-btn" onclick="exportResult(this)">⬇️ Export</button>
+                                    <button class="result-btn" onclick="removeResult(this)">🗑️ Remove</button>
+                                </div>
+                            </div>
+                            <div class="result-content">
+                                This podcast episode explores relationship dynamics, focusing on the pattern of over-functioning in marriages. The main discussion centers around Kathy's 10-year experience in a marriage where she takes on excessive responsibility, and her desire to create a more equal partnership. The conversation addresses the psychological drivers behind over-functioning, including the need to feel needed and desired, and provides guidance on breaking cycles of resentment through better communication and boundary setting.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function switchTab(tabName) {
+            // Remove active class from all tabs and panels
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.tab-panel').forEach(panel => panel.classList.remove('active'));
+            
+            // Add active class to clicked tab and corresponding panel
+            event.target.classList.add('active');
+            document.getElementById(`${tabName}-panel`).classList.add('active');
+        }
+        
+        function toggleCheckbox(checkbox) {
+            checkbox.classList.toggle('checked');
+        }
+        
+        function toggleSetting(toggle) {
+            toggle.classList.toggle('active');
+        }
+        
+        function triggerUpload() {
+            console.log('Trigger file upload dialog');
+        }
+        
+        // Filter item functionality in browse tab
+        document.querySelectorAll('.filter-item').forEach(item => {
+            item.addEventListener('click', function() {
+                // Only remove active from items in the same filter section
+                const parent = this.closest('.filter-list');
+                parent.querySelectorAll('.filter-item').forEach(filter => filter.classList.remove('active'));
+                this.classList.add('active');
+                
+                const label = this.querySelector('.filter-label').textContent.trim();
+                document.querySelector('.content-title').textContent = label;
+            });
+        });
+        
+        // Tag functionality
+        function toggleTag(tagItem) {
+            tagItem.classList.toggle('active');
+        }
+        
+        function addNewTag() {
+            const name = prompt('Enter tag name:');
+            if (name) {
+                const colors = ['#ff6b6b', '#4ecdc4', '#45b7d1', '#f7b731', '#5f27cd', '#00d2d3', '#ff9ff3', '#54a0ff'];
+                const color = colors[Math.floor(Math.random() * colors.length)];
+                
+                const tagsList = document.querySelector('.tags-list');
+                const newTag = document.createElement('div');
+                newTag.className = 'tag-item';
+                newTag.innerHTML = `
+                    <div class="tag-info">
+                        <div class="tag-color" style="background: ${color};"></div>
+                        <div class="tag-name">${name}</div>
+                    </div>
+                    <div class="tag-count">0</div>
+                    <div class="tag-actions">
+                        <button class="tag-action-btn" onclick="editTag(this)">✏️</button>
+                        <button class="tag-action-btn" onclick="deleteTag(this)">🗑️</button>
+                    </div>
+                `;
+                newTag.onclick = () => toggleTag(newTag);
+                tagsList.appendChild(newTag);
+            }
+        }
+        
+        function editTag(button) {
+            const tagItem = button.closest('.tag-item');
+            const tagNameEl = tagItem.querySelector('.tag-name');
+            const currentName = tagNameEl.textContent;
+            const newName = prompt('Edit tag name:', currentName);
+            if (newName && newName !== currentName) {
+                tagNameEl.textContent = newName;
+            }
+        }
+        
+        function deleteTag(button) {
+            if (confirm('Delete this tag?')) {
+                const tagItem = button.closest('.tag-item');
+                tagItem.style.transform = 'translateX(-100%)';
+                tagItem.style.opacity = '0';
+                setTimeout(() => tagItem.remove(), 300);
+            }
+        }
+        
+        // AI Workspace functionality
+        function openAIWorkspace(title, duration, date) {
+            // Update workspace with selected recording info
+            document.getElementById('workspaceSubtitle').textContent = title;
+            document.getElementById('selectedTitle').textContent = title;
+            document.getElementById('selectedMeta').textContent = `Duration: ${duration} • Recorded: ${date}`;
+            
+            // Show the workspace
+            const overlay = document.getElementById('aiWorkspaceOverlay');
+            overlay.classList.add('open');
+            
+            // Reset AI tools state for new recording
+            resetAITools();
+        }
+        
+        function closeAIWorkspace() {
+            const overlay = document.getElementById('aiWorkspaceOverlay');
+            overlay.classList.remove('open');
+        }
+        
+        function resetAITools() {
+            document.querySelectorAll('.ai-tool').forEach(tool => {
+                if (!tool.classList.contains('completed')) {
+                    tool.className = 'ai-tool';
+                    tool.disabled = false;
+                    const status = tool.querySelector('.tool-status');
+                    if (status && !status.textContent.includes('Generated')) {
+                        status.remove();
+                    }
+                    const progress = tool.querySelector('.progress-bar');
+                    if (progress) progress.remove();
+                }
+            });
+        }
+        
+        function runAITool(toolType, button) {
+            if (button.disabled || button.classList.contains('completed')) return;
+            
+            // Set processing state
+            button.className = 'ai-tool processing';
+            button.disabled = true;
+            
+            // Add or update status
+            let statusDiv = button.querySelector('.tool-status');
+            if (!statusDiv) {
+                statusDiv = document.createElement('div');
+                statusDiv.className = 'tool-status';
+                button.querySelector('.tool-info').appendChild(statusDiv);
+            }
+            statusDiv.textContent = '⏳ Starting analysis...';
+            
+            // Add progress bar
+            const progressBar = document.createElement('div');
+            progressBar.className = 'progress-bar';
+            progressBar.style.width = '0%';
+            button.appendChild(progressBar);
+            
+            // Simulate progress
+            let progress = 0;
+            const interval = setInterval(() => {
+                progress += Math.random() * 15 + 5;
+                progressBar.style.width = Math.min(progress, 100) + '%';
+                statusDiv.textContent = `⏳ Processing... ${Math.floor(Math.min(progress, 100))}%`;
+                
+                if (progress >= 100) {
+                    clearInterval(interval);
+                    
+                    // Set completed state
+                    button.className = 'ai-tool completed';
+                    button.disabled = false;
+                    statusDiv.textContent = '✅ Generated just now';
+                    progressBar.remove();
+                    
+                    // Add result to results section
+                    addWorkspaceResult(toolType);
+                }
+            }, 300);
+        }
+        
+        function addWorkspaceResult(toolType) {
+            const results = document.getElementById('workspaceResults');
+            
+            const resultTypes = {
+                'summary': {
+                    icon: '📝',
+                    title: 'Summary',
+                    content: 'This podcast episode explores relationship dynamics, focusing on the pattern of over-functioning in marriages. The main discussion centers around Kathy\'s 10-year experience in a marriage where she takes on excessive responsibility, and her desire to create a more equal partnership. The conversation addresses the psychological drivers behind over-functioning, including the need to feel needed and desired, and provides guidance on breaking cycles of resentment through better communication and boundary setting.'
+                },
+                'keywords': {
+                    icon: '🏷️',
+                    title: 'Keywords & Topics',
+                    content: '<strong>Primary Keywords:</strong> marriage, over-functioning, partnership, communication, boundaries, resentment, therapy, relationships<br><br><strong>Key Themes:</strong> Relationship dynamics, Personal responsibility, Equal partnership, Emotional needs, Conflict resolution, Personal growth'
+                },
+                'qa': {
+                    icon: '❓',
+                    title: 'Questions & Answers',
+                    content: '<strong>Q:</strong> What is over-functioning in marriage?<br><strong>A:</strong> It\'s when one partner takes on excessive responsibility for tasks and decisions that should be shared equally in the relationship.<br><br><strong>Q:</strong> How can someone break the cycle of over-functioning?<br><strong>A:</strong> By setting clear boundaries, communicating needs effectively, and working toward equal responsibility sharing with their partner.'
+                },
+                'sentiment': {
+                    icon: '🎯',
+                    title: 'Sentiment Analysis',
+                    content: '<strong>Overall Sentiment:</strong> Neutral to Positive<br><br><strong>Emotional Journey:</strong><br>• Initial frustration and concern (0-10 min)<br>• Growing understanding and hope (10-30 min)<br>• Determination and optimism (30-50 min)<br><br><strong>Key Emotions:</strong> Frustration (25%), Hope (35%), Determination (40%)'
+                },
+                'topics': {
+                    icon: '🔍',
+                    title: 'Topic Detection',
+                    content: '<strong>Topic Distribution:</strong><br>• Relationship Dynamics (45%)<br>• Communication Patterns (25%)<br>• Personal Boundaries (20%)<br>• Conflict Resolution (10%)<br><br><strong>Discussion Flow:</strong> Problem identification → Pattern analysis → Solution strategies → Action planning'
+                },
+                'actions': {
+                    icon: '📋',
+                    title: 'Action Items',
+                    content: '<strong>Immediate Actions:</strong><br>1. Practice equal responsibility sharing in daily tasks<br>2. Set clear communication boundaries with partner<br>3. Schedule weekly relationship check-ins<br><br><strong>Long-term Goals:</strong><br>• Develop healthier communication patterns<br>• Build mutual respect and understanding<br>• Create sustainable relationship dynamics'
+                }
+            };
+            
+            const result = resultTypes[toolType];
+            if (!result) return;
+            
+            const resultItem = document.createElement('div');
+            resultItem.className = 'result-item';
+            resultItem.innerHTML = `
+                <div class="result-header">
+                    <div class="result-title">${result.icon} ${result.title}</div>
+                    <div class="result-actions">
+                        <button class="result-btn" onclick="copyResult(this)">📋 Copy</button>
+                        <button class="result-btn" onclick="editResult(this)">✏️ Edit</button>
+                        <button class="result-btn" onclick="exportResult(this)">⬇️ Export</button>
+                        <button class="result-btn" onclick="removeResult(this)">🗑️ Remove</button>
+                    </div>
+                </div>
+                <div class="result-content">${result.content}</div>
+            `;
+            
+            results.appendChild(resultItem);
+            
+            // Scroll to the new result
+            resultItem.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+        
+        function copyResult(button) {
+            const resultContent = button.closest('.result-item').querySelector('.result-content');
+            const text = resultContent.textContent || resultContent.innerText;
+            navigator.clipboard.writeText(text).then(() => {
+                button.textContent = '✅ Copied';
+                setTimeout(() => {
+                    button.innerHTML = '📋 Copy';
+                }, 2000);
+            });
+        }
+        
+        function editResult(button) {
+            const resultContent = button.closest('.result-item').querySelector('.result-content');
+            const currentContent = resultContent.innerHTML;
+            
+            // Create editable textarea
+            const textarea = document.createElement('textarea');
+            textarea.style.width = '100%';
+            textarea.style.minHeight = '100px';
+            textarea.style.padding = '0.75rem';
+            textarea.style.border = '1px solid #ddd';
+            textarea.style.borderRadius = '6px';
+            textarea.style.fontSize = '0.9rem';
+            textarea.style.fontFamily = 'inherit';
+            textarea.value = resultContent.textContent || resultContent.innerText;
+            
+            // Create save/cancel buttons
+            const buttonContainer = document.createElement('div');
+            buttonContainer.style.marginTop = '0.75rem';
+            buttonContainer.style.display = 'flex';
+            buttonContainer.style.gap = '0.5rem';
+            
+            const saveBtn = document.createElement('button');
+            saveBtn.className = 'result-btn';
+            saveBtn.textContent = '💾 Save';
+            saveBtn.onclick = () => {
+                resultContent.textContent = textarea.value;
+                resultContent.style.display = 'block';
+                textarea.remove();
+                buttonContainer.remove();
+                button.textContent = '✏️ Edit';
+            };
+            
+            const cancelBtn = document.createElement('button');
+            cancelBtn.className = 'result-btn';
+            cancelBtn.textContent = '❌ Cancel';
+            cancelBtn.onclick = () => {
+                resultContent.style.display = 'block';
+                textarea.remove();
+                buttonContainer.remove();
+                button.textContent = '✏️ Edit';
+            };
+            
+            buttonContainer.appendChild(saveBtn);
+            buttonContainer.appendChild(cancelBtn);
+            
+            // Replace content with editor
+            resultContent.style.display = 'none';
+            resultContent.parentNode.insertBefore(textarea, resultContent.nextSibling);
+            resultContent.parentNode.insertBefore(buttonContainer, textarea.nextSibling);
+            button.textContent = '📝 Editing...';
+            textarea.focus();
+        }
+        
+        function exportResult(button) {
+            const resultItem = button.closest('.result-item');
+            const title = resultItem.querySelector('.result-title').textContent;
+            const content = resultItem.querySelector('.result-content').textContent || resultItem.querySelector('.result-content').innerText;
+            
+            const exportData = `${title}\n${'='.repeat(title.length)}\n\n${content}`;
+            
+            const blob = new Blob([exportData], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${title.replace(/[^\w\s]/gi, '').trim()}.txt`;
+            a.click();
+            URL.revokeObjectURL(url);
+            
+            button.textContent = '✅ Exported';
+            setTimeout(() => {
+                button.innerHTML = '⬇️ Export';
+            }, 2000);
+        }
+        
+        function removeResult(button) {
+            if (confirm('Are you sure you want to remove this result?')) {
+                const resultItem = button.closest('.result-item');
+                resultItem.style.transform = 'translateX(100%)';
+                resultItem.style.opacity = '0';
+                setTimeout(() => {
+                    resultItem.remove();
+                }, 300);
+            }
+        }
+        
+        // Close workspace when clicking outside
+        document.getElementById('aiWorkspaceOverlay').addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) {
+                closeAIWorkspace();
+            }
+        });
+        
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && document.getElementById('aiWorkspaceOverlay').classList.contains('open')) {
+                closeAIWorkspace();
+            }
+        });
+    </script>
+</body>
+</html>

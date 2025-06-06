@@ -1,0 +1,2194 @@
+Directory Structure:
+-------------------
+/ 
+├── api/
+│   ├── recordings.ts
+│   └── util.ts
+├── components/
+│   ├── ColorSchemeToggle/
+│   │   └── ColorSchemeToggle.tsx
+│   ├── Welcome/
+│   │   ├── Welcome.module.css
+│   │   ├── Welcome.story.tsx
+│   │   ├── Welcome.test.tsx
+│   │   └── Welcome.tsx
+│   ├── LocalAuthDropdown.tsx
+│   ├── Recording.css
+│   ├── Recording.tsx
+│   ├── RecordingCard.module.css
+│   ├── RecordingCard.tsx
+│   ├── RecordingCompleteDialog.tsx
+│   └── SpeakerLabelDialog.tsx
+├── interfaces/
+│   └── Models.ts
+├── pages/
+│   ├── home.page.module.css
+│   ├── Home.page.tsx
+│   ├── RecordingCardsPage.module.css
+│   ├── RecordingCardsPage.tsx
+│   ├── RecordingsPage.tsx
+│   ├── UploadPage.tsx
+│   ├── ViewTranscriptionPage.module.css
+│   └── ViewTranscriptionPage.tsx
+├── types/
+│   └── global.d.ts
+├── App.tsx
+├── Common.ts
+├── favicon.svg
+├── GlobalStyle.ts
+├── main.tsx
+├── Router.tsx
+├── theme.ts
+├── util.ts
+└── vite-env.d.ts
+
+File Contents:
+--------------
+File: ./theme.ts
+--------------------------------------------------
+Content of ./theme.ts:
+import { createTheme } from '@mantine/core';
+
+export const theme = createTheme({
+  /** Put your mantine theme override here */
+});
+
+
+File: ./App.tsx
+--------------------------------------------------
+Content of ./App.tsx:
+import '@mantine/core/styles.css';
+import '@mantine/notifications/styles.css';
+
+import { MantineProvider, AppShell, Group, rem } from '@mantine/core';
+import { Router } from './Router';
+import { theme } from './theme';
+import { Notifications } from '@mantine/notifications';
+import GlobalStyle from './GlobalStyle';
+import { LocalAuthDropdown } from './components/LocalAuthDropdown';
+
+export default function App() {
+  return (
+    <MantineProvider theme={theme}>
+      <Notifications position="top-right" />
+      <GlobalStyle />
+      
+      <AppShell
+        header={import.meta.env.VITE_LOCAL_AUTH ? { height: { base: 60 } } : undefined}
+        padding="md"
+      >
+        {import.meta.env.VITE_LOCAL_AUTH && (
+          <AppShell.Header p="md">
+            <Group justify="flex-end">
+              <LocalAuthDropdown />
+            </Group>
+          </AppShell.Header>
+        )}
+        
+        <AppShell.Main>
+          <Router />
+        </AppShell.Main>
+      </AppShell>
+    </MantineProvider>
+  );
+}
+
+
+File: ./Router.tsx
+--------------------------------------------------
+Content of ./Router.tsx:
+import { createBrowserRouter, RouterProvider } from 'react-router-dom';
+import { HomePage } from './pages/Home.page';
+import UploadPage from './pages/UploadPage';
+import ViewTranscriptionPage from './pages/ViewTranscriptionPage';
+import RecordingCardsPage from './pages/RecordingCardsPage';
+
+const router = createBrowserRouter([
+  {
+    path: '/',
+    element: <HomePage />,
+  },
+  {
+    path: '/recordings',
+    element: <RecordingCardsPage />,
+  },
+  {
+    path: '/upload',
+    element: <UploadPage />,
+  },
+  {
+    path: '/view_transcription/:transcriptionId',
+    element: <ViewTranscriptionPage />,
+  },
+]);
+
+export function Router() {
+  return <RouterProvider router={router} />;
+}
+
+
+File: ./GlobalStyle.ts
+--------------------------------------------------
+Content of ./GlobalStyle.ts:
+// GlobalStyle.ts
+import { createGlobalStyle } from 'styled-components';
+
+const GlobalStyle = createGlobalStyle`
+  body {
+    background: linear-gradient(135deg, #f0f4f8 0%, #d9e4ec 100%);
+    min-height: 100vh;
+    margin: 0;
+    font-family: 'Arial', sans-serif;
+  }
+`;
+
+export default GlobalStyle;
+
+
+File: ./main.tsx
+--------------------------------------------------
+Content of ./main.tsx:
+import ReactDOM from 'react-dom/client';
+import App from './App';
+
+ReactDOM.createRoot(document.getElementById('root')!).render(<App />);
+
+
+File: ./util.ts
+--------------------------------------------------
+Content of ./util.ts:
+export function formatDuration(seconds: number): string {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = Math.floor(seconds % 60);
+
+    if (hours > 0) {
+        return `${hours}h ${minutes}m`;
+    } else if (minutes > 0) {
+        return `${minutes}m ${secs}s`;
+    } else {
+        return `${secs}s`;
+    }
+}
+
+File: ./Common.ts
+--------------------------------------------------
+Content of ./Common.ts:
+import { notifications } from "@mantine/notifications";
+
+//create a response object for the delete functions
+export interface apiResponse {
+    status: string;
+    message?: string;
+    error?: string;
+}
+
+// write a function to handle the response and show the notifications
+export const showNotificationFromApiResponse = (response: apiResponse) => {
+    if (response.status === 'success') {
+        notifications.show({
+            title: 'Success',
+            message: response.message || 'Operation successful',
+            color: 'green'
+        });
+    } else {
+        notifications.show({
+            title: 'Error',
+            message: response.error || 'Operation failed',
+            color: 'red'
+        });
+    }
+};
+
+
+export const showNotificationFromError = (error: string) => {
+    notifications.show({
+        title: 'Error',
+        message: error,
+        color: 'red'
+    });
+};
+
+File: ./vite-env.d.ts
+--------------------------------------------------
+Content of ./vite-env.d.ts:
+/// <reference types="vite/client" />
+
+
+File: interfaces/Models.ts
+--------------------------------------------------
+Content of interfaces/Models.ts:
+// shared/types.ts
+
+type integer = number;
+
+// Plaud settings stored in user profile
+export interface PlaudSettings {
+    bearerToken: string;          // Authentication token for Plaud API
+    lastSyncTimestamp?: string;   // ISO date of last successful sync
+    enableSync?: boolean;         // Whether sync is enabled (for future automatic sync)
+    activeSyncToken?: string;     // Token for current active sync operation
+    activeSyncStarted?: string;   // ISO date when current sync started
+}
+
+// Metadata for a recording from Plaud
+export interface PlaudMetadata {
+    plaudId: string;              // Original ID from Plaud (for deduplication)
+    originalTimestamp: string;    // When the recording was made according to Plaud
+    plaudFilename: string;        // Original filename in Plaud
+    plaudFileSize: number;        // Size in bytes of original file
+    plaudDuration: number;        // Duration in milliseconds from Plaud
+    plaudFileType: string;        // Original file type/extension
+    syncedAt: string;             // When this recording was imported to QuickScribe
+}
+
+// Represents a user in the system
+export interface User {
+    id: string; // Unique identifier for the user
+    name?: string; // Assumption: Not explicitly mentioned, possibly available from user handling methods
+    email?: string; // Assumption: May be included depending on authentication setup
+    role?: string; // Admin or user
+    created_at?: string; // DateTime of when the user was created
+    last_login?: string; // DateTime of when the user last logged in
+    plaudSettings?: PlaudSettings; // Plaud integration settings
+    partitionKey: string;
+    is_test_user?: boolean; // Indicates if this is a test user for local development
+}
+
+// Represents a recording entity
+export interface Recording {
+    id: string; // Unique identifier for the recording
+    user_id: string; // References the user who uploaded the recording
+    original_filename: string; // Original filename of the uploaded file
+    unique_filename: string; // Unique filename assigned to the uploaded file
+    title?: string; // User-editable title for the recording (defaults to original_filename)
+    recorded_timestamp?: string; // ISO timestamp when the recording was actually made
+    duration?: number; // Duration of the recording in seconds (may be unknown)
+    
+    // Transcription related fields
+    transcription_status?: "not_started" | "in_progress" | "completed" | "failed"; // Transcription status with specific values
+    transcription_status_updated_at?: string; // ISO timestamp for when transcription status last updated
+    transcription_id?: string; // References the transcription id for this recording if one exists
+    az_transcription_id?: string; // Azure transcription ID if in progress or completed
+    transcription_error_message?: string; // Error message if transcription fails
+    
+    // Transcoding related fields
+    transcoding_status?: "not_started" | "queued" | "in_progress" | "completed" | "failed"; // Transcoding status with specific values
+    transcoding_started_at?: string; // ISO timestamp for when transcoding started
+    transcoding_completed_at?: string; // ISO timestamp for when transcoding completed
+    transcoding_error_message?: string; // Error message if transcoding fails
+    transcoding_retry_count?: integer; // Number of times transcoding has been retried (default: 0)
+    transcoding_token?: string // token used in the callback once the transcoding has completed
+    
+    upload_timestamp?: string; // DateTime of when the recording was uploaded
+    source?: "upload" | "plaud" | "stream"; // Source of the recording
+    plaudMetadata?: PlaudMetadata;          // Plaud-specific metadata (only present for Plaud recordings)
+    partitionKey: string;
+}
+
+// Represents a transcription entity
+export interface Transcription {
+    id: string; // Unique identifier for the transcription
+    user_id: string; // References the user who owns the transcription
+    recording_id: string; // References the recording this transcription is associated with
+    diarized_transcript?: string; // Transcript text with speaker separation if diarized
+    text?: string; // Non-diarized transcript text (if available)
+    transcript_json?: string; // Raw JSON transcription data
+    az_raw_transcription?: string; // Raw Azure transcription result as a JSON string
+    az_transcription_id?: string; // Azure transcription id
+    partitionKey: string;
+
+     // Detailed speaker mapping with inferred name and reasoning for each speaker
+     speaker_mapping?: {
+        [speakerLabel: string]: {
+            name: string; // Inferred name or label for the speaker
+            reasoning: string; // Concise reasoning for the inferred label
+        };
+    };
+}
+
+
+File: api/recordings.ts
+--------------------------------------------------
+Content of api/recordings.ts:
+import axios from 'axios';
+import { Recording } from '../interfaces/Models';
+import { apiResponse } from '@/Common';
+
+export const fetchRecordings = async (): Promise<Recording[]> => {
+    console.log("Fetching recordings");
+    const response = await axios.get<Recording[]>('/api/recordings');
+    console.log("Recordings fetched", response.data);
+    return response.data;
+};
+
+export const fetchRecording = async (recordingId: string): Promise<Recording> => {
+    const response = await axios.get<Recording>(`/api/recording/${recordingId}`);
+    console.log("Recording fetched", response.data);
+    return response.data;
+};
+
+export const startTranscription = async (recordingId: string): Promise<apiResponse> => {
+    try {
+        const response = await axios.post(`/az_transcription/start_transcription/${recordingId}`);
+        return {
+            status: 'success',
+        };
+    } catch (error: any) {
+        console.error('Error starting transcription:', error);
+        return {
+            status: 'error',
+            error: error.response?.data?.error || 'Failed to start transcription'
+        };
+    }
+};
+
+// delete a recording
+export const deleteRecording = async (recordingId: string): Promise<apiResponse> => {
+    const response = await axios.get(`/api/delete_recording/${recordingId}`);
+    // check if the response is successful
+    if (response.status === 200) {
+        //get the response in json
+        const responseData = response.data;
+        return {
+            status: 'success',
+            message: responseData.message
+        };
+    } else {
+        return {
+            status: 'error',
+            error: 'Failed to delete recording'
+        };
+    }
+};
+
+// delete a transcription
+export const deleteTranscription = async (transcriptionId: string): Promise<apiResponse> => {
+    const response = await axios.get(`/api/delete_transcription/${transcriptionId}`);
+    // check if the response is successful
+    if (response.status === 200) {
+        //get the response in json
+        const responseData = response.data;
+        return {
+            status: 'success',
+            message: responseData.message
+        };
+    } else {
+        return {
+            status: 'error',
+            error: 'Failed to delete transcription'
+        };
+    }
+};
+
+// check the status of a transcription
+export const checkTranscriptionStatus = async (recordingId: string): Promise<{status: string, error: string}> => {
+    const response = await axios.get<{status: string, error: string}>(`/az_transcription/check_transcription_status/${recordingId}`);
+    if (response.status === 200) {
+        // check if the response is successful
+        if (response.data.error) {
+            console.error("Error checking transcription status:", response.data.error);
+            return {status: response.data.status, error: response.data.error};
+        } else {
+            return {status: response.data.status, error: ""};
+        }
+    } else {
+        return {
+            status: 'error',
+            error: 'Failed to check transcription status'
+        };
+    }
+};
+
+
+
+File: api/util.ts
+--------------------------------------------------
+Content of api/util.ts:
+import axios from 'axios';
+
+// get the api version
+export const getApiVersion = async (): Promise<string> => {
+    const response = await axios.get('/api/get_api_version');
+    return response.data.version;
+};
+
+File: types/global.d.ts
+--------------------------------------------------
+Content of types/global.d.ts:
+// Global custom event declarations 
+import { Recording } from "../interfaces/Models";
+
+interface RecordingUpdatedEventDetail {
+  recording: Recording;
+}
+
+interface RecordingUpdatedEvent extends CustomEvent {
+  detail: RecordingUpdatedEventDetail;
+}
+
+declare global {
+  interface WindowEventMap {
+    'recordingUpdated': RecordingUpdatedEvent;
+  }
+}
+
+
+File: pages/Home.page.tsx
+--------------------------------------------------
+Content of pages/Home.page.tsx:
+import React, { useEffect, useState } from 'react';
+import { ColorSchemeToggle } from '../components/ColorSchemeToggle/ColorSchemeToggle';
+import { Container, Title, Text, Button, Group } from '@mantine/core';
+import { Link } from 'react-router-dom';
+import classes from './home.page.module.css';
+import { IconFileText, IconMicrophone, IconUpload, IconRefresh } from '@tabler/icons-react';
+import { getApiVersion } from '@/api/util';
+import { notifications } from '@mantine/notifications';
+
+export function HomePage() {
+
+  const [apiVersion, setApiVersion] = useState<string>('');
+  const [syncLoading, setSyncLoading] = useState(false);
+
+  useEffect(() => {
+    const fetchVersion = async () => {
+      try {
+        const version = await getApiVersion();
+        setApiVersion(version);
+      } catch (error) {
+        console.error('Failed to fetch API version:', error);
+      }
+    };
+    fetchVersion();
+  }, []);
+
+  const handlePlaudSync = async () => {
+    setSyncLoading(true);
+    try {
+      const response = await fetch('/plaud/sync/start', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ dry_run: false }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        notifications.show({
+          title: 'Plaud Sync Started',
+          message: 'Your Plaud recordings are being synced in the background',
+          color: 'green',
+          icon: <IconRefresh size={16} />,
+        });
+      } else {
+        const error = await response.json();
+        notifications.show({
+          title: 'Sync Failed',
+          message: error.error || 'Failed to start Plaud sync',
+          color: 'red',
+        });
+      }
+    } catch (error) {
+      console.error('Sync error:', error);
+      notifications.show({
+        title: 'Sync Failed',
+        message: 'Network error while starting sync',
+        color: 'red',
+      });
+    } finally {
+      setSyncLoading(false);
+    }
+  };
+
+  return (
+    <div style={{ 
+        background: 'linear-gradient(135deg, #f0f4f8 0%, #d9e4ec 100%)', 
+        minHeight: '100vh', 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'center',
+        position: 'relative'
+    }}>
+      <Container style={{ textAlign: 'center' }}>
+        <Title className={classes.title} ta="center" mt={50}>
+          Welcome to{' '}
+          <Text
+            inherit
+            variant="gradient"
+            component="span"
+            gradient={{ from: 'orange', to: 'yellow', deg: 45 }}
+            className={classes.gradientText}
+          >
+            QuickScribe
+          </Text>
+        </Title>
+
+        <Text c="dimmed" ta="center" size="lg" maw={580} mx="auto" mt="xl">
+          Your go-to platform for audio transcription and file management.
+        </Text>
+
+        <Group justify="center" mt="xl" gap="md">
+          <Button
+            component={Link}
+            to="/recordings"
+            leftSection={<IconFileText size={18} />}
+            style={{
+              backgroundColor: '#1e90ff',
+              color: '#fff',
+              boxShadow: '0px 4px 12px rgba(0, 0, 0, 0.1)',
+            }}
+            onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#0073e6'}
+            onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#1e90ff'}
+          >
+            View Recordings
+          </Button>
+          <Button
+            component={Link}
+            to="/upload"
+            leftSection={<IconUpload size={18} />}
+            style={{
+              backgroundColor: '#28a745',
+              color: '#fff',
+              boxShadow: '0px 4px 12px rgba(0, 0, 0, 0.1)',
+            }}
+            onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#218838'}
+            onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#28a745'}
+          >
+            Upload a New Recording
+          </Button>
+          <Button
+            onClick={handlePlaudSync}
+            loading={syncLoading}
+            leftSection={<IconRefresh size={18} />}
+            style={{
+              backgroundColor: '#ff6b35',
+              color: '#fff',
+              boxShadow: '0px 4px 12px rgba(0, 0, 0, 0.1)',
+            }}
+            onMouseOver={(e) => !syncLoading && (e.currentTarget.style.backgroundColor = '#e55a2b')}
+            onMouseOut={(e) => !syncLoading && (e.currentTarget.style.backgroundColor = '#ff6b35')}
+          >
+            Sync Plaud
+          </Button>
+        </Group>
+      </Container>
+
+      {apiVersion && (
+        <Text
+          size="xs"
+          c="dimmed"
+          style={{
+            position: 'absolute',
+            bottom: '1rem',
+            right: '1rem',
+            opacity: 0.7
+          }}
+        >
+          API v{apiVersion}
+        </Text>
+      )}
+    </div>
+  );
+}
+
+
+File: pages/ViewTranscriptionPage.module.css
+--------------------------------------------------
+Content of pages/ViewTranscriptionPage.module.css:
+/* Title Styling */
+.title {
+    font-size: 2.5rem;
+    font-weight: bold;
+    margin-bottom: 1rem;
+}
+
+.subtitle {
+    font-size: 1.5rem;
+    color: #555;
+    margin-bottom: 1.5rem;
+}
+
+/* Dialogue Styling */
+.dialogue {
+    padding: 1rem;
+    border-radius: 8px;
+    margin-bottom: 0.5rem;
+    display: flex;
+}
+
+.dialogue.odd {
+    background-color: #f9f9f9;
+}
+
+.dialogue.even {
+    background-color: #ffffff;
+}
+
+/* Speaker Styling */
+.speaker {
+    font-weight: bold;
+    color: #333;
+    margin-right: 0.5rem;
+}
+
+/* Dialogue Text */
+.dialogue-text {
+    color: #444;
+    line-height: 1.5;
+}
+
+/* Hover Effect */
+.dialogue:hover {
+    background-color: #e0f7fa;
+    transition: background-color 0.3s ease;
+}
+
+
+File: pages/RecordingCardsPage.tsx
+--------------------------------------------------
+Content of pages/RecordingCardsPage.tsx:
+// src/pages/RecordingCardsPage.tsx
+
+import React, { useEffect, useState } from 'react';
+import { fetchRecordings } from '../api/recordings';
+import { Recording as RecordingModel } from '../interfaces/Models';
+import RecordingCard from '../components/RecordingCard';
+import { Container, Title, Loader, Group, Button } from '@mantine/core';
+import { showNotification } from '@mantine/notifications';
+import { IconHome, IconX } from '@tabler/icons-react';
+import styles from './RecordingCardsPage.module.css';
+import { Link } from 'react-router-dom';
+
+const RecordingCardsPage: React.FC = () => {
+    const [recordings, setRecordings] = useState<RecordingModel[]>([]);
+    const [loading, setLoading] = useState<boolean>(true);
+
+    useEffect(() => {
+        const loadRecordings = async () => {
+            try {
+                const data = await fetchRecordings();
+                setRecordings(Array.isArray(data) ? data : []);
+            } catch (error) {
+                showNotification({
+                    title: 'Fetch Error',
+                    message: 'Failed to load recordings. Please try again later.',
+                    color: 'red',
+                    icon: <IconX size={18} />,
+                });
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        loadRecordings();
+        
+        // Listen for recording update events (this is triggered by the RecordingCard component, when the transcription is complete, for instance)
+        const handleRecordingUpdated = (event: CustomEvent) => {
+            const updatedRecording = event.detail.recording;
+            // Update the recording in-place to maintain order
+            setRecordings(prev => 
+                prev.map(rec => rec.id === updatedRecording.id ? updatedRecording : rec)
+            );
+        };
+        
+        window.addEventListener('recordingUpdated', handleRecordingUpdated as EventListener);
+        
+        return () => {
+            window.removeEventListener('recordingUpdated', handleRecordingUpdated as EventListener);
+        };
+    }, []);
+
+    const handleDeleteRecording = (id: string) => {
+        setRecordings((prev) => prev.filter((recording) => recording.id !== id));
+    };
+
+    return (
+        <Container className={styles.pageContainer}>
+            <Title order={1} className={styles.pageTitle}>Recordings</Title>
+            <Group justify="center" mb="md">
+                <Button
+                    component={Link}
+                    to="/"
+                    variant="subtle"
+                    leftSection={<IconHome size={16} />}
+                >
+                    Back to Home
+                </Button>
+            </Group>
+            {loading ? (
+                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+                    <Loader size="lg" />
+                </div>
+            ) : (
+                <div className={styles.gridContainer}>
+                    {recordings.map((recording) => (
+                        <RecordingCard
+                            key={recording.id}
+                            recording={recording}
+                            onDelete={handleDeleteRecording}
+                        />
+                    ))}
+                </div>
+            )}
+        </Container>
+    );
+};
+
+export default RecordingCardsPage;
+
+
+File: pages/UploadPage.tsx
+--------------------------------------------------
+Content of pages/UploadPage.tsx:
+import React, { useRef, useState } from 'react';
+import { Container, Title, Button, Progress, Text, Group, Space, Alert } from '@mantine/core';
+import { Dropzone, DropzoneProps, MIME_TYPES } from '@mantine/dropzone';
+import { IconUpload, IconCheck, IconAlertCircle, IconFile, IconX, IconHome } from '@tabler/icons-react';
+import { notifications, Notifications } from '@mantine/notifications';
+import axios from 'axios';
+import { Link } from 'react-router-dom';
+
+const UploadPage: React.FC = () => {
+    const [file, setFile] = useState<File | null>(null);
+    const [progress, setProgress] = useState<number>(0);
+    const [status, setStatus] = useState<string>('');
+    const [error, setError] = useState<string | null>(null);
+
+    const handleFileSelect = (selectedFiles: File[]) => {
+        setError(null);
+        setFile(selectedFiles[0]);  // Only allow one file at a time
+    };
+
+    const handleUpload = async () => {
+        if (!file) {
+            setError("Please select a file.");
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        try {
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', '/api/upload', true);
+
+            xhr.upload.addEventListener('progress', (e) => {
+                if (e.lengthComputable) {
+                    const percentComplete = (e.loaded / e.total) * 100;
+                    setProgress(Math.round(percentComplete));
+                }
+            });
+
+            xhr.addEventListener('load', () => {
+                if (xhr.status === 200) {
+                    setStatus('File uploaded successfully!');
+                    setProgress(0);
+                    setError(null);
+                } else {
+                    setStatus('');
+                    setProgress(0);
+                    setError('Error uploading file: ' + xhr.statusText);
+                }
+            });
+
+            xhr.addEventListener('error', () => {
+                setStatus('');
+                setProgress(0);
+                setError('Error uploading file: ' + xhr.statusText);
+            });
+
+            xhr.send(formData);
+        } catch (error) {
+            console.error('Upload error:', error);
+            setStatus('');
+            setError('Error uploading file: ' + error);
+            setProgress(0);
+        }
+    };
+
+    const openRef = useRef<() => void>(null);
+
+    return (
+        <Container style={{ maxWidth: 500, marginTop: 50, textAlign: 'center' }}>
+            <Title order={1} mb="md">Upload an Audio File</Title>
+
+            <Dropzone
+                openRef={openRef}
+                onDrop={handleFileSelect}
+                onReject={() => setError('File type not supported')}
+                maxSize={100 * 1024 ** 2} // 10 MB max file size
+                accept={{
+                    'audio/mp3': ['.mp3'],
+                    'audio/mp4': ['.m4a'],
+                }}
+                style={{ marginBottom: '1rem' }}
+            >
+                <div style={{ padding: '20px', textAlign: 'center' }}>
+                    <Dropzone.Accept>
+                        <IconFile size={50} stroke={1.5} color="green" />
+                    </Dropzone.Accept>
+                    <Dropzone.Reject>
+                        <IconX size={50} stroke={1.5} color="red" />
+                    </Dropzone.Reject>
+                    <Dropzone.Idle>
+                        <IconUpload size={50} stroke={1.5} />
+                    </Dropzone.Idle>
+                    <Text size="sm" mt="xs" c="dimmed">
+                        Drag audio files here or click to select files
+                    </Text>
+                </div>
+            </Dropzone>
+
+            {file && (
+                <Text size="sm" c="dimmed" mt="xs"> 
+                    Selected file: {file.name}
+                </Text>
+            )}
+            <Group justify="center" mt="md">
+                <Button onClick={() => openRef.current?.()}
+                    leftSection={<IconFile size={16} />}
+                    style={{ width: '100%' }}
+                >
+                    Select files
+                </Button>
+            </Group>
+
+            <Group justify="center" mt="md">
+                <Button
+                    color="blue"
+                    leftSection={<IconUpload size={16} />}  
+                    onClick={handleUpload}
+                    style={{ width: '100%' }}
+                >
+                    Upload
+                </Button>
+            </Group>
+
+            <Group justify="center" mb="md">
+                <Button
+                    component={Link}
+                    to="/"
+                    variant="subtle"
+                    leftSection={<IconHome size={16} />}
+            >
+                Back to Home
+                </Button>
+            </Group>
+
+            <Space h="md" />
+
+            {progress > 0 && (
+                <Progress
+                    value={progress}
+                    color={progress === 100 ? "green" : "blue"}
+                    size="lg"
+                    striped
+                    animated
+                    style={{ marginBottom: '1rem' }}
+                />
+            )}
+
+            {status && (
+                <Alert 
+                    icon={<IconCheck size={16} />} 
+                    title="Success" 
+                    color="green"
+                    withCloseButton
+                    onClose={() => setStatus('')}
+                >
+                    {status}
+                </Alert>
+            )}
+
+            {error && (
+                <Alert 
+                    icon={<IconAlertCircle size={16} />} 
+                    title="Error" 
+                    color="red"
+                    withCloseButton
+                    onClose={() => setError(null)}
+                >
+                    {error}
+                </Alert>
+            )}
+        </Container>
+    );
+};
+
+export default UploadPage;
+
+
+File: pages/home.page.module.css
+--------------------------------------------------
+Content of pages/home.page.module.css:
+/* Main title styling */
+.title {
+  color: var(--mantine-color-black);
+  font-size: 4rem; /* Adjust size if needed */
+  font-weight: 900;
+  letter-spacing: -2px;
+  text-align: center;
+}
+
+/* Gradient text effect with animation for "QuickScribe" */
+.gradientText {
+  display: inline-block;
+  background: linear-gradient(45deg, #ff7e5f, #feb47b);
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  animation: gradientAnimation 5s ease-in-out infinite;
+  font-size: 4.5rem; /* Larger size for emphasis */
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .title {
+    font-size: 2rem; /* Responsive size for smaller screens */
+  }
+  .gradientText {
+    font-size: 2.5rem; /* Adjust gradient text size accordingly */
+  }
+}
+
+/* Animation for gradient movement */
+@keyframes gradientAnimation {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 100% 50%; }
+}
+
+/* Button styles for interactive effect */
+button {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.75rem 1.25rem;
+  font-size: 1rem;
+  font-weight: 500;
+  color: #fff;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+/* Button colors and hover effects */
+button.primary {
+  background-color: #1e90ff;
+}
+button.primary:hover {
+  background-color: #0073e6;
+  box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+button.secondary {
+  background-color: #28a745;
+}
+button.secondary:hover {
+  background-color: #218838;
+  box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+
+
+
+File: pages/RecordingsPage.tsx
+--------------------------------------------------
+Content of pages/RecordingsPage.tsx:
+// src/pages/RecordingsPage.tsx
+
+import React, { useEffect, useState } from 'react';
+import { fetchRecordings } from '../api/recordings';
+import { Recording as RecordingModel } from '../interfaces/Models';
+import Recording from '../components/Recording';
+import { Container, Title, Table, Group, Button } from '@mantine/core';
+import { showNotification } from '@mantine/notifications';
+import { IconHome, IconX } from '@tabler/icons-react';
+import { Link } from 'react-router-dom';
+
+const RecordingsPage: React.FC = () => {
+    const [recordings, setRecordings] = useState<RecordingModel[]>([]);
+
+    useEffect(() => {
+        console.log("Fetching recordings");
+        fetchRecordings()
+            .then((data) => {
+                console.log("Recordings fetched", data);
+                setRecordings(Array.isArray(data) ? data : []);
+            })
+            .catch((error) => {
+                console.error(error);
+                showNotification({
+                    title: 'Fetch Error',
+                    message: 'Failed to load recordings. Please try again later.',
+                    color: 'red',
+                    icon: <IconX size={18} />, // Optional icon for error indication
+                });
+            });
+    }, []);
+
+    return (
+        <Container>
+            <Title order={1}>Recordings</Title>
+            <Table>
+                <thead>
+                    <tr>
+                        <th>Original Filename</th>
+                        <th>Length</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {recordings.map(recording => (
+                        <Recording key={recording.id} recording={recording} />
+                    ))}
+                </tbody>
+            </Table>
+            <Group justify="center" mb="md">
+                <Button
+                    component={Link}
+                    to="/"
+                    variant="subtle"
+                    leftSection={<IconHome size={16} />}
+                >
+                    Back to Home
+                </Button>
+            </Group>
+        </Container>
+    );
+};
+
+export default RecordingsPage;
+
+
+
+File: pages/ViewTranscriptionPage.tsx
+--------------------------------------------------
+Content of pages/ViewTranscriptionPage.tsx:
+// src/pages/ViewTranscriptionPage.tsx
+import React, { useEffect, useState } from 'react';
+import { Link, useParams } from 'react-router-dom';
+import { Transcription } from '../interfaces/Models';
+import { Container, Title, Text, Button, Group } from '@mantine/core';
+import { notifications } from '@mantine/notifications';
+import styles from './ViewTranscriptionPage.module.css';
+import { IconFileText, IconCopy } from '@tabler/icons-react';
+import { faCopy } from '@fortawesome/free-regular-svg-icons';
+
+const ViewTranscriptionPage: React.FC = () => {
+    const { transcriptionId } = useParams<{ transcriptionId: string }>();
+    const [transcription, setTranscription] = useState<Transcription | null>(null);
+
+    useEffect(() => {
+        if (transcriptionId) {
+            fetch(`/api/transcription/${transcriptionId}`)
+                .then((response) => response.json())
+                .then((data) => setTranscription(data))
+                .catch((error) => console.error('Error fetching transcription:', error));
+        }
+    }, [transcriptionId]);
+
+    if (!transcription) {
+        return <Text>Loading...</Text>;
+    }
+
+
+    const copyTranscriptionToClipboard = async () => {
+        if (transcription && transcription.diarized_transcript) {
+            try {
+                await navigator.clipboard.writeText(transcription.diarized_transcript);
+                notifications.show({
+                    title: 'Success',
+                    message: 'Transcription copied to clipboard',
+                    position: 'top-right',
+                });
+            } catch (error) {
+                notifications.show({
+                    title: 'Error',
+                    message: `Error copying transcription to clipboard: ${error}`,
+                    color: 'red',
+                    position: 'top-right',
+                });
+            }
+        }
+    };
+
+    return (
+        <Container>
+            <Title order={1} className="title">Transcription</Title>
+            <Group justify="center" mb="md">
+                <Button
+                    component={Link}
+                    to="/recordings"
+                    variant="subtle"
+                    leftSection={<IconFileText size={16} />}
+                >
+                    Back to Recordings
+                </Button>
+                <Button leftSection={<IconCopy size={16} />} onClick={copyTranscriptionToClipboard}>
+                    Copy Transcription
+                </Button>
+            </Group>
+            {transcription.diarized_transcript ? (
+                <div>
+                    <Title order={3} className="subtitle">Diarized Transcript:</Title>
+                    <div>
+                        {transcription.diarized_transcript.split('\n\n').map((segment, index) => {
+                            const [speaker, ...dialogue] = segment.split(': ');
+                            return (
+                                <div key={index} className={`${styles.dialogue} ${index % 2 === 0 ? styles.odd : styles.even}`}>
+                                    <span className={styles.speaker}>{speaker}:</span>
+                                    <span className={styles.dialogueText}>{dialogue.join(': ')}</span>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            ) : (
+                <Text>No transcription text available.</Text>
+            )}
+        </Container>
+    );
+};
+
+export default ViewTranscriptionPage;
+
+
+File: pages/RecordingCardsPage.module.css
+--------------------------------------------------
+Content of pages/RecordingCardsPage.module.css:
+.pageContainer {
+    padding: 2rem;
+}
+
+.pageTitle {
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+.gridContainer {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 1.5rem;
+}
+
+
+File: components/SpeakerLabelDialog.tsx
+--------------------------------------------------
+Content of components/SpeakerLabelDialog.tsx:
+import React, { useState } from 'react';
+
+interface SpeakerLabelDialogProps {
+    speakerSummaries: { [key: string]: string };
+    isLoading: boolean;
+    onClose: () => void;
+    onAccept: (speakerLabels: { [key: string]: string }) => void;
+}
+
+const SpeakerLabelDialog: React.FC<SpeakerLabelDialogProps> = ({ speakerSummaries, isLoading, onClose, onAccept }) => {
+    const [labels, setLabels] = useState<{ [key: string]: string }>({});
+
+    const handleChange = (speaker: string, label: string) => {
+        setLabels({ ...labels, [speaker]: label });
+    };
+
+    const handleAccept = () => {
+        onAccept(labels);
+        onClose();
+    };
+
+    // Render a loading indicator if data is still being fetched
+    if (isLoading) {
+        return <div className="dialog"><p>Loading speaker summaries...</p></div>;
+    }
+
+    return (
+        <div className="dialog">
+            <h2>Label Speakers</h2>
+            {Object.entries(speakerSummaries).map(([speaker, summary]) => (
+                <div key={speaker}>
+                    <p>{summary}</p>
+                    <input
+                        type="text"
+                        placeholder={`Label for ${speaker}`}
+                        value={labels[speaker] || ''}
+                        onChange={(e) => handleChange(speaker, e.target.value)}
+                    />
+                </div>
+            ))}
+            <button onClick={handleAccept}>Accept</button>
+            <button onClick={onClose}>Cancel</button>
+        </div>
+    );
+};
+
+export default SpeakerLabelDialog;
+
+File: components/Recording.tsx
+--------------------------------------------------
+Content of components/Recording.tsx:
+// src/components/Recording.tsx
+
+// TODO: handle issue where the transcription status is updated and we don't have the transcription_id yet...
+
+import React, { useCallback, useEffect, useState } from 'react';
+import { Recording as RecordingModel } from '../interfaces/Models';
+import SpeakerLabelDialog from './SpeakerLabelDialog';
+import { Button, Container, Group, Tooltip } from '@mantine/core';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faPlay, faEye, faUserTag, faDownload, faCopy, faTrashAlt, faTag } from '@fortawesome/free-solid-svg-icons';
+import './Recording.css';  // Import the new CSS file
+import { checkTranscriptionStatus, deleteRecording, deleteTranscription, fetchRecording, startTranscription } from '../api/recordings';
+import { notifications } from '@mantine/notifications';
+import { IconAlertCircle, IconCheck, IconFileText, IconLoader } from '@tabler/icons-react';
+import { faFileAudio } from '@fortawesome/free-regular-svg-icons';
+import { formatDuration } from '../util';
+import { showNotificationFromApiResponse, showNotificationFromError } from '@/Common';
+import { Link } from 'react-router-dom';
+import { IconProp } from '@fortawesome/fontawesome-svg-core';
+
+interface RecordingProps {
+    recording: RecordingModel;
+    refreshTrigger?: boolean; // Optional prop to trigger a refresh of the recording
+}
+
+const Recording: React.FC<RecordingProps> = ({ recording, refreshTrigger }) => {
+    const [showSpeakerLabelDialog, setShowSpeakerLabelDialog] = useState(false);
+    const [speakerSummaries, setSpeakerSummaries] = useState<{ [key: string]: string } | null>(null);
+    const [transcriptionStatus, setTranscriptionStatus] = useState<string>(recording.transcription_status);
+    const [recordingData, setRecordingData] = useState<RecordingModel>(recording);
+
+    const fetchUpdatedRecording = useCallback(async () => {
+        try {
+            const updatedRecording = await fetchRecording(recording.id);
+            setRecordingData(updatedRecording);
+        } catch (error) {
+            console.error('Error fetching updated recording:', error);
+            showNotificationFromError('Failed to fetch updated recording: ' + error);
+        }
+    }, [recording.id]);
+
+    useEffect(() => {
+        if (refreshTrigger) {
+            fetchUpdatedRecording();
+        }
+    }, [refreshTrigger, fetchUpdatedRecording]);
+
+
+    const copyTranscriptToClipboard = async (text: string) => {
+        try {
+            await navigator.clipboard.writeText(text);
+            alert('Transcript copied to clipboard!');
+        } catch (err) {
+            console.error('Failed to copy text: ', err);
+            showNotificationFromError('Failed to copy transcript to clipboard');
+        }
+    };
+
+    const handleLabelSpeakers = () => {
+        setShowSpeakerLabelDialog(true);
+    };
+
+    const handleDownload = () => {
+        notifications.show({
+            title: 'Downloading',
+            message: 'Dummy Downloading recording message',
+            color: 'blue'
+        });
+    }
+
+    const handleDelete = async () => {
+        //check if there is a transcription associated with this recording
+        if (recording.transcription_id) {
+            const response = await deleteTranscription(recording.transcription_id);
+            showNotificationFromApiResponse(response);
+        } else {
+            const response = await deleteRecording(recording.id);
+            showNotificationFromApiResponse(response);
+        }
+    };
+
+    const handleAcceptSpeakerLabels = (speakerLabels: { [key: string]: string }) => {
+        fetch(`/api/update_speaker_labels/${recording.transcription_id}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(speakerLabels),
+        }).then((response) => {
+            response.json()
+        }).then((data) => {
+            console.log(data);
+            alert('Speaker labels updated');
+        }).then(() => {
+            fetchUpdatedRecording();
+        });
+    };
+
+    useEffect(() => {
+        if (showSpeakerLabelDialog) {
+            fetch(`/api/ai/get_speaker_summaries/${recording.transcription_id}`)
+                .then((response) => response.json())
+                .then((data) => {
+                    setSpeakerSummaries(data);
+                })
+                .catch((error) => {
+                    console.error('Error fetching speaker summaries:', error);
+                    alert('Failed to fetch speaker summaries');
+                });
+        }
+    }, [showSpeakerLabelDialog, recording.transcription_id]);
+
+    const transcription_text = "dummy";
+
+    // if the transcription status is in_progress, check the status of the transcription and continue to check it once a minute until it no longer is in_progress
+    useEffect(() => {
+        let intervalId: number;
+        if (recording.transcription_status === 'in_progress') {
+            // Check immediately
+            checkTranscriptionStatus(recording.id).then((response) => {
+                if (response.error) {
+                    notifications.show({
+                        title: 'Error',
+                        message: response.error,
+                        color: 'red'
+                    });
+                }
+                console.log("status is", response.status);
+                if (response.status !== 'in_progress') {
+                    clearInterval(intervalId);
+                    setTranscriptionStatus(response.status);
+                }
+            });
+            
+            // Then check every minute
+            intervalId = window.setInterval(() => {
+                checkTranscriptionStatus(recording.id).then((response) => {
+                    if (response.error) {
+                        notifications.show({
+                            title: 'Error',
+                            message: response.error,
+                            color: 'red'
+                        });
+                    }
+                    console.log("status is", response.status);
+
+                    if (response.status !== 'in_progress') {
+                        clearInterval(intervalId);
+                        setTranscriptionStatus(response.status);
+                    }
+                });
+            }, 60000); // 60000ms = 1 minute
+        }
+
+        // Cleanup function to clear the interval when component unmounts
+        // or when transcription_status changes
+        return () => {
+            if (intervalId) {
+                clearInterval(intervalId);
+            }
+        };
+    }, []);
+
+    console.log(recording);
+
+    return (
+        <>
+            <tr className="recording-row">
+                <td>
+                    <a href={`/download_recording/${recording.id}`} download>
+                        {recordingData.title || recordingData.original_filename}
+                    </a>
+                    {recordingData.recorded_timestamp && (
+                        <>
+                            <br />
+                            <small style={{ color: '#666' }}>
+                                Recorded: {new Date(recordingData.recorded_timestamp).toLocaleDateString()}
+                            </small>
+                        </>
+                    )}
+                </td>
+                <td>{formatDuration(recording.duration || 0)}</td>
+                <td>
+                    <Group   justify="center"> 
+                        {transcriptionStatus === 'completed' && <Tooltip label="Transcription Completed"><span><IconCheck color='green' /></span></Tooltip>}
+                        {transcriptionStatus === 'in_progress' && <Tooltip label="Transcription In Progress"><span><IconLoader color='blue' className='spinning_icon' /></span></Tooltip>}
+                        {transcriptionStatus === 'not_started' && <Tooltip label="Transcription Not Started"><span ><IconAlertCircle /></span></Tooltip>}
+                        {!['completed', 'in_progress', 'not_started'].includes(transcriptionStatus) && (
+                        <span>Unknown Status ({transcriptionStatus}) {recording.transcription_error_message}</span>
+                        )}
+                    </Group>
+                </td>
+                <td className="icon-buttons">
+                    <Tooltip label="Start Transcription">
+                        <Button
+                            onClick={() => startTranscription(recording.id)
+                                .then((response) => {
+                                    showNotificationFromApiResponse(response);
+                                    fetchUpdatedRecording();
+                                })  
+                                .catch((error) => {
+                                    showNotificationFromError('Failed to start transcription: ' + error);
+                                })
+                            }
+                            disabled={transcriptionStatus === 'completed'}
+                            variant="subtle"
+                            className="icon-button"
+                        >
+                            <FontAwesomeIcon icon={faFileAudio as IconProp} />
+                        </Button>
+                    </Tooltip>
+                    <Tooltip label="View Transcription">
+                        <Button
+                            component={Link}
+                            to={`/view_transcription/${transcriptionStatus === 'completed' ? recording.transcription_id : -1}`}
+                            disabled={transcriptionStatus !== 'completed'}
+                            variant="subtle"
+                            className="icon-button"
+                        >
+                            <IconFileText />
+                        </Button>
+                    </Tooltip>
+                    <Tooltip label="Infer Speaker Names">
+                        <Button
+                            component="a"
+                            href={`/api/ai/infer_speaker_names/${recordingData.transcription_id}`}
+                            disabled={transcriptionStatus !== 'completed'}
+                            variant="subtle"
+                            className="icon-button"
+                        >
+                            <FontAwesomeIcon icon={faUserTag} />
+                        </Button>
+                    </Tooltip>
+                    <Tooltip label="Download">
+                        <Button
+                            onClick={handleDownload}
+                            disabled={transcriptionStatus === 'not_started'}
+                            variant="subtle"
+                            className="icon-button"
+                        >
+                            <FontAwesomeIcon icon={faDownload} />
+                        </Button>
+                    </Tooltip>
+                    <Tooltip label="Copy Transcript">
+                        <Button
+                            onClick={() => copyTranscriptToClipboard(transcription_text)}
+                            disabled={transcriptionStatus !== 'completed'}
+                            variant="subtle"
+                            className="icon-button"
+                        >
+                            <FontAwesomeIcon icon={faCopy} />
+                        </Button>
+                    </Tooltip>
+                    <Tooltip label="Delete">
+                        <Button
+                            onClick={handleDelete}
+                            variant="subtle"
+                            className="icon-button"
+                        >
+                            <FontAwesomeIcon icon={faTrashAlt} />
+                        </Button>
+                    </Tooltip>
+                    <Tooltip label="Label Speakers">
+                        <Button
+                            onClick={handleLabelSpeakers}
+                            disabled={transcriptionStatus !== 'completed'}
+                            variant="subtle"
+                            className="icon-button"
+                        >
+                            <FontAwesomeIcon icon={faTag} />
+                        </Button>
+                    </Tooltip>
+                </td>
+            </tr>
+            {showSpeakerLabelDialog && (
+                <SpeakerLabelDialog 
+                    speakerSummaries={speakerSummaries || {}}
+                    isLoading={speakerSummaries === null}
+                    onClose={() => setShowSpeakerLabelDialog(false)} 
+                    onAccept={handleAcceptSpeakerLabels} 
+                />
+            )}
+        </>
+    );
+};
+
+export default Recording;
+
+
+File: components/RecordingCard.tsx
+--------------------------------------------------
+Content of components/RecordingCard.tsx:
+// src/components/RecordingCard.tsx
+
+import React, { useEffect, useState } from 'react';
+import { Recording as RecordingModel } from '../interfaces/Models';
+import SpeakerLabelDialog from './SpeakerLabelDialog';
+import { Card, Group, Text, Button, Tooltip, Stack, stylesToString } from '@mantine/core';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faFileLines, faUserTag, faDownload, faTrashAlt, faTag } from '@fortawesome/free-solid-svg-icons';
+import { faCopy, faFileAudio } from '@fortawesome/free-regular-svg-icons';
+import { checkTranscriptionStatus, deleteRecording, deleteTranscription, fetchRecording, startTranscription } from '../api/recordings';
+import { notifications } from '@mantine/notifications';
+import { IconAlertCircle, IconCheck, IconLoader } from '@tabler/icons-react';
+import { formatDuration } from '../util';
+import { showNotificationFromApiResponse } from '@/Common';
+import { Link } from 'react-router-dom';
+import styles from './RecordingCard.module.css';
+import { IconProp } from '@fortawesome/fontawesome-svg-core';
+
+interface RecordingProps {
+    recording: RecordingModel;
+    onDelete: (id: string) => void;
+}
+
+const RecordingCard: React.FC<RecordingProps> = ({ recording, onDelete }) => {
+    const [showSpeakerLabelDialog, setShowSpeakerLabelDialog] = useState(false);
+    const [speakerSummaries, setSpeakerSummaries] = useState<{ [key: string]: string } | null>(null);
+    const [transcriptionStatus, setTranscriptionStatus] = useState<string>(recording.transcription_status);
+    const [currentRecording, setCurrentRecording] = useState<RecordingModel>(recording);
+
+    const copyTranscriptToClipboard = async (text: string) => {
+        try {
+            await navigator.clipboard.writeText(text);
+            notifications.show({ title: 'Success', message: 'Transcript copied to clipboard!' });
+        } catch (err) {
+            console.error('Failed to copy text: ', err);
+            notifications.show({ title: 'Error', message: 'Failed to copy transcript to clipboard', color: 'red' });
+        }
+    };
+
+    const handleLabelSpeakers = () => setShowSpeakerLabelDialog(true);
+
+    const handleDownload = () => {
+        notifications.show({
+            title: 'Downloading',
+            message: 'Download started...',
+            color: 'blue'
+        });
+    };
+
+    const handleDelete = async () => {
+        if (recording.transcription_id) {
+            const response = await deleteTranscription(recording.transcription_id);
+            showNotificationFromApiResponse(response);
+        } else {
+            const response = await deleteRecording(recording.id);
+            showNotificationFromApiResponse(response);
+        }
+        onDelete(recording.id);
+    };
+
+    const handleAcceptSpeakerLabels = (speakerLabels: { [key: string]: string }) => {
+        fetch(`/api/update_speaker_labels/${recording.transcription_id}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(speakerLabels),
+        })
+        .then((response) => response.json())
+        .then((data) => notifications.show({ title: 'Success', message: 'Speaker labels updated successfully' }));
+    };
+
+    useEffect(() => {
+        if (showSpeakerLabelDialog) {
+            fetch(`/api/ai/get_speaker_summaries/${recording.transcription_id}`)
+                .then((response) => response.json())
+                .then((data) => setSpeakerSummaries(data))
+                .catch((error) => notifications.show({ title: 'Error', message: 'Failed to fetch speaker summaries', color: 'red' }));
+        }
+    }, [showSpeakerLabelDialog, recording.transcription_id]);
+
+    // Update local state when props change
+    useEffect(() => {
+        setCurrentRecording(recording);
+        setTranscriptionStatus(recording.transcription_status);
+    }, [recording]);
+
+    // Periodic check for transcription status if in progress
+    useEffect(() => {
+        let intervalId: number;
+        if (transcriptionStatus === 'in_progress') {
+            intervalId = window.setInterval(() => {
+                checkTranscriptionStatus(recording.id).then((response) => {
+                    if (response.status !== 'in_progress') {
+                        clearInterval(intervalId);
+                        setTranscriptionStatus(response.status);
+                        
+                        // If transcription is complete, fetch the updated recording
+                        if (response.status === 'completed') {
+                            fetchRecording(recording.id)
+                                .then(updatedRecording => {
+                                    // Update local state
+                                    setCurrentRecording(updatedRecording);
+                                    
+                                    // Update the recording in-place by dispatching event
+                                    window.dispatchEvent(new CustomEvent('recordingUpdated', { 
+                                        detail: { recording: updatedRecording } 
+                                    }));
+                                    
+                                    notifications.show({
+                                        title: 'Transcription Complete',
+                                        message: 'Your recording has been successfully transcribed',
+                                        color: 'green'
+                                    });
+                                })
+                                .catch(error => {
+                                    console.error('Failed to fetch updated recording:', error);
+                                    notifications.show({
+                                        title: 'Error',
+                                        message: 'Failed to fetch updated recording details',
+                                        color: 'red'
+                                    });
+                                });
+                        }
+                    }
+                });
+            }, 15000); // Check every 15 seconds instead of 60 seconds
+        }
+        return () => clearInterval(intervalId);
+    }, [recording.id, transcriptionStatus]);
+
+    return (
+        <Card shadow="sm" padding="lg" radius="md" withBorder className={styles.recordingCard}>
+            <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+                <div style={{ flex: 1 }}>
+                    <Text fw={500}>{currentRecording.title || currentRecording.original_filename}</Text>
+                    <Text size="sm" c="dimmed">Duration: {formatDuration(currentRecording.duration || 0)}</Text>
+                    {currentRecording.recorded_timestamp && (
+                        <Text size="xs" c="dimmed">Recorded: {new Date(currentRecording.recorded_timestamp).toLocaleDateString()}</Text>
+                    )}
+                    <Group gap="xs">            
+                        <Text size="sm" c={transcriptionStatus === 'completed' ? 'green.6' : 
+                                         transcriptionStatus === 'in_progress' ? 'blue.6' : 'gray.6'}>
+                            {transcriptionStatus === 'completed' && "✓ Transcription Complete"}
+                            {transcriptionStatus === 'in_progress' && "⟳ Processing..."}
+                            {transcriptionStatus === 'not_started' && "• Not Started"}
+                        </Text>
+                    </Group>
+                </div>
+
+                <Group mt="auto" justify="flex-end" gap="xs" className={styles.actionButtons}>
+                    <Tooltip label="Start Transcription">
+                        <Button
+                            onClick={async () => {
+                                const response = await startTranscription(recording.id);
+                                showNotificationFromApiResponse(response);
+                                
+                                // Immediately fetch updated recording data
+                                try {
+                                    const updatedRecording = await fetchRecording(recording.id);
+                                    setCurrentRecording(updatedRecording);
+                                    setTranscriptionStatus(updatedRecording.transcription_status);
+                                    
+                                    // Also update parent component
+                                    window.dispatchEvent(new CustomEvent('recordingUpdated', { 
+                                        detail: { recording: updatedRecording } 
+                                    }));
+                                } catch (error) {
+                                    console.error('Failed to fetch updated recording after starting transcription:', error);
+                                }
+                            }}
+                            disabled={transcriptionStatus === 'completed'}
+                            variant="subtle"
+                            size="sm"
+                        >
+                            <FontAwesomeIcon icon={faFileAudio as IconProp} />
+                        </Button>
+                    </Tooltip>
+                    <Tooltip label="View Transcription">
+                        <Button
+                            component={Link}
+                            to={`/view_transcription/${transcriptionStatus === 'completed' ? currentRecording.transcription_id : -1}`}
+                            disabled={transcriptionStatus !== 'completed'}
+                            variant="subtle"
+                            size="sm"
+                        >
+                            <FontAwesomeIcon icon={faFileLines} />
+                        </Button>
+                    </Tooltip>
+                    <Tooltip label="Infer Speaker Names">
+                        <Button
+                            component="a"
+                            href={`/api/ai/infer_speaker_names/${currentRecording.transcription_id}`}
+                            disabled={transcriptionStatus !== 'completed'}
+                            variant="subtle"
+                            size="sm"
+                        >
+                            <FontAwesomeIcon icon={faUserTag} />
+                        </Button>
+                    </Tooltip>
+                    <Tooltip label="Download">
+                        <Button onClick={handleDownload} disabled={transcriptionStatus === 'not_started'} variant="subtle" size="sm">
+                            <FontAwesomeIcon icon={faDownload} />
+                        </Button>
+                    </Tooltip>
+                    <Tooltip label="Copy Transcript">
+                        <Button onClick={() => copyTranscriptToClipboard("dummy text")} disabled={transcriptionStatus !== 'completed'} variant="subtle" size="xs">
+                            <FontAwesomeIcon icon={faCopy as IconProp} />
+                        </Button>
+                    </Tooltip>
+                    <Tooltip label="Delete">
+                        <Button onClick={handleDelete} variant="subtle" size="sm" color="red">
+                            <FontAwesomeIcon icon={faTrashAlt} />
+                        </Button>
+                    </Tooltip>
+                    <Tooltip label="Label Speakers">
+                        <Button onClick={handleLabelSpeakers} disabled={transcriptionStatus !== 'completed'} variant="subtle" size="sm">
+                            <FontAwesomeIcon icon={faTag} />
+                        </Button>
+                    </Tooltip>
+                </Group>
+            </div>
+
+            {showSpeakerLabelDialog && (
+                <SpeakerLabelDialog
+                    speakerSummaries={speakerSummaries || {}}
+                    isLoading={speakerSummaries === null}
+                    onClose={() => setShowSpeakerLabelDialog(false)}
+                    onAccept={handleAcceptSpeakerLabels}
+                />
+            )}
+        </Card>
+    );
+};
+
+export default RecordingCard;
+
+
+File: components/RecordingCompleteDialog.tsx
+--------------------------------------------------
+Content of components/RecordingCompleteDialog.tsx:
+import { Modal, TextInput, Textarea, Button, Group, Stack, Text } from '@mantine/core';
+import React from 'react';
+
+interface RecordingCompleteDialogProps {
+  isOpen: boolean;
+  onDiscard: () => void;
+  onSubmit: (data: { title: string; description: string }) => void;
+  recordingLength: number;
+}
+
+export function RecordingCompleteDialog({
+  isOpen,
+  onDiscard,
+  onSubmit,
+  recordingLength,
+}: RecordingCompleteDialogProps) {
+  const [title, setTitle] = React.useState('');
+  const [description, setDescription] = React.useState('');
+
+  const handleSubmit = () => {
+    onSubmit({ title, description });
+    setTitle('');
+    setDescription('');
+  };
+
+  const formatTime = (seconds: number) => {
+    const minutes = Math.floor(seconds / 60).toString().padStart(2, '0');
+    const remainingSeconds = (seconds % 60).toString().padStart(2, '0');
+    return `${minutes}:${remainingSeconds}`;
+  };
+
+  return (
+    <Modal opened={isOpen} onClose={onDiscard} title="Save Recording">
+      <Stack>
+        <TextInput
+          label="Recording Title"
+          placeholder="Enter a title"
+          value={title}
+          onChange={(e) => setTitle(e.currentTarget.value)}
+          required
+        />
+        <Textarea
+          label="Description"
+          placeholder="Enter a brief description"
+          value={description}
+          onChange={(e) => setDescription(e.currentTarget.value)}
+          minRows={3}
+        />
+        <Text size="sm" c="dimmed">Recording length: {formatTime(recordingLength)}</Text>
+        
+        <Group justify="flex-end" mt="md">
+          <Button variant="light" color="red" onClick={onDiscard}>
+            Discard
+          </Button>
+          <Button onClick={handleSubmit} disabled={!title}>
+            Save Recording
+          </Button>
+        </Group>
+      </Stack>
+    </Modal>
+  );
+}
+
+File: components/LocalAuthDropdown.tsx
+--------------------------------------------------
+Content of components/LocalAuthDropdown.tsx:
+import { useState, useEffect } from 'react';
+import { Select, Button, Group, Text } from '@mantine/core';
+import { notifications } from '@mantine/notifications';
+import { IconTrash, IconUser } from '@tabler/icons-react';
+
+interface TestUser {
+  id: string;
+  name: string;
+}
+
+interface LocalAuthDropdownProps {
+  onUserChange?: (user: TestUser | null) => void;
+}
+
+export function LocalAuthDropdown({ onUserChange }: LocalAuthDropdownProps) {
+  const [testUsers, setTestUsers] = useState<TestUser[]>([]);
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [resetting, setResetting] = useState<string | null>(null);
+
+  // Only show this component if local auth is enabled
+  if (!import.meta.env.VITE_LOCAL_AUTH) {
+    return null;
+  }
+
+  // Load test users on component mount
+  useEffect(() => {
+    fetchTestUsers();
+    // Load selected user from localStorage
+    const savedUserId = localStorage.getItem('localAuthUserId');
+    if (savedUserId) {
+      setSelectedUserId(savedUserId);
+    }
+  }, []);
+
+  const fetchTestUsers = async () => {
+    try {
+      const response = await fetch('/api/local/users');
+      if (response.ok) {
+        const users = await response.json();
+        setTestUsers(users);
+      } else {
+        console.error('Failed to fetch test users');
+      }
+    } catch (error) {
+      console.error('Error fetching test users:', error);
+    }
+  };
+
+  const handleUserSelect = async (userId: string | null) => {
+    if (!userId) {
+      // Logout - clear selection
+      setSelectedUserId(null);
+      localStorage.removeItem('localAuthUserId');
+      onUserChange?.(null);
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const response = await fetch('/api/local/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ user_id: userId }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setSelectedUserId(userId);
+        localStorage.setItem('localAuthUserId', userId);
+        
+        const selectedUser = testUsers.find(u => u.id === userId);
+        onUserChange?.(selectedUser || null);
+        
+        notifications.show({
+          title: 'Logged in',
+          message: `Logged in as ${data.user.name}`,
+          color: 'green',
+          icon: <IconUser size={16} />,
+        });
+      } else {
+        const error = await response.json();
+        notifications.show({
+          title: 'Login failed',
+          message: error.error || 'Failed to login',
+          color: 'red',
+        });
+      }
+    } catch (error) {
+      console.error('Login error:', error);
+      notifications.show({
+        title: 'Login failed',
+        message: 'Network error',
+        color: 'red',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResetUser = async (userId: string) => {
+    const user = testUsers.find(u => u.id === userId);
+    if (!user || !confirm(`Reset all data for ${user.name}? This will delete all recordings and transcriptions.`)) {
+      return;
+    }
+
+    setResetting(userId);
+    try {
+      const response = await fetch(`/api/local/reset-user/${userId}`, {
+        method: 'POST',
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        notifications.show({
+          title: 'User reset',
+          message: `Reset ${user.name}: ${data.deleted_recordings} recordings, ${data.deleted_transcriptions} transcriptions deleted`,
+          color: 'blue',
+        });
+      } else {
+        const error = await response.json();
+        notifications.show({
+          title: 'Reset failed',
+          message: error.error || 'Failed to reset user',
+          color: 'red',
+        });
+      }
+    } catch (error) {
+      console.error('Reset error:', error);
+      notifications.show({
+        title: 'Reset failed',
+        message: 'Network error',
+        color: 'red',
+      });
+    } finally {
+      setResetting(null);
+    }
+  };
+
+  return (
+    <Group align="center" gap="xs">
+      <Text size="sm" c="dimmed">Test User:</Text>
+      <Select
+        placeholder="Select test user"
+        data={[
+          { value: '', label: 'None (Logout)' },
+          ...testUsers.map(user => ({ value: user.id, label: user.name }))
+        ]}
+        value={selectedUserId}
+        onChange={handleUserSelect}
+        disabled={loading}
+        w={200}
+        size="sm"
+      />
+      {selectedUserId && (
+        <Button
+          variant="light"
+          color="red"
+          size="xs"
+          leftSection={<IconTrash size={14} />}
+          loading={resetting === selectedUserId}
+          onClick={() => handleResetUser(selectedUserId)}
+        >
+          Reset Data
+        </Button>
+      )}
+    </Group>
+  );
+}
+
+File: components/Recording.css
+--------------------------------------------------
+Content of components/Recording.css:
+/* src/components/Recording.css */
+
+.recording-row {
+    position: relative;
+}
+
+.icon-buttons {
+    display: flex;
+    gap: 0.5rem; /* Space between icons */
+    visibility: hidden; /* Initially hidden */
+    align-items: center;
+}
+
+.icon-button {
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    min-width: 36px; /* Ensures uniform size */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.spinning_icon {
+    animation: spin 2s linear infinite;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+
+/* General table styling */
+.table-container {
+    background-color: #f8f9fa; /* Light background */
+    border-radius: 8px;
+    padding: 20px;
+    margin-top: 20px;
+  }
+  
+  .recording-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  
+  .recording-table th,
+  .recording-table td {
+    padding: 10px 12px;
+    text-align: left;
+  }
+  
+  .recording-table th {
+    background-color: #e9ecef; /* Header background */
+    color: #495057;
+    font-weight: 600;
+  }
+  
+  .recording-table tr:nth-child(even) {
+    background-color: #f1f3f5; /* Alternate row colors */
+  }
+  
+  /* Action icons */
+  .icon-buttons {
+    display: flex;
+    gap: 8px;
+    visibility: hidden; /* Hidden by default */
+  }
+  
+  .recording-row:hover .icon-buttons {
+    visibility: visible; /* Show on hover */
+  }
+  
+  .icon-button {
+    font-size: 1rem;
+    color: #007bff; /* Font awesome icon color */
+    padding: 4px;
+  }
+  
+
+File: components/RecordingCard.module.css
+--------------------------------------------------
+Content of components/RecordingCard.module.css:
+.recordingCard {
+    transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+
+.recordingCard:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.actionButtons {
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.recordingCard:hover .actionButtons {
+    opacity: 1;
+}
+
+File: components/ColorSchemeToggle/ColorSchemeToggle.tsx
+--------------------------------------------------
+Content of components/ColorSchemeToggle/ColorSchemeToggle.tsx:
+import { Button, Group, useMantineColorScheme } from '@mantine/core';
+
+export function ColorSchemeToggle() {
+  const { setColorScheme } = useMantineColorScheme();
+
+  return (
+    <Group justify="center" mt="xl">
+      <Button onClick={() => setColorScheme('light')}>Light</Button>
+      <Button onClick={() => setColorScheme('dark')}>Dark</Button>
+      <Button onClick={() => setColorScheme('auto')}>Auto</Button>
+    </Group>
+  );
+}
+
+
+File: components/Welcome/Welcome.test.tsx
+--------------------------------------------------
+Content of components/Welcome/Welcome.test.tsx:
+import { render, screen } from '@test-utils';
+import { Welcome } from './Welcome';
+
+describe('Welcome component', () => {
+  it('has correct Vite guide link', () => {
+    render(<Welcome />);
+    expect(screen.getByText('this guide')).toHaveAttribute(
+      'href',
+      'https://mantine.dev/guides/vite/'
+    );
+  });
+});
+
+
+File: components/Welcome/Welcome.module.css
+--------------------------------------------------
+Content of components/Welcome/Welcome.module.css:
+.title {
+  color: light-dark(var(--mantine-color-black), var(--mantine-color-white));
+  font-size: rem(100px);
+  font-weight: 900;
+  letter-spacing: rem(-2px);
+
+  @media (max-width: $mantine-breakpoint-md) {
+    font-size: rem(50px);
+  }
+}
+
+
+File: components/Welcome/Welcome.story.tsx
+--------------------------------------------------
+Content of components/Welcome/Welcome.story.tsx:
+import { Welcome } from './Welcome';
+
+export default {
+  title: 'Welcome',
+};
+
+export const Usage = () => <Welcome />;
+
+
+File: components/Welcome/Welcome.tsx
+--------------------------------------------------
+Content of components/Welcome/Welcome.tsx:
+import { Anchor, Text, Title } from '@mantine/core';
+import classes from './Welcome.module.css';
+
+export function Welcome() {
+  return (
+    <>
+      <Title className={classes.title} ta="center" mt={100}>
+        Welcome to{' '}
+        <Text inherit variant="gradient" component="span" gradient={{ from: 'pink', to: 'yellow' }}>
+          Mantine
+        </Text>
+      </Title>
+      <Text c="dimmed" ta="center" size="lg" maw={580} mx="auto" mt="xl">
+        This starter Vite project includes a minimal setup, if you want to learn more on Mantine +
+        Vite integration follow{' '}
+        <Anchor href="https://mantine.dev/guides/vite/" size="lg">
+          this guide
+        </Anchor>
+        . To get started edit pages/Home.page.tsx file.
+      </Text>
+    </>
+  );
+}
+
+

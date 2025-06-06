@@ -51,46 +51,6 @@ const TagSelector: React.FC<TagSelectorProps> = ({
         </Group>
     );
 
-    const renderValue = ({ value, label, onRemove, classNames, ...others }: any) => {
-        const tag = userTags.find(t => t.id === value);
-        if (!tag) return null;
-        
-        return (
-            <div
-                style={{
-                    backgroundColor: tag.color,
-                    color: 'white',
-                    padding: '2px 8px',
-                    borderRadius: '4px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                    fontSize: '12px',
-                    margin: '1px'
-                }}
-                {...others}
-            >
-                <span>{tag.name}</span>
-                {onRemove && (
-                    <button
-                        onClick={onRemove}
-                        style={{
-                            background: 'none',
-                            border: 'none',
-                            color: 'white',
-                            cursor: 'pointer',
-                            padding: '0',
-                            marginLeft: '4px',
-                            fontSize: '14px',
-                            lineHeight: 1
-                        }}
-                    >
-                        ×
-                    </button>
-                )}
-            </div>
-        );
-    };
 
     return (
         <MultiSelect
@@ -103,7 +63,6 @@ const TagSelector: React.FC<TagSelectorProps> = ({
             searchable
             clearable
             renderOption={renderSelectOption}
-            valueComponent={renderValue}
             maxDropdownHeight={200}
             size="sm"
         />

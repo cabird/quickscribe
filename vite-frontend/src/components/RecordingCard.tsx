@@ -28,7 +28,7 @@ interface RecordingProps {
 const RecordingCard: React.FC<RecordingProps> = ({ recording, onDelete, userTags }) => {
     const [showSpeakerLabelDialog, setShowSpeakerLabelDialog] = useState(false);
     const [speakerSummaries, setSpeakerSummaries] = useState<{ [key: string]: string } | null>(null);
-    const [transcriptionStatus, setTranscriptionStatus] = useState<string>(recording.transcription_status);
+    const [transcriptionStatus, setTranscriptionStatus] = useState<string>(recording.transcription_status || 'not_started');
     const [currentRecording, setCurrentRecording] = useState<RecordingModel>(recording);
     const [showTagDialog, setShowTagDialog] = useState(false);
     const [tagsLoading, setTagsLoading] = useState(false);
@@ -234,7 +234,7 @@ const RecordingCard: React.FC<RecordingProps> = ({ recording, onDelete, userTags
     // Update local state when props change
     useEffect(() => {
         setCurrentRecording(recording);
-        setTranscriptionStatus(recording.transcription_status);
+        setTranscriptionStatus(recording.transcription_status || 'not_started');
     }, [recording]);
 
     // Periodic check for transcription status if in progress
@@ -326,7 +326,7 @@ const RecordingCard: React.FC<RecordingProps> = ({ recording, onDelete, userTags
                                 try {
                                     const updatedRecording = await fetchRecording(recording.id);
                                     setCurrentRecording(updatedRecording);
-                                    setTranscriptionStatus(updatedRecording.transcription_status);
+                                    setTranscriptionStatus(updatedRecording.transcription_status || 'not_started');
                                     
                                     // Also update parent component
                                     window.dispatchEvent(new CustomEvent('recordingUpdated', { 

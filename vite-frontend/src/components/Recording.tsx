@@ -26,7 +26,7 @@ interface RecordingProps {
 const Recording: React.FC<RecordingProps> = ({ recording, refreshTrigger }) => {
     const [showSpeakerLabelDialog, setShowSpeakerLabelDialog] = useState(false);
     const [speakerSummaries, setSpeakerSummaries] = useState<{ [key: string]: string } | null>(null);
-    const [transcriptionStatus, setTranscriptionStatus] = useState<string>(recording.transcription_status);
+    const [transcriptionStatus, setTranscriptionStatus] = useState<string>(recording.transcription_status || 'not_started');
     const [recordingData, setRecordingData] = useState<RecordingModel>(recording);
 
     const fetchUpdatedRecording = useCallback(async () => {
