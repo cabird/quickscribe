@@ -1,9 +1,12 @@
 import { Stack, Group, Text, UnstyledButton, rem } from '@mantine/core';
 import { LuUpload, LuSearch, LuSettings } from 'react-icons/lu';
 import { useUIStore } from '../../stores/useUIStore';
-import { UploadTab } from './UploadTab';
-import { BrowseTab } from './BrowseTab';
-import { SettingsTab } from './SettingsTab';
+import { lazy, Suspense, memo } from 'react';
+
+// Lazy load tab components to reduce initial bundle and improve tab switching
+const UploadTab = lazy(() => import('./UploadTab').then(module => ({ default: module.UploadTab })));
+const BrowseTab = lazy(() => import('./BrowseTab').then(module => ({ default: module.BrowseTab })));
+const SettingsTab = lazy(() => import('./SettingsTab').then(module => ({ default: module.SettingsTab })));
 
 const tabs = [
   { value: 'upload', label: 'Upload', icon: LuUpload },
@@ -11,7 +14,7 @@ const tabs = [
   { value: 'settings', label: 'Settings', icon: LuSettings },
 ] as const;
 
-export function Sidebar() {
+export const Sidebar = memo(function Sidebar() {
   const { sidebarTab, setSidebarTab } = useUIStore();
 
   return (
@@ -36,11 +39,16 @@ export function Sidebar() {
                 onClick={() => setSidebarTab(tab.value)}
                 style={{
                   padding: rem(8),
-                  borderRadius: rem(6),
-                  backgroundColor: isActive ? 'var(--mantine-color-blue-light)' : 'var(--mantine-color-gray-0)',
+                  borderRadius: rem(12),
+                  background: isActive 
+                    ? 'linear-gradient(135deg, rgba(74, 144, 226, 0.25), rgba(74, 144, 226, 0.15))'
+                    : 'linear-gradient(135deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.05))',
+                  backdropFilter: 'blur(8px)',
+                  border: `1px solid ${isActive ? 'rgba(74, 144, 226, 0.3)' : 'rgba(255, 255, 255, 0.1)'}`,
                   color: isActive ? 'var(--mantine-color-blue-filled)' : 'var(--mantine-color-gray-7)',
                   textAlign: 'center',
-                  transition: 'all 200ms ease',
+                  transition: 'all 300ms ease',
+                  boxShadow: isActive ? '0 4px 16px rgba(74, 144, 226, 0.2)' : '0 2px 8px rgba(0, 0, 0, 0.1)',
                 }}
               >
                 <Stack align="center" gap={4}>
@@ -57,10 +65,12 @@ export function Sidebar() {
 
       {/* Tab Content */}
       <Stack flex={1} p="lg" pt={0}>
-        {sidebarTab === 'upload' && <UploadTab />}
-        {sidebarTab === 'browse' && <BrowseTab />}
-        {sidebarTab === 'settings' && <SettingsTab />}
+        <Suspense fallback={<div>Loading...</div>}>
+          {sidebarTab === 'upload' && <UploadTab />}
+          {sidebarTab === 'browse' && <BrowseTab />}
+          {sidebarTab === 'settings' && <SettingsTab />}
+        </Suspense>
       </Stack>
     </Stack>
   );
-}
+});

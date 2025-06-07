@@ -20,9 +20,12 @@ export function TagBadge({ tag, size = 'sm', removable = false, onRemove }: TagB
       size={size}
       variant="light"
       style={{
-        backgroundColor: `${tag.color}15`,
+        background: `linear-gradient(135deg, ${tag.color}20, ${tag.color}10)`,
         color: tag.color,
         border: `1px solid ${tag.color}40`,
+        backdropFilter: 'blur(8px)',
+        fontWeight: 500,
+        transition: 'all 0.2s ease',
       }}
       leftSection={
         <div

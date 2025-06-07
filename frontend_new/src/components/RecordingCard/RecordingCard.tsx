@@ -187,13 +187,11 @@ export function RecordingCard({ recording: initialRecording, userTags }: Recordi
       padding="lg"
       radius="md"
       withBorder
+      className="glass-card"
       style={{
         cursor: 'pointer',
-        transition: 'all 200ms ease',
-        '&:hover': {
-          transform: 'translateY(-4px)',
-          boxShadow: 'var(--mantine-shadow-lg)',
-        },
+        position: 'relative',
+        overflow: 'hidden',
       }}
     >
       <Stack gap="md">

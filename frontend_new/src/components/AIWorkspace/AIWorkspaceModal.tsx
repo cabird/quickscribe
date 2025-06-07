@@ -119,117 +119,119 @@ export function AIWorkspaceModal() {
       onClose={closeAIWorkspace}
       size="xl"
       title={
-        <Group>
-          <Text fw={600} size="lg">Recording Workspace</Text>
-          <Text size="sm" c="dimmed">
-            {recording.title || recording.original_filename}
-          </Text>
-        </Group>
+        <Stack gap="xs" style={{ width: '100%' }}>
+          <Group justify="space-between" align="center">
+            <Text fw={600} size="lg">Recording Workspace</Text>
+            <Badge color="green" variant="light" size="sm">
+              {getStatusText(recording.transcription_status)}
+            </Badge>
+          </Group>
+          <Group justify="space-between" align="center">
+            <Text fw={500} size="md" style={{ flex: 1 }}>
+              {recording.title || recording.original_filename}
+            </Text>
+            <Text size="sm" c="dimmed">
+              {formatDuration(recording.duration || 0)} • {recording.recorded_timestamp ? new Date(recording.recorded_timestamp).toLocaleDateString() : 'Unknown'}
+            </Text>
+          </Group>
+          {recordingTags.length > 0 && (
+            <Group gap="xs">
+              {recordingTags.map(tag => (
+                <TagBadge key={tag.id} tag={tag} size="xs" />
+              ))}
+            </Group>
+          )}
+        </Stack>
       }
-      style={{
-        height: '90vh',
-        maxHeight: '90vh',
+      styles={{
+        body: {
+          height: '80vh',
+          maxHeight: '80vh',
+          overflow: 'hidden', // Prevent modal body from scrolling
+          padding: 0,
+        },
+        content: {
+          height: '90vh',
+          maxHeight: '90vh',
+          display: 'flex',
+          flexDirection: 'column',
+        },
       }}
     >
-      <Grid h="100%" gutter={0}>
-        {/* Left Panel - Recording Details */}
-        <Grid.Col span={5} style={{ borderRight: '1px solid var(--mantine-color-gray-3)' }}>
-          <Stack p="md" h="100%" style={{ overflow: 'auto' }}>
-            {/* Recording Info Card */}
-            <Card withBorder radius="md" style={{ background: 'linear-gradient(135deg, var(--mantine-color-blue-0) 0%, var(--mantine-color-blue-1) 100%)' }}>
-              <Stack gap="sm">
-                <Text fw={600} size="lg">
-                  {recording.title || recording.original_filename}
-                </Text>
-                <Text size="sm" c="dimmed">
-                  Duration: {formatDuration(recording.duration || 0)} • 
-                  Recorded: {recording.recorded_timestamp ? new Date(recording.recorded_timestamp).toLocaleDateString() : 'Unknown'}
-                </Text>
-                <Badge color="green" variant="light" size="sm">
-                  {getStatusText(recording.transcription_status)}
-                </Badge>
-                
-                {recordingTags.length > 0 && (
-                  <Group gap="xs">
-                    {recordingTags.map(tag => (
-                      <TagBadge key={tag.id} tag={tag} size="xs" />
-                    ))}
-                  </Group>
-                )}
-              </Stack>
-            </Card>
-
-            {/* Transcript Preview */}
-            <Card withBorder radius="md">
-              <Stack gap="sm">
-                <Group justify="space-between">
-                  <Group gap="xs">
-                    <LuFileText size={20} />
-                    <Text fw={600} size="md">Transcript Preview</Text>
-                  </Group>
-                  <Group gap="xs">
-                    <Button 
-                      size="xs" 
-                      variant="light" 
-                      leftSection={<LuCopy size={14} />}
-                      onClick={handleCopyTranscript}
-                      disabled={!transcription || transcriptionLoading}
-                    >
-                      Copy
-                    </Button>
-                    <Button size="xs" variant="light" leftSection={<LuEye size={14} />}>
-                      View Full
-                    </Button>
-                  </Group>
+      <div style={{ height: '100%', padding: '1rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        {/* Top Half - Transcript Preview (Fixed Height) */}
+        <div style={{ height: '400px', flexShrink: 0 }}>
+          <Card withBorder radius="md" h="100%">
+            <Stack gap="sm" h="100%">
+              <Group justify="space-between" style={{ flexShrink: 0 }}>
+                <Group gap="xs">
+                  <LuFileText size={20} />
+                  <Text fw={600} size="md">Transcript Preview</Text>
                 </Group>
-                
-                <div style={{ 
-                  maxHeight: 400, 
-                  overflow: 'auto',
-                  padding: '0.5rem',
-                  backgroundColor: 'var(--mantine-color-gray-0)',
-                  borderRadius: '4px',
-                  fontSize: '0.875rem',
-                  lineHeight: 1.6,
-                }}>
-                  {transcriptionLoading ? (
-                    <Center p="md">
-                      <Loader size="sm" />
-                    </Center>
-                  ) : transcription?.diarized_transcript ? (
-                    <div
-                      dangerouslySetInnerHTML={{
-                        __html: transcription.diarized_transcript
-                          .split('\n')
-                          .map(line => {
-                            // Parse speaker lines (format: "Speaker Name: text")
-                            const speakerMatch = line.match(/^([^:]+):\s*(.*)$/);
-                            if (speakerMatch) {
-                              return `<div style="margin-bottom: 1rem;"><strong style="color: var(--mantine-color-blue-6);">${speakerMatch[1]}:</strong><br/>${speakerMatch[2]}</div>`;
-                            }
-                            return `<div style="margin-bottom: 0.5rem;">${line}</div>`;
-                          })
-                          .join('')
-                      }}
-                    />
-                  ) : transcription?.text ? (
-                    <Text size="sm" style={{ whiteSpace: 'pre-wrap' }}>
-                      {transcription.text}
-                    </Text>
-                  ) : (
-                    <Text size="sm" c="dimmed" ta="center">
-                      No transcript available for this recording
-                    </Text>
-                  )}
-                </div>
-              </Stack>
-            </Card>
-          </Stack>
-        </Grid.Col>
+                <Group gap="xs">
+                  <Button 
+                    size="xs" 
+                    variant="light" 
+                    leftSection={<LuCopy size={14} />}
+                    onClick={handleCopyTranscript}
+                    disabled={!transcription || transcriptionLoading}
+                  >
+                    Copy
+                  </Button>
+                  <Button size="xs" variant="light" leftSection={<LuEye size={14} />}>
+                    View Full
+                  </Button>
+                </Group>
+              </Group>
+              
+              {/* Scrollable Transcript Area */}
+              <div style={{ 
+                flex: 1,
+                overflow: 'auto',
+                padding: '0.75rem',
+                backgroundColor: 'var(--mantine-color-gray-0)',
+                borderRadius: '6px',
+                fontSize: '0.875rem',
+                lineHeight: 1.6,
+                border: '1px solid var(--mantine-color-gray-3)',
+                minHeight: 0, // Allow flex shrinking
+              }}>
+                {transcriptionLoading ? (
+                  <Center p="md">
+                    <Loader size="sm" />
+                  </Center>
+                ) : transcription?.diarized_transcript ? (
+                  <div
+                    dangerouslySetInnerHTML={{
+                      __html: transcription.diarized_transcript
+                        .split('\n')
+                        .map(line => {
+                          // Parse speaker lines (format: "Speaker Name: text")
+                          const speakerMatch = line.match(/^([^:]+):\s*(.*)$/);
+                          if (speakerMatch) {
+                            return `<div style="margin-bottom: 1rem;"><strong style="color: var(--mantine-color-blue-6);">${speakerMatch[1]}:</strong><br/>${speakerMatch[2]}</div>`;
+                          }
+                          return `<div style="margin-bottom: 0.5rem;">${line}</div>`;
+                        })
+                        .join('')
+                    }}
+                  />
+                ) : transcription?.text ? (
+                  <Text size="sm" style={{ whiteSpace: 'pre-wrap' }}>
+                    {transcription.text}
+                  </Text>
+                ) : (
+                  <Text size="sm" c="dimmed" ta="center">
+                    No transcript available for this recording
+                  </Text>
+                )}
+              </div>
+            </Stack>
+          </Card>
+        </div>
 
-        {/* Right Panel - AI Tools & Results */}
-        <Grid.Col span={7}>
-          <Stack p="md" h="100%" style={{ overflow: 'auto' }}>
+        {/* Bottom Half - AI Tools & Results (Uses remaining space) */}
+        <div style={{ flex: 1, overflow: 'auto', minHeight: 0 }}>
             {/* Quick Analysis Tools */}
             <Stack gap="sm">
               <Group gap="xs">
@@ -334,9 +336,8 @@ export function AIWorkspaceModal() {
                 </Stack>
               </>
             )}
-          </Stack>
-        </Grid.Col>
-      </Grid>
+        </div>
+      </div>
     </Modal>
   );
 }

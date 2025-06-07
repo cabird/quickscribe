@@ -4,7 +4,7 @@ import { useUIStore } from '../../stores/useUIStore';
 import { useRecordingStore } from '../../stores/useRecordingStore';
 import { useTagStore } from '../../stores/useTagStore';
 import { TagManager } from '../Tags/TagManager';
-import { useState } from 'react';
+import { useState, memo, useMemo } from 'react';
 
 const statusFilters = [
   { value: 'all', label: 'All Recordings', icon: LuMusic, color: 'blue' },
@@ -13,32 +13,32 @@ const statusFilters = [
   { value: 'completed', label: 'Completed', icon: LuCheck, color: 'teal' },
 ];
 
-export function BrowseTab() {
+export const BrowseTab = memo(function BrowseTab() {
   const { filters, setFilters } = useUIStore();
   const { recordings } = useRecordingStore();
   const { tags } = useTagStore();
   const [showTagManager, setShowTagManager] = useState(false);
 
-  // Count recordings for each filter
+  // Memoize expensive filter calculations
+  const filterCounts = useMemo(() => {
+    const weekAgo = new Date();
+    weekAgo.setDate(weekAgo.getDate() - 7);
+    
+    return {
+      all: recordings.length,
+      recent: recordings.filter(r => new Date(r.upload_timestamp || 0) > weekAgo).length,
+      processing: recordings.filter(r => 
+        r.transcription_status === 'in_progress' || 
+        r.transcoding_status === 'in_progress' ||
+        r.transcoding_status === 'queued'
+      ).length,
+      completed: recordings.filter(r => r.transcription_status === 'completed').length,
+    };
+  }, [recordings]);
+
+  // Count recordings for each filter (now using memoized values)
   const getFilterCount = (filterValue: string) => {
-    switch (filterValue) {
-      case 'all':
-        return recordings.length;
-      case 'recent':
-        const weekAgo = new Date();
-        weekAgo.setDate(weekAgo.getDate() - 7);
-        return recordings.filter(r => new Date(r.upload_timestamp || 0) > weekAgo).length;
-      case 'processing':
-        return recordings.filter(r => 
-          r.transcription_status === 'in_progress' || 
-          r.transcoding_status === 'in_progress' ||
-          r.transcoding_status === 'queued'
-        ).length;
-      case 'completed':
-        return recordings.filter(r => r.transcription_status === 'completed').length;
-      default:
-        return 0;
-    }
+    return filterCounts[filterValue as keyof typeof filterCounts] || 0;
   };
 
   // Count recordings for each tag
@@ -195,4 +195,4 @@ export function BrowseTab() {
       )}
     </Stack>
   );
-}
+});

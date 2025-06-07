@@ -202,9 +202,13 @@ export function UploadTab() {
             textAlign: 'center',
             cursor: 'pointer',
             transition: 'all 200ms ease',
+            backgroundColor: 'rgba(255, 255, 255, 0.8)',
+            backdropFilter: 'blur(8px)',
+            border: '2px dashed rgba(74, 144, 226, 0.4)',
             '&:hover': {
               borderColor: 'var(--mantine-color-blue-6)',
-              backgroundColor: 'var(--mantine-color-blue-0)',
+              backgroundColor: 'rgba(74, 144, 226, 0.1)',
+              borderStyle: 'dashed',
             },
           },
         }}
@@ -269,6 +273,7 @@ export function UploadTab() {
         <Button 
           fullWidth 
           variant="filled"
+          color="blue"
           onClick={() => (document.querySelector('input[type="file"]') as HTMLInputElement)?.click()}
           loading={uploadLoading}
         >

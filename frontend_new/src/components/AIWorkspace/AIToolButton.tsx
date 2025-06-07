@@ -68,16 +68,23 @@ export function AIToolButton({ icon, title, description, onComplete }: AIToolBut
       radius="md"
       style={{
         cursor: status === 'idle' ? 'pointer' : 'default',
-        transition: 'all 200ms ease',
+        transition: 'all 300ms cubic-bezier(0.4, 0, 0.2, 1)',
         background: status === 'completed' 
-          ? 'linear-gradient(135deg, var(--mantine-color-green-0) 0%, var(--mantine-color-green-1) 100%)'
+          ? 'linear-gradient(135deg, rgba(64, 192, 87, 0.15), rgba(64, 192, 87, 0.08))'
           : status === 'processing'
-          ? 'linear-gradient(135deg, var(--mantine-color-yellow-0) 0%, var(--mantine-color-yellow-1) 100%)'
-          : 'linear-gradient(135deg, var(--mantine-color-blue-0) 0%, var(--mantine-color-blue-1) 100%)',
-        '&:hover': {
-          transform: status === 'idle' ? 'translateY(-2px)' : 'none',
-          boxShadow: status === 'idle' ? 'var(--mantine-shadow-md)' : 'none',
-        },
+          ? 'linear-gradient(135deg, rgba(255, 212, 59, 0.15), rgba(255, 212, 59, 0.08))'
+          : 'linear-gradient(135deg, rgba(74, 144, 226, 0.12), rgba(74, 144, 226, 0.06))',
+        backdropFilter: 'blur(12px)',
+        border: `1px solid ${
+          status === 'completed' ? 'rgba(64, 192, 87, 0.3)' :
+          status === 'processing' ? 'rgba(255, 212, 59, 0.3)' :
+          'rgba(74, 144, 226, 0.2)'
+        }`,
+        boxShadow: status === 'completed' 
+          ? '0 8px 32px rgba(64, 192, 87, 0.2)' 
+          : status === 'processing'
+          ? '0 8px 32px rgba(255, 212, 59, 0.2)'
+          : '0 6px 24px rgba(74, 144, 226, 0.15)',
       }}
       onClick={handleClick}
     >
