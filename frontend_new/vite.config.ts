@@ -14,15 +14,15 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'http://localhost:5000',
+        target: 'http://backend:8000',
         changeOrigin: true,
       },
       '/plaud': {
-        target: 'http://localhost:5000',
+        target: 'http://backend:8000',
         changeOrigin: true,
       },
       '/az_transcription': {
-        target: 'http://localhost:5000',
+        target: 'http://backend:8000',
         changeOrigin: true,
       },
     },

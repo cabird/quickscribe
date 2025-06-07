@@ -127,10 +127,14 @@ make logs
 #### Model Synchronization Workflow
 1. Edit `shared/Models.ts` 
 2. Run `make build` in backend directory
-3. Copy to frontend: `cp shared/Models.ts vite-frontend/src/interfaces/Models.ts`
+3. Frontend models are automatically synchronized:
+   - **Old frontend**: Manual copy: `cp shared/Models.ts vite-frontend/src/interfaces/Models.ts`
+   - **New frontend**: Automatic via `npm run sync-models` (runs before dev/build)
 4. Update frontend components to handle optional fields safely
 
-**Note**: Frontend models are not auto-synchronized - must be manually copied after changes.
+**Note**: 
+- Old vite-frontend models must be manually copied after changes
+- New frontend_new models sync automatically via npm scripts
 
 ### Database Structure
 - **CosmosDB** containers: `recordings`, `users`, `transcripts`

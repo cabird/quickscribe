@@ -4,8 +4,9 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc -b && vite build",
+    "sync-models": "cp /shared/Models.ts src/types/index.ts 2>/dev/null || cp ../shared/Models.ts src/types/index.ts",
+    "dev": "npm run sync-models && vite",
+    "build": "npm run sync-models && tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview"
   },

@@ -71,7 +71,7 @@ export function AIWorkspaceModal() {
           .split('\n')
           .map(line => {
             // Parse speaker lines and format them cleanly
-            const speakerMatch = line.match(/^(Speaker \d+):\s*(.*)$/);
+            const speakerMatch = line.match(/^([^:]+):\s*(.*)$/);
             if (speakerMatch) {
               return `${speakerMatch[1]}: ${speakerMatch[2]}`;
             }
@@ -187,8 +187,8 @@ export function AIWorkspaceModal() {
                         __html: transcription.diarized_transcript
                           .split('\n')
                           .map(line => {
-                            // Parse speaker lines (assuming format: "Speaker N: text")
-                            const speakerMatch = line.match(/^(Speaker \d+):\s*(.*)$/);
+                            // Parse speaker lines (format: "Speaker Name: text")
+                            const speakerMatch = line.match(/^([^:]+):\s*(.*)$/);
                             if (speakerMatch) {
                               return `<div style="margin-bottom: 1rem;"><strong style="color: var(--mantine-color-blue-6);">${speakerMatch[1]}:</strong><br/>${speakerMatch[2]}</div>`;
                             }

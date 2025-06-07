@@ -19,14 +19,17 @@ services:
 
   frontend:
     build:
-      context: ./vite-frontend
+      context: ./frontend_new
       dockerfile: Dockerfile
     ports:
       - "3000:3000"
     environment:
       - NODE_ENV=development
+    env_file:
+      - ./frontend_new/.env
     volumes:
-      - ./vite-frontend:/app
+      - ./frontend_new:/app
+      - ./shared:/shared
       - /app/node_modules
     depends_on:
       - backend

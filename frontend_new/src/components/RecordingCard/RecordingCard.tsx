@@ -1,5 +1,5 @@
 import { Card, Group, Text, Badge, Button, Stack, ActionIcon, Menu } from '@mantine/core';
-import { IconDots, IconEye, IconDownload, IconTag, IconTrash, IconPlayerPlay, IconRobot, IconCheck } from '@tabler/icons-react';
+import { IconDots, IconEye, IconDownload, IconTag, IconTrash, IconPlayerPlay, IconRobot, IconCheck, IconRefresh } from '@tabler/icons-react';
 import { useState, useEffect } from 'react';
 import type { Recording, Tag } from '../../types';
 import { useUIStore } from '../../stores/useUIStore';
@@ -311,22 +311,20 @@ export function RecordingCard({ recording: initialRecording, userTags }: Recordi
             <Button
               size="sm"
               variant="light"
-              leftSection={<IconPlayerPlay size={16} />}
+              leftSection={transcriptionStatus === 'in_progress' ? <IconRefresh size={16} /> : <IconPlayerPlay size={16} />}
               onClick={handleStartTranscription}
               disabled={transcriptionStatus === 'in_progress'}
-              loading={transcriptionStatus === 'in_progress'}
               fullWidth
             >
-              {transcriptionStatus === 'in_progress' ? 'Processing...' : 'Start Transcription'}
+              {transcriptionStatus === 'in_progress' ? 'Transcribing...' : 'Start Transcription'}
             </Button>
           )}
           
           {transcriptionStatus === 'completed' && (
             <Button
               size="sm"
-              variant="gradient"
-              gradient={{ from: 'violet', to: 'purple', deg: 45 }}
-              leftSection={<IconRobot size={16} />}
+              variant="filled"
+              color="violet"
               onClick={handleOpenAIWorkspace}
               fullWidth
             >
