@@ -31,8 +31,7 @@ export function AnalysisPanel({
 
   const handleRunAnalysis = (analysisType: AnalysisResult['analysisType']) => {
     onRunAnalysis(analysisType);
-    // Auto-switch to the results tab after starting analysis
-    setActiveTab('results');
+    // Stay on current tab so user can see button state change
   };
 
   const getActiveAnalysisResult = (): AnalysisResult | undefined => {

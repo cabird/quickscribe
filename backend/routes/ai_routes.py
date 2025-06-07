@@ -5,6 +5,14 @@ from logging_config import get_logger
 from api_version import API_VERSION
 from user_util import get_current_user, require_auth
 from pydantic import ValidationError
+from db_handlers.models import (
+    CreateAnalysisTypeRequest,
+    ExecuteAnalysisRequest,
+    UpdateAnalysisTypeRequest,
+    AnalysisResult
+)
+from datetime import datetime, UTC
+import uuid
 
 # Initialize logger
 logger = get_logger('ai_routes', API_VERSION)
@@ -86,25 +94,25 @@ def create_analysis_type():
         if not data:
             return jsonify({'error': 'No data provided'}), 400
             
-        # Validate required fields
-        required_fields = ['name', 'title', 'shortTitle', 'description', 'icon', 'prompt']
-        missing_fields = [field for field in required_fields if field not in data or not data[field]]
-        if missing_fields:
-            return jsonify({'error': f'Missing required fields: {", ".join(missing_fields)}'}), 400
+        # Validate request using shared model
+        try:
+            request_data = CreateAnalysisTypeRequest(**data)
+        except ValidationError as e:
+            return jsonify({'error': f'Validation error: {str(e)}'}), 400
             
-        # Validate shortTitle length (max 12 characters)
-        if len(data['shortTitle']) > 12:
+        # Additional business validation
+        if len(request_data.shortTitle) > 12:
             return jsonify({'error': 'shortTitle must be 12 characters or less'}), 400
             
         analysis_type_handler = get_analysis_type_handler()
         
         created_type = analysis_type_handler.create_analysis_type(
-            name=data['name'],
-            title=data['title'],
-            short_title=data['shortTitle'],
-            description=data['description'],
-            icon=data['icon'],
-            prompt=data['prompt'],
+            name=request_data.name,
+            title=request_data.title,
+            short_title=request_data.shortTitle,
+            description=request_data.description,
+            icon=request_data.icon,
+            prompt=request_data.prompt,
             user_id=user.id
         )
         
@@ -215,15 +223,15 @@ def execute_analysis():
         if not data:
             return jsonify({'error': 'No data provided'}), 400
             
-        # Validate required fields
-        required_fields = ['transcriptionId', 'analysisTypeId']
-        missing_fields = [field for field in required_fields if field not in data or not data[field]]
-        if missing_fields:
-            return jsonify({'error': f'Missing required fields: {", ".join(missing_fields)}'}), 400
+        # Validate request using shared model
+        try:
+            request_data = ExecuteAnalysisRequest(**data)
+        except ValidationError as e:
+            return jsonify({'error': f'Validation error: {str(e)}'}), 400
             
-        transcription_id = data['transcriptionId']
-        analysis_type_id = data['analysisTypeId']
-        custom_prompt = data.get('customPrompt')  # Optional override
+        transcription_id = request_data.transcriptionId
+        analysis_type_id = request_data.analysisTypeId
+        custom_prompt = request_data.customPrompt  # Optional override
         
         # Get transcription
         transcription_handler = get_transcription_handler()
@@ -255,26 +263,71 @@ def execute_analysis():
         if not transcript_text:
             return jsonify({'error': 'No transcript content available for analysis'}), 400
             
-        # TODO: Implement actual LLM analysis here
-        # For now, return a placeholder response indicating the analysis was queued
-        # In a real implementation, you would:
-        # 1. Replace {transcript} placeholder in prompt_template with transcript_text
-        # 2. Call your LLM service (Azure OpenAI, etc.)
-        # 3. Store the result in transcription.analysisResults
-        # 4. Update the transcription in the database
+        # Replace {transcript} placeholder in prompt template with actual transcript
+        final_prompt = prompt_template.replace('{transcript}', transcript_text)
         
-        logger.info(f"Analysis execution requested for transcription {transcription_id} with type {analysis_type.name}")
+        logger.info(f"Executing analysis for transcription {transcription_id} with type {analysis_type.name}")
         
-        return jsonify({
-            'status': 'success',
-            'message': 'Analysis queued for processing',
-            'data': {
-                'transcriptionId': transcription_id,
-                'analysisType': analysis_type.name,
-                'analysisTypeId': analysis_type_id,
-                'status': 'queued'
-            }
-        }), 202  # 202 Accepted - processing will complete asynchronously
+        # Execute LLM analysis with timing
+        from llms import send_prompt_to_llm_with_timing
+        
+        try:
+            llm_result = send_prompt_to_llm_with_timing(final_prompt)
+            
+            # Create analysis result with timing information
+            analysis_result = AnalysisResult(
+                analysisType=analysis_type.name,
+                analysisTypeId=analysis_type_id,
+                content=llm_result['content'],
+                createdAt=datetime.now(UTC).isoformat(),
+                status='completed',
+                llmResponseTimeMs=llm_result['llmResponseTimeMs'],
+                promptTokens=llm_result['promptTokens'],
+                responseTokens=llm_result['responseTokens']
+            )
+            
+            # Add to transcription analysisResults
+            if not transcription.analysisResults:
+                transcription.analysisResults = []
+            transcription.analysisResults.append(analysis_result)
+            
+            # Save updated transcription
+            transcription_handler.update_transcription(transcription)
+            
+            logger.info(f"Analysis completed for transcription {transcription_id} in {llm_result['llmResponseTimeMs']}ms")
+            
+            return jsonify({
+                'status': 'success',
+                'message': 'Analysis completed successfully',
+                'data': analysis_result.model_dump()
+            }), 200
+            
+        except Exception as llm_error:
+            logger.error(f"LLM analysis failed for transcription {transcription_id}: {llm_error}")
+            
+            # Create failed analysis result
+            failed_result = AnalysisResult(
+                analysisType=analysis_type.name,
+                analysisTypeId=analysis_type_id,
+                content='',
+                createdAt=datetime.now(UTC).isoformat(),
+                status='failed',
+                errorMessage=str(llm_error)
+            )
+            
+            # Add failed result to transcription
+            if not transcription.analysisResults:
+                transcription.analysisResults = []
+            transcription.analysisResults.append(failed_result)
+            
+            # Save updated transcription
+            transcription_handler.update_transcription(transcription)
+            
+            return jsonify({
+                'status': 'error',
+                'message': 'Analysis failed',
+                'data': failed_result.model_dump()
+            }), 500
         
     except Exception as e:
         logger.error(f"Error executing analysis: {e}")

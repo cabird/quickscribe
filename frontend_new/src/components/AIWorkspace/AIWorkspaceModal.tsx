@@ -3,11 +3,13 @@ import { useUIStore } from '../../stores/useUIStore';
 import { useRecordingStore } from '../../stores/useRecordingStore';
 import { useTagStore } from '../../stores/useTagStore';
 import { fetchTranscription } from '../../api/recordings';
+import { executeAnalysis } from '../../api/analysisTypes';
 import { useState, useEffect } from 'react';
 import { TranscriptPanel } from './TranscriptPanel';
 import { AnalysisPanel } from './AnalysisPanel';
 import { ResizableHandle } from './ResizableHandle';
-import { MOCK_ANALYSIS_RESULTS, generateMockAnalysisResult } from './mockAnalysisData';
+import { useAnalysisStore } from '../../stores/useAnalysisStore';
+import { notifications } from '@mantine/notifications';
 import type { Transcription, AnalysisResult } from '../../types';
 
 export function AIWorkspaceModal() {
@@ -17,7 +19,8 @@ export function AIWorkspaceModal() {
   
   const [transcription, setTranscription] = useState<Transcription | null>(null);
   const [transcriptionLoading, setTranscriptionLoading] = useState(false);
-  const [analysisResults, setAnalysisResults] = useState<AnalysisResult[]>(MOCK_ANALYSIS_RESULTS);
+  const [analysisResults, setAnalysisResults] = useState<AnalysisResult[]>([]);
+  const { getAnalysisTypeByName } = useAnalysisStore();
   const [analysisPanelHeight, setAnalysisPanelHeight] = useState(350);
 
   const recording = getRecordingById(aiWorkspace.recordingId || '');
@@ -33,21 +36,48 @@ export function AIWorkspaceModal() {
     if (recording?.transcription_id && aiWorkspace.isOpen) {
       setTranscriptionLoading(true);
       fetchTranscription(recording.transcription_id)
-        .then(setTranscription)
+        .then(transcription => {
+          setTranscription(transcription);
+          // Load existing analysis results from transcription
+          setAnalysisResults(transcription.analysisResults || []);
+        })
         .catch(error => {
           console.error('Failed to fetch transcription:', error);
           setTranscription(null);
+          setAnalysisResults([]);
         })
         .finally(() => setTranscriptionLoading(false));
     } else {
       setTranscription(null);
+      setAnalysisResults([]);
     }
   }, [recording?.transcription_id, aiWorkspace.isOpen]);
 
-  const handleRunAnalysis = (analysisType: AnalysisResult['analysisType']) => {
+  const handleRunAnalysis = async (analysisType: AnalysisResult['analysisType']) => {
+    if (!transcription?.id) {
+      notifications.show({
+        title: 'Error',
+        message: 'No transcription available for analysis',
+        color: 'red',
+      });
+      return;
+    }
+
+    // Get the analysis type details
+    const analysisTypeDetails = getAnalysisTypeByName(analysisType);
+    if (!analysisTypeDetails) {
+      notifications.show({
+        title: 'Error',
+        message: 'Analysis type not found',
+        color: 'red',
+      });
+      return;
+    }
+
     // Add pending result immediately for optimistic UI
     const pendingResult: AnalysisResult = {
       analysisType,
+      analysisTypeId: analysisTypeDetails.id,
       content: '',
       createdAt: new Date().toISOString(),
       status: 'pending',
@@ -59,13 +89,42 @@ export function AIWorkspaceModal() {
       return [...filtered, pendingResult];
     });
 
-    // Simulate API call with delay
-    setTimeout(() => {
-      const completedResult = generateMockAnalysisResult(analysisType);
-      setAnalysisResults(prev => 
-        prev.map(r => r.analysisType === analysisType ? completedResult : r)
+    try {
+      // Execute the analysis
+      const response = await executeAnalysis({
+        transcriptionId: transcription.id,
+        analysisTypeId: analysisTypeDetails.id,
+      });
+
+      // Refresh the transcription to get the updated analysis results
+      const updatedTranscription = await fetchTranscription(transcription.id);
+      setAnalysisResults(updatedTranscription.analysisResults || []);
+      setTranscription(updatedTranscription);
+
+      notifications.show({
+        title: 'Analysis Complete',
+        message: `${analysisTypeDetails.title} analysis completed successfully`,
+        color: 'green',
+      });
+
+    } catch (error) {
+      console.error('Analysis failed:', error);
+      
+      // Update the pending result to show failure
+      setAnalysisResults(prev =>
+        prev.map(r => r.analysisType === analysisType ? {
+          ...r,
+          status: 'failed' as const,
+          errorMessage: 'Analysis failed. Please try again.',
+        } : r)
       );
-    }, 2000);
+
+      notifications.show({
+        title: 'Analysis Failed',
+        message: 'There was an error running the analysis. Please try again.',
+        color: 'red',
+      });
+    }
   };
 
   const handleDeleteAnalysis = (analysisType: AnalysisResult['analysisType']) => {

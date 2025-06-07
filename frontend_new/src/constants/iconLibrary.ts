@@ -56,6 +56,7 @@ import {
   LuSmile,
   LuFrown,
   LuMeh,
+  LuCircleHelp,
 } from 'react-icons/lu';
 
 /**
@@ -136,6 +137,9 @@ export const ICON_LIBRARY = {
   'settings': LuSettings,
   'code': LuCode,
   'link': LuLink,
+  
+  // Help & Questions
+  'circle-help': LuCircleHelp,
 } as const;
 
 export type IconName = keyof typeof ICON_LIBRARY;

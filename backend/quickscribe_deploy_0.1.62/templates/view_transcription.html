@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+
+{% block title %}Transcription{% endblock %}
+
+{% block content %}
+<h1>Transcription for {{ recording.original_filename }}</h1>
+
+{% if recording.transcription_status.value == "completed" %}
+    <h3>Transcription Text:</h3>
+    <button onclick="copyToClipboard()">📋 Copy to Clipboard</button>
+    {% if transcription.diarized_transcript %}
+        <div id="transcription-text">
+            {% for segment in transcription.diarized_transcript.split('\n\n') %}
+                <p>{{ segment }}</p>
+            {% endfor %}
+        </div>
+    {% elif transcription.text %}
+        <div id="transcription-text">
+            <p>{{ transcription.text }}</p>
+        </div>
+    {% else %}
+        <p>No transcription text available.</p>
+    {% endif %}
+{% else %}
+    <p>The transcription is {{ transcription.transcription_status }}.</p>
+{% endif %}
+
+<a href="{{ url_for('recordings') }}">Back to Recordings</a>
+
+<script>
+    function copyToClipboard() {
+        // Find the transcription text element
+        var transcriptionText = document.getElementById("transcription-text");
+
+        // Create a temporary textarea to copy text
+        var tempTextArea = document.createElement("textarea");
+        tempTextArea.value = transcriptionText.innerText;
+        document.body.appendChild(tempTextArea);
+
+        // Select the text and copy to clipboard
+        tempTextArea.select();
+        document.execCommand("copy");
+
+        // Remove the temporary textarea
+        document.body.removeChild(tempTextArea);
+
+        // Alert the user that text has been copied
+        alert("Transcription copied to clipboard!");
+    }
+</script>
+{% endblock %}

@@ -1,0 +1,51 @@
+prompts:
+  infer_speaker_names:
+    description: "This prompt is used to infer speaker names based on a transcript."
+    prompt: |
+        I have a transcript labeled with generic speaker tags ("Speaker 1", "Speaker 2", etc.). Based on 
+        conversation context, including tone, phrasing, and topics discussed, please infer suitable 
+        names or labels for each speaker.
+
+        - If an actual name cannot be determined, assign a unique label for each speaker that reflects 
+        their role or personality based on the conversation (e.g., "Mentor" or "Organizer").
+        - Ensure each inferred name or label is **unique and concise** (preferably one word, max two) 
+        and does not overlap with other labels.
+        - Clearly explain your reasoning for each choice in a concise manner.
+
+        Please output in the following format:
+
+        *** Reasoning ***
+
+        <Provide reasoning for the inferred names/roles of each speaker here>
+
+        *** JSON ***
+
+        {
+          "Speaker 1": { "name": "<inferred name or label>", "reasoning": "<concise reasoning>" },
+          "Speaker 2": { "name": "<inferred name or label>", "reasoning": "<concise reasoning>" },
+          "Speaker 3": { "name": "<inferred name or label>", "reasoning": "<concise reasoning>" }
+        }
+
+        __TRANSCRIPT__
+  get_speaker_summaries:
+    description: "This prompt is used to get the summary for each speaker in a diarized transcript."
+    prompt: |
+        I have a transcript labeled with speaker tags. I want to show a summary for each speaker to the user
+        so that they can label the speakers.  Please provide a one-sentence summary for each speaker.
+
+        Please output in the following format:
+
+        
+        *** JSON ***
+        { "speaker_summaries": {
+            "Speaker Name 1": "<one-sentence summary>",
+            "Speaker Name 2": "<one-sentence summary>",
+            "Speaker Name 3": "<one-sentence summary>"
+          }
+        }
+
+        Here is the transcript: 
+
+        __TRANSCRIPT__
+        
+        

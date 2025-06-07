@@ -131,48 +131,6 @@ def send_prompt_to_llm(prompt):
 
     return response.json()["choices"][0]["message"]["content"]
 
-def send_prompt_to_llm_with_timing(prompt):
-    """Enhanced LLM call that returns response content, timing, and token usage."""
-    import time
-    
-    payload_copy = payload.copy()
-    payload_copy["messages"] = payload["messages"].copy()
-    payload_copy["messages"][1] = payload["messages"][1].copy()
-    payload_copy["messages"][1]["content"] = payload["messages"][1]["content"].copy()
-    payload_copy["messages"][1]["content"][0] = payload["messages"][1]["content"][0].copy()
-    payload_copy["messages"][1]["content"][0]["text"] = prompt
-
-    # Record start time
-    start_time = time.time()
-    
-    try:
-        response = requests.post(ENDPOINT, headers=headers, json=payload_copy)
-        response.raise_for_status()
-        
-        # Record end time
-        end_time = time.time()
-        llm_response_time_ms = int((end_time - start_time) * 1000)
-        
-        response_data = response.json()
-        
-        # Extract content and usage information
-        content = response_data["choices"][0]["message"]["content"]
-        usage = response_data.get("usage", {})
-        
-        return {
-            "content": content,
-            "llmResponseTimeMs": llm_response_time_ms,
-            "promptTokens": usage.get("prompt_tokens"),
-            "responseTokens": usage.get("completion_tokens")
-        }
-        
-    except requests.RequestException as e:
-        end_time = time.time()
-        llm_response_time_ms = int((end_time - start_time) * 1000)
-        
-        # Include timing even for errors
-        raise Exception(f"LLM request failed after {llm_response_time_ms}ms: {e}")
-
 
 
 # Example usage

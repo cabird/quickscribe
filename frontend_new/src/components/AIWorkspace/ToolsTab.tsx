@@ -122,7 +122,9 @@ export function ToolsTab({ analysisResults, onRunAnalysis }: ToolsTabProps) {
           fontWeight: 600,
           fontSize: '14px',
           color: 'var(--mantine-color-gray-8)',
-          marginBottom: '4px'
+          marginBottom: '4px',
+          minHeight: '20px', // Reserve space for title
+          width: '100%'
         }}>
           {isRunning ? 'Running...' : analysisType.title}
         </Box>
@@ -132,7 +134,12 @@ export function ToolsTab({ analysisResults, onRunAnalysis }: ToolsTabProps) {
           fontSize: '12px',
           color: 'var(--mantine-color-gray-6)',
           lineHeight: 1.3,
-          textAlign: 'center'
+          textAlign: 'center',
+          minHeight: '32px', // Reserve space for description (2 lines)
+          width: '100%',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center'
         }}>
           {isRunning ? 'Processing transcript' : analysisType.description}
         </Box>

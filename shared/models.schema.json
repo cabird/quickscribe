@@ -40,6 +40,15 @@
                 "errorMessage": {
                     "type": "string"
                 },
+                "llmResponseTimeMs": {
+                    "type": "number"
+                },
+                "promptTokens": {
+                    "type": "number"
+                },
+                "responseTokens": {
+                    "type": "number"
+                },
                 "status": {
                     "enum": [
                         "completed",
@@ -55,7 +64,10 @@
                 "content",
                 "createdAt",
                 "status",
-                "errorMessage"
+                "errorMessage",
+                "llmResponseTimeMs",
+                "promptTokens",
+                "responseTokens"
             ],
             "required": [
                 "analysisType",
@@ -136,6 +148,260 @@
                 "shortTitle",
                 "title",
                 "updatedAt"
+            ],
+            "type": "object"
+        },
+        "ApiResponse": {
+            "properties": {
+                "count": {
+                    "type": "number"
+                },
+                "data": {
+                    "$ref": "#/definitions/T"
+                },
+                "error": {
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "status": {
+                    "enum": [
+                        "error",
+                        "success"
+                    ],
+                    "type": "string"
+                }
+            },
+            "propertyOrder": [
+                "status",
+                "data",
+                "count",
+                "message",
+                "error"
+            ],
+            "required": [
+                "status"
+            ],
+            "type": "object"
+        },
+        "CreateAnalysisTypeRequest": {
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "icon": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "prompt": {
+                    "type": "string"
+                },
+                "shortTitle": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                }
+            },
+            "propertyOrder": [
+                "name",
+                "title",
+                "shortTitle",
+                "description",
+                "icon",
+                "prompt"
+            ],
+            "required": [
+                "description",
+                "icon",
+                "name",
+                "prompt",
+                "shortTitle",
+                "title"
+            ],
+            "type": "object"
+        },
+        "CreateAnalysisTypeResponse": {
+            "properties": {
+                "count": {
+                    "type": "number"
+                },
+                "data": {
+                    "$ref": "#/definitions/AnalysisType"
+                },
+                "error": {
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "status": {
+                    "enum": [
+                        "error",
+                        "success"
+                    ],
+                    "type": "string"
+                }
+            },
+            "propertyOrder": [
+                "status",
+                "data",
+                "count",
+                "message",
+                "error"
+            ],
+            "required": [
+                "status"
+            ],
+            "type": "object"
+        },
+        "DeleteAnalysisTypeResponse": {
+            "properties": {
+                "count": {
+                    "type": "number"
+                },
+                "data": {
+                    "type": "null"
+                },
+                "error": {
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "status": {
+                    "enum": [
+                        "error",
+                        "success"
+                    ],
+                    "type": "string"
+                }
+            },
+            "propertyOrder": [
+                "status",
+                "data",
+                "count",
+                "message",
+                "error"
+            ],
+            "required": [
+                "status"
+            ],
+            "type": "object"
+        },
+        "ErrorResponse": {
+            "properties": {
+                "details": {
+                    "type": "string"
+                },
+                "error": {
+                    "type": "string"
+                }
+            },
+            "propertyOrder": [
+                "error",
+                "details"
+            ],
+            "required": [
+                "error"
+            ],
+            "type": "object"
+        },
+        "ExecuteAnalysisRequest": {
+            "properties": {
+                "analysisTypeId": {
+                    "type": "string"
+                },
+                "customPrompt": {
+                    "type": "string"
+                },
+                "transcriptionId": {
+                    "type": "string"
+                }
+            },
+            "propertyOrder": [
+                "transcriptionId",
+                "analysisTypeId",
+                "customPrompt"
+            ],
+            "required": [
+                "analysisTypeId",
+                "transcriptionId"
+            ],
+            "type": "object"
+        },
+        "ExecuteAnalysisResponse": {
+            "properties": {
+                "count": {
+                    "type": "number"
+                },
+                "data": {
+                    "$ref": "#/definitions/AnalysisResult"
+                },
+                "error": {
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "status": {
+                    "enum": [
+                        "error",
+                        "success"
+                    ],
+                    "type": "string"
+                }
+            },
+            "propertyOrder": [
+                "status",
+                "data",
+                "count",
+                "message",
+                "error"
+            ],
+            "required": [
+                "status"
+            ],
+            "type": "object"
+        },
+        "GetAnalysisTypesResponse": {
+            "properties": {
+                "count": {
+                    "type": "number"
+                },
+                "data": {
+                    "items": {
+                        "$ref": "#/definitions/AnalysisType"
+                    },
+                    "type": "array"
+                },
+                "error": {
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "status": {
+                    "enum": [
+                        "error",
+                        "success"
+                    ],
+                    "type": "string"
+                }
+            },
+            "propertyOrder": [
+                "count",
+                "status",
+                "data",
+                "message",
+                "error"
+            ],
+            "required": [
+                "count",
+                "status"
             ],
             "type": "object"
         },
@@ -499,6 +765,10 @@
             ],
             "type": "object"
         },
+        "T": {
+            "propertyOrder": [],
+            "type": "object"
+        },
         "Tag": {
             "properties": {
                 "color": {
@@ -600,6 +870,71 @@
                 "partitionKey",
                 "recording_id",
                 "user_id"
+            ],
+            "type": "object"
+        },
+        "UpdateAnalysisTypeRequest": {
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "icon": {
+                    "type": "string"
+                },
+                "isActive": {
+                    "type": "boolean"
+                },
+                "prompt": {
+                    "type": "string"
+                },
+                "shortTitle": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                }
+            },
+            "propertyOrder": [
+                "title",
+                "shortTitle",
+                "description",
+                "icon",
+                "prompt",
+                "isActive"
+            ],
+            "type": "object"
+        },
+        "UpdateAnalysisTypeResponse": {
+            "properties": {
+                "count": {
+                    "type": "number"
+                },
+                "data": {
+                    "$ref": "#/definitions/AnalysisType"
+                },
+                "error": {
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "status": {
+                    "enum": [
+                        "error",
+                        "success"
+                    ],
+                    "type": "string"
+                }
+            },
+            "propertyOrder": [
+                "status",
+                "data",
+                "count",
+                "message",
+                "error"
+            ],
+            "required": [
+                "status"
             ],
             "type": "object"
         },

@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+
+{% block title %}QuickScribe{% endblock %}
+
+{% block content %}
+<h1>Welcome to QuickScribe</h1>
+<p>If you're seeing this page, the app is up and running!</p>
+
+<h2>Links</h2>
+<ul>
+    <li><a href="{{ url_for('upload') }}">Upload File</a></li>
+    <li><a href="{{ url_for('recordings') }}">List Uploaded Recordings</a></li>
+    <!-- Add more links here as you add functionality -->
+</ul>
+
+<p>API Version: {{ api_version }}</p>
+{% endblock %}
+

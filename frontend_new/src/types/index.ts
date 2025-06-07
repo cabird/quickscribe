@@ -151,6 +151,11 @@ export interface AnalysisResult {
     createdAt: string; // ISO timestamp when analysis was generated
     status: 'pending' | 'completed' | 'failed'; // Status of the analysis
     errorMessage?: string; // Error message if status is 'failed'
+    
+    // Performance tracking fields
+    llmResponseTimeMs?: number; // Time spent waiting for LLM response in milliseconds
+    promptTokens?: number; // Number of tokens in the prompt
+    responseTokens?: number; // Number of tokens in the response
 }
 
 // Represents a transcription entity
@@ -175,4 +180,59 @@ export interface Transcription {
 
     // AI-generated analysis results for this transcription
     analysisResults?: AnalysisResult[];
+}
+
+// =============================================================================
+// API Request/Response Types
+// =============================================================================
+
+// Standard API response wrapper
+export interface ApiResponse<T = any> {
+    status: 'success' | 'error';
+    data?: T;
+    count?: number;
+    message?: string;
+    error?: string;
+}
+
+// Analysis Types API Messages
+export interface CreateAnalysisTypeRequest {
+    name: string;
+    title: string;
+    shortTitle: string;
+    description: string;
+    icon: string;
+    prompt: string;
+}
+
+export interface UpdateAnalysisTypeRequest {
+    title?: string;
+    shortTitle?: string;
+    description?: string;
+    icon?: string;
+    prompt?: string;
+    isActive?: boolean;
+}
+
+export interface GetAnalysisTypesResponse extends ApiResponse<AnalysisType[]> {
+    count: number;
+}
+
+export interface CreateAnalysisTypeResponse extends ApiResponse<AnalysisType> {}
+export interface UpdateAnalysisTypeResponse extends ApiResponse<AnalysisType> {}
+export interface DeleteAnalysisTypeResponse extends ApiResponse<null> {}
+
+// Analysis Execution API Messages
+export interface ExecuteAnalysisRequest {
+    transcriptionId: string;
+    analysisTypeId: string;
+    customPrompt?: string;
+}
+
+export interface ExecuteAnalysisResponse extends ApiResponse<AnalysisResult> {}
+
+// Common error response for failed requests
+export interface ErrorResponse {
+    error: string;
+    details?: string;
 }
