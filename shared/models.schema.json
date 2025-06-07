@@ -23,6 +23,122 @@
             ],
             "type": "object"
         },
+        "AnalysisResult": {
+            "properties": {
+                "analysisType": {
+                    "type": "string"
+                },
+                "analysisTypeId": {
+                    "type": "string"
+                },
+                "content": {
+                    "type": "string"
+                },
+                "createdAt": {
+                    "type": "string"
+                },
+                "errorMessage": {
+                    "type": "string"
+                },
+                "status": {
+                    "enum": [
+                        "completed",
+                        "failed",
+                        "pending"
+                    ],
+                    "type": "string"
+                }
+            },
+            "propertyOrder": [
+                "analysisType",
+                "analysisTypeId",
+                "content",
+                "createdAt",
+                "status",
+                "errorMessage"
+            ],
+            "required": [
+                "analysisType",
+                "analysisTypeId",
+                "content",
+                "createdAt",
+                "status"
+            ],
+            "type": "object"
+        },
+        "AnalysisType": {
+            "properties": {
+                "createdAt": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "icon": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "isActive": {
+                    "type": "boolean"
+                },
+                "isBuiltIn": {
+                    "type": "boolean"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "partitionKey": {
+                    "type": "string"
+                },
+                "prompt": {
+                    "type": "string"
+                },
+                "shortTitle": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "updatedAt": {
+                    "type": "string"
+                },
+                "userId": {
+                    "type": "string"
+                }
+            },
+            "propertyOrder": [
+                "id",
+                "name",
+                "title",
+                "shortTitle",
+                "description",
+                "icon",
+                "prompt",
+                "userId",
+                "isActive",
+                "isBuiltIn",
+                "createdAt",
+                "updatedAt",
+                "partitionKey"
+            ],
+            "required": [
+                "createdAt",
+                "description",
+                "icon",
+                "id",
+                "isActive",
+                "isBuiltIn",
+                "name",
+                "partitionKey",
+                "prompt",
+                "shortTitle",
+                "title",
+                "updatedAt"
+            ],
+            "type": "object"
+        },
         "PlaudMetadata": {
             "properties": {
                 "originalTimestamp": {
@@ -409,6 +525,12 @@
         },
         "Transcription": {
             "properties": {
+                "analysisResults": {
+                    "items": {
+                        "$ref": "#/definitions/AnalysisResult"
+                    },
+                    "type": "array"
+                },
                 "az_raw_transcription": {
                     "type": "string"
                 },
@@ -470,7 +592,8 @@
                 "az_raw_transcription",
                 "az_transcription_id",
                 "partitionKey",
-                "speaker_mapping"
+                "speaker_mapping",
+                "analysisResults"
             ],
             "required": [
                 "id",

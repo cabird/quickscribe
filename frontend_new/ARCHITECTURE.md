@@ -39,10 +39,16 @@ frontend_new/
 │   │   │   └── SettingsTab.tsx        # Application settings
 │   │   ├── RecordingCard/     # Recording display components
 │   │   │   └── RecordingCard.tsx      # Enhanced recording card with actions
-│   │   ├── AIWorkspace/       # Recording analysis workspace
-│   │   │   ├── AIWorkspaceModal.tsx   # Main workspace modal
-│   │   │   ├── AIToolButton.tsx       # Interactive analysis tool buttons
-│   │   │   └── AIResult.tsx           # Analysis result display/editing
+│   │   ├── AIWorkspace/       # Enhanced AI analysis workspace
+│   │   │   ├── AIWorkspaceModal.tsx   # Main modal container with resizable layout
+│   │   │   ├── TranscriptPanel.tsx    # Transcript display with header
+│   │   │   ├── AnalysisPanel.tsx      # Tabbed analysis container
+│   │   │   ├── TabNavigation.tsx      # Dynamic tab management with badges
+│   │   │   ├── ToolsTab.tsx          # Enhanced analysis tool grid
+│   │   │   ├── ResultsOverviewTab.tsx # Analysis results dashboard
+│   │   │   ├── ResultTab.tsx         # Individual analysis display
+│   │   │   ├── ResizableHandle.tsx   # Panel resize component
+│   │   │   └── mockAnalysisData.ts   # Mock data for development
 │   │   └── Tags/              # Tag management components
 │   │       ├── TagBadge.tsx           # Color-coded tag display
 │   │       └── TagManager.tsx         # Tag CRUD interface
@@ -123,26 +129,85 @@ frontend_new/
 - Optimistic updates for tag operations
 - Workspace access button
 
-### Recording Workspace
+### AI Analysis Workspace
 
-**AIWorkspaceModal.tsx** - Analysis interface
-- Full-screen modal for detailed recording analysis
-- Two-panel layout: recording details + analysis tools
-- Real transcript fetching and display
-- Recording metadata and tag display
-- Integration with analysis tools
+The AI Workspace has been completely redesigned with a sophisticated tabbed interface and resizable layout system.
 
-**AIToolButton.tsx** - Interactive analysis tools
-- Simulated processing with progress indicators
-- Status states (idle, processing, completed)
-- Visual feedback for user interactions
-- Generates mock analysis results
+**AIWorkspaceModal.tsx** - Main workspace container
+- Resizable two-panel layout (transcript + analysis)
+- State management for analysis results and panel sizing
+- Optimistic UI updates for analysis execution
+- Integration with mock data system for development
 
-**AIResult.tsx** - Analysis result management
-- Editable result content
-- Copy/export functionality
-- Remove operation
-- Inline editing with save/cancel
+**TranscriptPanel.tsx** - Enhanced transcript display
+- Recording header with metadata, tags, and status
+- Scrollable transcript content with speaker formatting
+- Copy transcript functionality
+- View full transcript option
+
+**AnalysisPanel.tsx** - Tabbed analysis container
+- Dynamic tab management based on completed analyses
+- Auto-navigation to result tabs after completion
+- State management for active tab and content
+- Coordinated workflow between tools and results
+
+**TabNavigation.tsx** - Dynamic tab system
+- Always-visible Tools and Results tabs
+- Dynamic tabs for completed analyses (Summary, Keywords, etc.)
+- Badge system showing analysis count
+- Status indicators (dots) for completed analyses
+- Hover effects for better UX
+
+**ToolsTab.tsx** - Enhanced analysis tool grid
+- Six analysis types: Summary, Keywords, Q&A, Sentiment, Action Items, Topic Detection
+- Visual status indicators (completed ✓, running ⏳, idle)
+- Hover effects with color changes and elevation
+- Disabled state for running analyses
+- Responsive grid layout
+
+**ResultsOverviewTab.tsx** - Analysis dashboard
+- Card-based layout for completed analyses
+- Clickable cards with hover effects
+- Time-based sorting (most recent first)
+- Preview text with truncation
+- Navigation to individual analysis tabs
+
+**ResultTab.tsx** - Individual analysis display
+- Markdown-style formatting for analysis content
+- Action buttons (Copy, Export, Re-run, Delete)
+- Error state handling for failed analyses
+- Pending state for in-progress analyses
+- Rich text formatting with headers, lists, and emphasis
+
+**ResizableHandle.tsx** - Panel resize functionality
+- Horizontal drag handle between transcript and analysis panels
+- Smooth resize interaction with constraints (150px min, 70% max)
+- Visual feedback on hover and drag
+- Preserves user's preferred layout
+
+**Data Architecture:**
+```typescript
+interface AnalysisResult {
+  analysisType: 'summary' | 'keywords' | 'sentiment' | 'qa' | 'action-items' | 'topic-detection';
+  content: string;
+  createdAt: string;
+  status: 'pending' | 'completed' | 'failed';
+  errorMessage?: string;
+}
+
+interface Transcription {
+  // ... existing fields
+  analysisResults?: AnalysisResult[];
+}
+```
+
+**User Experience Enhancements:**
+- **Resizable Layout**: User controls transcript vs analysis space (150px-70% range)
+- **Optimistic UI**: Immediate pending state when starting analyses
+- **Smart Navigation**: Auto-switches to results after completion
+- **Visual Feedback**: Hover effects on all interactive elements
+- **Status Management**: Clear indicators for tool states and analysis progress
+- **Workflow Integration**: Seamless flow from tools → overview → detailed results
 
 ### Progress Monitoring System
 
@@ -316,14 +381,27 @@ Vite development server proxies API calls:
 5. API calls happen in background
 6. Error handling reverts optimistic changes if needed
 
-### Recording Analysis Workflow
+### AI Analysis Workflow
 1. User clicks "📝 Open Recording Workspace" on completed recording
-2. AIWorkspaceModal opens in full-screen mode
-3. Recording details load in left panel
-4. Transcript is fetched automatically via `/api/transcription/:id`
-5. Real transcript content displays in preview
-6. User can run analysis tools (visual simulation)
-7. Results appear in workspace with edit/copy/export options
+2. AIWorkspaceModal opens with resizable two-panel layout
+3. TranscriptPanel loads with recording metadata and fetches transcript
+4. User starts with "Tools" tab showing all available analysis types
+5. User clicks analysis tool (e.g., "Generate Summary")
+6. Tool shows loading state (⏳) and pending result is created
+7. Auto-switches to "Results" tab showing progress
+8. After 2 seconds, analysis completes and result appears
+9. New tab appears for the specific analysis type (e.g., "Summary")
+10. User can click result card to view detailed analysis
+11. Individual result tab shows formatted content with action buttons
+12. User can copy, export, re-run, or delete analysis
+13. Results persist in session and can be accessed via tabs
+
+**Enhanced Features:**
+- **Panel Resizing**: User drags horizontal handle to adjust transcript/analysis space
+- **Multiple Analyses**: Run multiple analysis types, each gets its own tab
+- **Result Management**: Edit, copy, export individual analyses
+- **Status Tracking**: Visual indicators for tool completion state
+- **Dashboard View**: Results tab provides overview of all completed analyses
 
 ### Filtering and Search Workflow
 1. User interacts with filters in Browse tab:
@@ -409,9 +487,11 @@ cp -r dist/* ../backend/frontend-dist/
 ### Ready to Implement
 - Authentication integration (auth store + route guards)
 - Dark mode toggle (Mantine theme switching)
-- Real AI analysis endpoints (replace mock tools)
+- Real AI analysis endpoints (replace mock analysis tools with backend integration)
+- Analysis result persistence (save/load from transcription model)
 - Keyboard shortcuts (hotkeys library)
 - Advanced filtering (date ranges, duration, etc.)
+- Batch analysis operations (run multiple analyses at once)
 
 ### Architecture Supports
 - Progressive Web App features

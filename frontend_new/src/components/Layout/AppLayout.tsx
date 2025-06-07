@@ -8,6 +8,7 @@ import { LocalAuthDropdown } from '../LocalAuthDropdown';
 import { useUIStore } from '../../stores/useUIStore';
 import { useRecordingStore } from '../../stores/useRecordingStore';
 import { useTagStore } from '../../stores/useTagStore';
+import { useAnalysisStore } from '../../stores/useAnalysisStore';
 import { fetchRecordings } from '../../api/recordings';
 import { fetchTags } from '../../api/tags';
 import { notifications } from '@mantine/notifications';
@@ -18,11 +19,12 @@ export function AppLayout() {
   const { aiWorkspace } = useUIStore();
   const { setRecordings, updateRecording, setLoading, setError } = useRecordingStore();
   const { setTags } = useTagStore();
+  const { loadAnalysisTypes } = useAnalysisStore();
 
   const loadData = async () => {
     setLoading(true);
     try {
-      // Load recordings and tags in parallel
+      // Load recordings, tags, and analysis types in parallel
       const [recordings, tags] = await Promise.all([
         fetchRecordings(),
         fetchTags()
@@ -30,6 +32,19 @@ export function AppLayout() {
       
       setRecordings(recordings);
       setTags(tags);
+      
+      // Load analysis types separately - if this fails, show warning but continue
+      try {
+        await loadAnalysisTypes();
+      } catch (analysisError) {
+        console.warn('Failed to load analysis types:', analysisError);
+        notifications.show({
+          title: 'Warning',
+          message: 'Analysis features may be limited',
+          color: 'yellow'
+        });
+      }
+      
     } catch (error) {
       console.error('Failed to load initial data:', error);
       setError('Failed to load data');

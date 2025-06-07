@@ -126,6 +126,33 @@ export interface ActiveSyncCheckResponse {
     progress?: SyncProgress;
 }
 
+// Represents an analysis type that can be applied to transcriptions
+export interface AnalysisType {
+    id: string; // Unique identifier (UUID)
+    name: string; // Internal identifier (slug-like: "summary", "custom-meeting-notes")
+    title: string; // Display name ("Generate Summary", "Custom Meeting Notes")
+    shortTitle: string; // Short title for tabs ("Summary", "Keywords") - max 12 chars
+    description: string; // User-facing description
+    icon: string; // Icon identifier from predefined library
+    prompt: string; // LLM prompt template with {transcript} placeholder
+    userId?: string; // null for built-in types, userId for custom types
+    isActive: boolean; // Admin can disable types
+    isBuiltIn: boolean; // true for system defaults, false for user-created
+    createdAt: string; // ISO timestamp
+    updatedAt: string; // ISO timestamp
+    partitionKey: string; // "global" for built-in, userId for custom
+}
+
+// Analysis result for AI-generated content from transcriptions
+export interface AnalysisResult {
+    analysisType: string; // Changed from enum to string (references AnalysisType.name)
+    analysisTypeId: string; // References AnalysisType.id for data integrity
+    content: string; // The generated analysis content
+    createdAt: string; // ISO timestamp when analysis was generated
+    status: 'pending' | 'completed' | 'failed'; // Status of the analysis
+    errorMessage?: string; // Error message if status is 'failed'
+}
+
 // Represents a transcription entity
 export interface Transcription {
     id: string; // Unique identifier for the transcription
@@ -145,4 +172,7 @@ export interface Transcription {
             reasoning: string; // Concise reasoning for the inferred label
         };
     };
+
+    // AI-generated analysis results for this transcription
+    analysisResults?: AnalysisResult[];
 }

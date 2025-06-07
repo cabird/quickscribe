@@ -1,9 +1,10 @@
 import os
 from config import config
-from flask import request, session
+from flask import request, session, jsonify
 from db_handlers.user_handler import UserHandler
 from db_handlers.models import User
 from typing import Optional
+from functools import wraps
 
 def get_current_user() -> Optional[User]: 
     user_handler = UserHandler(config.COSMOS_URL, config.COSMOS_KEY, config.COSMOS_DB_NAME, config.COSMOS_CONTAINER_NAME)
@@ -30,3 +31,14 @@ def get_current_user() -> Optional[User]:
         user = users[0] if users else None  # Assuming 'cbird' is unique, take the first result
 
     return user
+
+
+def require_auth(f):
+    """Decorator to require authentication for a route."""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        user = get_current_user()
+        if not user:
+            return jsonify({'error': 'User not authenticated'}), 401
+        return f(*args, **kwargs)
+    return decorated_function

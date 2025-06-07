@@ -1,7 +1,7 @@
 import click
 from azure.storage.blob import BlobServiceClient
 from azure.cosmos import CosmosClient, PartitionKey
-from db_handlers.handler_factory import create_user_handler, create_recording_handler
+from db_handlers.handler_factory import create_user_handler, create_recording_handler, create_analysis_type_handler
 import os
 import json
 from dotenv import load_dotenv
@@ -247,6 +247,137 @@ def az_paginate(api, paginated_object):
             yield from paginated_object.values
         else:
             raise Exception(f"could not receive paginated data: status {status}")
+
+@cli.command()
+def delete_builtin_analysis_types():
+    """Delete all built-in analysis types from the database."""
+    analysis_type_handler = create_analysis_type_handler()
+    
+    try:
+        # Get all built-in analysis types
+        builtin_types = analysis_type_handler.get_builtin_analysis_types()
+        
+        if not builtin_types:
+            click.echo("No built-in analysis types found to delete.")
+            return
+            
+        click.echo(f"Found {len(builtin_types)} built-in analysis types to delete:")
+        for analysis_type in builtin_types:
+            click.echo(f"  - {analysis_type.name}: {analysis_type.title}")
+        
+        # Confirm deletion
+        if click.confirm(f"Are you sure you want to delete all {len(builtin_types)} built-in analysis types?"):
+            deleted_count = 0
+            
+            for analysis_type in builtin_types:
+                try:
+                    # Delete using the container directly since we need to delete built-in types
+                    container = analysis_type_handler.container
+                    container.delete_item(item=analysis_type.id, partition_key="global")
+                    click.echo(f"✓ Deleted: {analysis_type.name}")
+                    deleted_count += 1
+                except Exception as e:
+                    click.echo(f"✗ Failed to delete {analysis_type.name}: {e}")
+            
+            click.echo(f"\nDeleted {deleted_count} out of {len(builtin_types)} built-in analysis types.")
+        else:
+            click.echo("Deletion cancelled.")
+            
+    except Exception as e:
+        click.echo(f"Error deleting built-in analysis types: {e}")
+
+
+@cli.command()
+def seed_analysis_types():
+    """Seed the database with built-in analysis types."""
+    analysis_type_handler = create_analysis_type_handler()
+    
+    # Define the 6 built-in analysis types with shortTitle field
+    builtin_types = [
+        {
+            "name": "summary",
+            "title": "Generate Summary",
+            "shortTitle": "Summary",
+            "description": "Create a concise overview of the main topics and key points",
+            "icon": "file-text",
+            "prompt": "Please provide a concise summary of the following transcript, highlighting the main topics and key points discussed:\n\n{transcript}"
+        },
+        {
+            "name": "keywords",
+            "title": "Extract Keywords",
+            "shortTitle": "Keywords",
+            "description": "Identify important keywords, topics, and themes",
+            "icon": "tag",
+            "prompt": "Extract the most important keywords, topics, and themes from the following transcript. Present them in a structured format with primary keywords and key themes:\n\n{transcript}"
+        },
+        {
+            "name": "sentiment",
+            "title": "Analyze Sentiment",
+            "shortTitle": "Sentiment",
+            "description": "Analyze emotional tone and sentiment patterns",
+            "icon": "smile",
+            "prompt": "Analyze the emotional tone and sentiment patterns in the following transcript. Provide an overall sentiment assessment and identify key emotional shifts:\n\n{transcript}"
+        },
+        {
+            "name": "qa",
+            "title": "Generate Q&A",
+            "shortTitle": "Q&A",
+            "description": "Create relevant questions and answers for study material",
+            "icon": "circle-help",
+            "prompt": "Generate relevant questions and answers based on the following transcript. Create study material that captures the key information and concepts discussed:\n\n{transcript}"
+        },
+        {
+            "name": "action-items",
+            "title": "Find Action Items",
+            "shortTitle": "Actions",
+            "description": "Extract actionable tasks and follow-up items",
+            "icon": "list-todo",
+            "prompt": "Extract all action items, tasks, decisions, and follow-up items from the following transcript. List any responsible parties and deadlines where mentioned:\n\n{transcript}"
+        },
+        {
+            "name": "topic-detection",
+            "title": "Detect Topics",
+            "shortTitle": "Topics",
+            "description": "Automatically identify and categorize discussion topics",
+            "icon": "search",
+            "prompt": "Identify and categorize the main topics discussed in the following transcript. Provide a structured breakdown of topics and their relative importance:\n\n{transcript}"
+        }
+    ]
+    
+    # Check existing built-in types
+    existing_types = analysis_type_handler.get_builtin_analysis_types()
+    existing_names = {t.name for t in existing_types}
+    
+    created_count = 0
+    updated_count = 0
+    
+    for type_data in builtin_types:
+        if type_data["name"] in existing_names:
+            click.echo(f"Built-in analysis type '{type_data['name']}' already exists, skipping...")
+            continue
+            
+        try:
+            created_type = analysis_type_handler.create_builtin_analysis_type(
+                name=type_data["name"],
+                title=type_data["title"],
+                short_title=type_data["shortTitle"],
+                description=type_data["description"],
+                icon=type_data["icon"],
+                prompt=type_data["prompt"]
+            )
+            
+            if created_type:
+                click.echo(f"✓ Created built-in analysis type: {type_data['title']}")
+                created_count += 1
+            else:
+                click.echo(f"✗ Failed to create analysis type: {type_data['title']}")
+                
+        except Exception as e:
+            click.echo(f"✗ Error creating analysis type '{type_data['title']}': {e}")
+    
+    click.echo(f"\nSeeding complete! Created {created_count} new built-in analysis types.")
+    if created_count == 0 and len(existing_names) == len(builtin_types):
+        click.echo("All built-in analysis types already exist in the database.")
 
 def get_speech_api_client():
     configuration = swagger_client.Configuration()

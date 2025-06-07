@@ -65,3 +65,28 @@
    - Blob deletion failures
 4. Update frontend to use the deletion endpoint
 5. Add tests for the deletion functionality
+
+
+# Unprocessed Todos:
+
+These are todos that I've added and haven't been planned out or examined by AI yet...
+
+  * fix the notifications in the frontend.  The mantine notifications are weird and feel out of place.
+  * the "view full" button in the recording workspace does nothing right now.  It should show the transript in the full window and blur everything else.
+  X The layout of the workspace is weird.  We should have the transcript across the whole thing and operations below that.
+  X try moving to a glassmorphic UI
+  X try using fluent icons
+  * user should be able to set the bearer token.  bonus points if we explain how to get it by using the dev tools in chrome when going to the plaud.ai site.
+  * UI for showing rationale for speaker assignment
+  * UI for setting the speaker names (get a speaker profile to help the user)
+  * maintain a catalog of speakers profiles across all recordings so we can a) find recordings where they talk. b) can label them better in future recordings
+  * check that type definitions for messages and responses are all in shared... I don't think they all are.
+  * add auto-tagging
+  * implement easy AI analysis of: summary, action items, keywords, Q&A
+  * longer term, think of coaching on conversations
+  * Allow to paste in transcripts and .vtt files of teams messages.
+  * Allow the user to query an LLM with the transcript injected into the prompt.  This could be a full chat experience... need to think about the best experience for this...
+  * organize the backend api more.  tags should have their own file.
+  * implement handling of a dead letter queue or poison pill messages in the queue
+  * If I paste in a transcript, check that it doesn't already exist as a transcript of a recording... not sure how to do this..
+
