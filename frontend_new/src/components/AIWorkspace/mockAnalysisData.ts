@@ -3,6 +3,7 @@ import type { AnalysisResult } from '../../types';
 export const MOCK_ANALYSIS_RESULTS: AnalysisResult[] = [
   {
     analysisType: 'summary',
+    analysisTypeId: 'summary-id',
     content: `This conversation is a brief, friendly exchange between two speakers who are catching up and transitioning into a project discussion. The dialogue begins with casual greetings and quickly moves to substantive work-related topics.
 
 ## Key Discussion Points
@@ -18,6 +19,7 @@ The tone throughout is professional yet collaborative, suggesting these speakers
   },
   {
     analysisType: 'keywords',
+    analysisTypeId: 'keywords-id',
     content: `**Primary Keywords:** project, progress, timeline, scope, focus, features
 
 ## Key Themes
@@ -38,6 +40,7 @@ The tone throughout is professional yet collaborative, suggesting these speakers
   },
   {
     analysisType: 'sentiment',
+    analysisTypeId: 'sentiment-id',
     content: `**Overall Sentiment:** Positive (Confidence: 87%)
 **Dominant Tone:** Professional, Collaborative, Constructive
 
@@ -150,6 +153,7 @@ The conversation flows naturally from casual greetings → status updates → ch
 
   return {
     analysisType,
+    analysisTypeId: `${analysisType}-mock-id`,
     content: mockContent[analysisType],
     createdAt: new Date().toISOString(),
     status: 'completed',

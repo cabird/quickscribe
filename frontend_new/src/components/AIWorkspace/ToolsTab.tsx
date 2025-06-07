@@ -1,4 +1,5 @@
-import { Grid, Box, Text } from '@mantine/core';
+import { Grid, Box, Text, Button, Group } from '@mantine/core';
+import { useState } from 'react';
 import type { AnalysisResult, AnalysisType } from '../../types';
 import { useAnalysisStore } from '../../stores/useAnalysisStore';
 import { IconRenderer } from '../IconRenderer';
@@ -7,10 +8,12 @@ import { IconRenderer } from '../IconRenderer';
 interface ToolsTabProps {
   analysisResults: AnalysisResult[];
   onRunAnalysis: (analysisType: AnalysisResult['analysisType']) => void;
+  onViewResult?: (analysisType: AnalysisResult['analysisType']) => void;
 }
 
-export function ToolsTab({ analysisResults, onRunAnalysis }: ToolsTabProps) {
+export function ToolsTab({ analysisResults, onRunAnalysis, onViewResult }: ToolsTabProps) {
   const { analysisTypes, loading, error } = useAnalysisStore();
+  const [hoveredTool, setHoveredTool] = useState<string | null>(null);
   const completedTypes = new Set(
     analysisResults.filter(result => result.status === 'completed').map(result => result.analysisType)
   );
@@ -56,11 +59,29 @@ export function ToolsTab({ analysisResults, onRunAnalysis }: ToolsTabProps) {
     const status = getToolStatus(analysisType.name);
     const isRunning = status === 'running';
     const isCompleted = status === 'completed';
+    const isHovered = hoveredTool === analysisType.id;
+    const showOverlay = isCompleted && isHovered && onViewResult;
     
     return (
       <Box
         key={analysisType.id}
-        onClick={() => !isRunning && onRunAnalysis(analysisType.name)}
+        onClick={() => {
+          if (isRunning) return;
+          if (isCompleted && !isHovered) {
+            // First click on completed tool shows overlay instead of running
+            setHoveredTool(analysisType.id);
+          } else if (!isCompleted) {
+            onRunAnalysis(analysisType.name);
+          }
+        }}
+        onMouseEnter={() => {
+          if (isCompleted && onViewResult) {
+            setHoveredTool(analysisType.id);
+          }
+        }}
+        onMouseLeave={() => {
+          setHoveredTool(null);
+        }}
         style={{
           padding: '20px',
           border: `1px solid ${isCompleted ? '#4caf50' : isRunning ? '#ffc107' : '#e0e0e0'}`,
@@ -75,26 +96,64 @@ export function ToolsTab({ analysisResults, onRunAnalysis }: ToolsTabProps) {
           alignItems: 'center',
           gap: '8px',
           minHeight: '120px',
-        }}
-        onMouseEnter={(e) => {
-          if (!isRunning) {
-            e.currentTarget.style.backgroundColor = isCompleted ? '#c8e6c9' : '#f0f7ff';
-            e.currentTarget.style.borderColor = isCompleted ? '#388e3c' : '#4a90e2';
-            e.currentTarget.style.transform = 'translateY(-2px)';
-            e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.1)';
-          }
-        }}
-        onMouseLeave={(e) => {
-          if (!isRunning) {
-            e.currentTarget.style.backgroundColor = isCompleted ? '#e8f5e8' : 'white';
-            e.currentTarget.style.borderColor = isCompleted ? '#4caf50' : '#e0e0e0';
-            e.currentTarget.style.transform = 'translateY(0)';
-            e.currentTarget.style.boxShadow = 'none';
-          }
+          transform: isHovered && !isRunning ? 'translateY(-2px)' : 'translateY(0)',
+          boxShadow: isHovered && !isRunning ? '0 2px 8px rgba(0,0,0,0.1)' : 'none',
         }}
       >
+        {/* Overlay for completed tools */}
+        {showOverlay && (
+          <Box
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: 'rgba(255, 255, 255, 0.95)',
+              borderRadius: '8px',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '12px',
+              zIndex: 10,
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <Text size="sm" fw={600} c="gray.8">
+              Analysis Complete
+            </Text>
+            <Group gap="xs">
+              <Button
+                size="xs"
+                variant="filled"
+                color="blue"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onViewResult(analysisType.name);
+                  setHoveredTool(null);
+                }}
+              >
+                View
+              </Button>
+              <Button
+                size="xs"
+                variant="outline"
+                color="gray"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onRunAnalysis(analysisType.name);
+                  setHoveredTool(null);
+                }}
+              >
+                Rerun
+              </Button>
+            </Group>
+          </Box>
+        )}
+
         {/* Status indicator */}
-        {isCompleted && (
+        {isCompleted && !showOverlay && (
           <Box
             style={{
               position: 'absolute',
@@ -112,7 +171,8 @@ export function ToolsTab({ analysisResults, onRunAnalysis }: ToolsTabProps) {
         {/* Icon */}
         <Box style={{ 
           color: isRunning ? 'var(--mantine-color-yellow-6)' : isCompleted ? 'var(--mantine-color-green-6)' : 'var(--mantine-color-gray-6)',
-          marginBottom: '4px'
+          marginBottom: '4px',
+          opacity: showOverlay ? 0.3 : 1,
         }}>
           {isRunning ? '⏳' : <IconRenderer iconName={analysisType.icon} size={24} />}
         </Box>
@@ -124,7 +184,8 @@ export function ToolsTab({ analysisResults, onRunAnalysis }: ToolsTabProps) {
           color: 'var(--mantine-color-gray-8)',
           marginBottom: '4px',
           minHeight: '20px', // Reserve space for title
-          width: '100%'
+          width: '100%',
+          opacity: showOverlay ? 0.3 : 1,
         }}>
           {isRunning ? 'Running...' : analysisType.title}
         </Box>
@@ -139,7 +200,8 @@ export function ToolsTab({ analysisResults, onRunAnalysis }: ToolsTabProps) {
           width: '100%',
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'center'
+          justifyContent: 'center',
+          opacity: showOverlay ? 0.3 : 1,
         }}>
           {isRunning ? 'Processing transcript' : analysisType.description}
         </Box>

@@ -29,6 +29,11 @@ export function AnalysisPanel({
     setActiveTab(analysisType);
   };
 
+  const handleViewResult = (analysisType: AnalysisResult['analysisType']) => {
+    // Switch to the specific result tab
+    setActiveTab(analysisType);
+  };
+
   const handleRunAnalysis = (analysisType: AnalysisResult['analysisType']) => {
     onRunAnalysis(analysisType);
     // Stay on current tab so user can see button state change
@@ -46,6 +51,7 @@ export function AnalysisPanel({
           <ToolsTab 
             analysisResults={analysisResults}
             onRunAnalysis={handleRunAnalysis}
+            onViewResult={handleViewResult}
           />
         );
       
