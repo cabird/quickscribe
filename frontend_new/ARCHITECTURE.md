@@ -1,5 +1,7 @@
 # QuickScribe Frontend Architecture
 
+<!-- Last updated for commit: 1f262a350a8810ff29c5898620c0b6d23a2161a7 -->
+
 ## Overview
 
 This document describes the complete architecture of the new QuickScribe frontend, built from scratch to replace the existing Mantine-based frontend with a modern, well-structured application that matches the provided UI mockup while preserving all existing functionality.
@@ -10,7 +12,8 @@ This document describes the complete architecture of the new QuickScribe fronten
 - **React 18** - Modern React with hooks and functional components
 - **TypeScript** - Full type safety throughout the application
 - **Vite** - Fast development server and build tool
-- **Mantine v7** - UI component library and design system
+- **Tailwind CSS** - Utility-first CSS framework with glassmorphism design
+- **Lucide React** - Modern icon library replacing Fluent UI
 - **Zustand** - Lightweight state management
 - **React Router v6** - Client-side routing
 - **Axios** - HTTP client for API communication

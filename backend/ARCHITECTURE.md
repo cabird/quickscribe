@@ -1,5 +1,7 @@
 # QuickScribe Backend Architecture
 
+<!-- Last updated for commit: 1f262a350a8810ff29c5898620c0b6d23a2161a7 -->
+
 ## Overview
 
 This document describes the complete architecture of the QuickScribe backend, a Flask-based API server that handles audio transcription processing, user management, and Azure services integration. The backend follows microservices principles with clean separation of concerns and scalable cloud-native design.
@@ -48,6 +50,7 @@ backend/
 │   ├── recording_handler.py     # Recording management with migration support
 │   ├── transcription_handler.py # Transcription data with speaker mapping
 │   ├── sync_progress_handler.py # Progress tracking for long-running operations
+│   ├── analysis_type_handler.py # Dynamic AI analysis types and results management
 │   └── util.py                  # Database utility functions and field filtering
 │
 ├── routes/                       # API blueprints with modular routing

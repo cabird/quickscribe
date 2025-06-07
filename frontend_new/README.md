@@ -1,13 +1,16 @@
 # QuickScribe New Frontend
 
-A modern React frontend for the QuickScribe audio transcription application, built with Vite, TypeScript, and Mantine v7.
+<!-- Last updated for commit: 1f262a350a8810ff29c5898620c0b6d23a2161a7 -->
+
+A modern React frontend for the QuickScribe audio transcription application, built with Vite, TypeScript, and featuring a glassmorphism design system with AI workspace integration.
 
 ## Features
 
 ✅ **Complete Layout Implementation**
-- Modern tabbed sidebar with Upload, Browse, and Settings tabs
-- Responsive main content area with grid/list view toggle
-- Beautiful gradient backgrounds following Mantine design principles
+- Modern glassmorphism design with frosted glass effects
+- Icon-based sidebar navigation with Lucide icons
+- Responsive main content area with smooth transitions
+- Beautiful gradient backgrounds with blur effects
 
 ✅ **Recording Management**
 - Enhanced recording cards with status indicators
@@ -22,12 +25,14 @@ A modern React frontend for the QuickScribe audio transcription application, bui
 - Automatic tag count displays
 
 ✅ **AI Workspace (Enhanced)**
-- Tabbed analysis interface with resizable panels
-- Six analysis types: Summary, Keywords, Q&A, Sentiment, Action Items, Topic Detection
-- Real-time analysis execution with optimistic UI updates
-- Results dashboard with clickable analysis cards
-- Individual analysis tabs with markdown formatting and actions
-- Horizontal panel resizing for user-controlled layout
+- Dynamic analysis types system with modular AI operations
+- Multi-panel layout with transcript and analysis views
+- Resizable panels with drag handles
+- Tabbed interface for tools and results
+- Real-time analysis execution with streaming results
+- Results overview with clickable analysis cards
+- Individual result tabs with formatted output
+- Support for custom analysis types via backend API
 - Mock data system for development and testing
 
 ✅ **State Management**
@@ -40,7 +45,8 @@ A modern React frontend for the QuickScribe audio transcription application, bui
 
 - **React 18** with TypeScript
 - **Vite** for fast development and building
-- **Mantine v7** for UI components and theming
+- **Tailwind CSS** for styling and glassmorphism effects
+- **Lucide React** for modern icon system
 - **Zustand** for state management
 - **Axios** for API communication
 - **React Router** for navigation

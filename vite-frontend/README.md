@@ -1,4 +1,10 @@
-# Mantine Vite template
+# QuickScribe Frontend (Legacy)
+
+<!-- Last updated for commit: 1f262a350a8810ff29c5898620c0b6d23a2161a7 -->
+
+> **Note**: This is the legacy frontend implementation using Mantine UI. It is being replaced by the new frontend at `/frontend_new/` which features a modern glassmorphism design. This frontend remains functional for compatibility.
+
+## Mantine Vite template
 
 ## Features
 

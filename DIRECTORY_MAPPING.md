@@ -1,14 +1,18 @@
 # QuickScribe - Comprehensive Directory Mapping
 
+<!-- Last updated for commit: 1f262a350a8810ff29c5898620c0b6d23a2161a7 -->
+
 This document provides a complete mapping of the QuickScribe repository structure with detailed summaries of key files and directories. This serves as a reference for understanding the codebase architecture and locating specific functionality.
 
 ## Repository Overview
 
 QuickScribe is a full-stack audio transcription application built with:
 - **Backend**: Flask API server with Azure integrations
-- **Frontend**: React/TypeScript web app with Vite 
+- **Frontend (Old)**: React/TypeScript web app with Vite/Mantine UI
+- **Frontend (New)**: Modern React/TypeScript app with glassmorphism design system
 - **Transcoder**: Containerized audio processing microservice
 - **Shared Models**: TypeScript/Python data models synchronized across services
+- **AI Workspace**: Dynamic analysis types system for modular AI-powered operations
 
 ---
 
@@ -24,6 +28,11 @@ QuickScribe is a full-stack audio transcription application built with:
 - **ui_migration_plan.md** - Detailed migration plan for transforming the Mantine-based UI to match modern design mockups
 - **ui_mockup_example.html** - HTML mockup example for UI design reference
 
+### Plans Directory (`/plans/`)
+- **commit-changes.md** - Plan for committing changes with AI-generated messages using Git commit history analysis
+- **dynamic-analysis-types.md** - Plan for implementing dynamic analysis types system with modular AI operations
+- **update-documentation.md** - Systematic plan for updating project documentation based on git commit history
+
 ---
 
 ## Backend Directory (`/backend/`)
@@ -34,12 +43,15 @@ QuickScribe is a full-stack audio transcription application built with:
 - **config.py** - Configuration management class that loads environment variables for Azure services (Storage, Cosmos DB, Speech Services, OpenAI), authentication settings, and determines container runtime environment
 
 ### Database Handlers (`/backend/db_handlers/`)
-- **models.py** - Auto-generated Pydantic models from TypeScript definitions including Recording, User, Transcription, PlaudSettings, and various enums (TranscriptionStatus, TranscodingStatus, Source)
+- **models.py** - Auto-generated Pydantic models from TypeScript definitions including Recording, User, Transcription, PlaudSettings, AnalysisType, AnalysisResult, and various enums (TranscriptionStatus, TranscodingStatus, Source)
 - **handler_factory.py** - Factory pattern implementation that creates and caches database handler instances in Flask's request context to ensure singleton behavior per request
 - **recording_handler.py** - Extended Recording model with migration handling and RecordingHandler class for CRUD operations on recordings, including Plaud-specific queries and tag management
 - **transcription_handler.py** - TranscriptionHandler class for managing transcription records with methods to create, retrieve, and update transcriptions by recording ID or Azure transcription ID
 - **user_handler.py** - Extended User and PlaudSettings models with datetime serialization, UserHandler class for user management, and comprehensive tag system with CRUD operations
+- **analysis_type_handler.py** - Handler for managing AI analysis types (analysis configurations) and results, supporting CRUD operations for dynamic analysis types and their execution results
+- **sync_progress_handler.py** - Handler for tracking and managing Plaud sync progress with real-time updates and comprehensive progress monitoring
 - **util.py** - Utility function to filter out Cosmos DB system fields (_rid, _self, _etag, etc.) from documents before converting to Pydantic models
+- **fixup_request.prompt** - Prompt template for AI-based request fixing and validation
 
 ### Route Files (`/backend/routes/`)
 - **api.py** - Main API blueprint with comprehensive CRUD endpoints for users/recordings/transcriptions, file upload handling with Azure queue integration, transcoding callbacks, and full tag management system
@@ -65,9 +77,80 @@ QuickScribe is a full-stack audio transcription application built with:
 
 ---
 
-## Frontend Directory (`/vite-frontend/`)
+## Frontend (New) Directory (`/frontend_new/`)
+
+### Overview
+A complete redesign of the QuickScribe frontend using modern React with TypeScript, featuring a glassmorphism design system, AI workspace integration, and improved state management with Zustand.
 
 ### Main Application Files
+- **src/main.tsx** - Application entry point with React 18 root rendering
+- **src/App.tsx** - Root component with Tailwind CSS and application layout
+- **ARCHITECTURE.md** - Comprehensive technical documentation of the new frontend architecture
+- **README.md** - Setup and development instructions for the new frontend
+
+### Components (`/frontend_new/src/components/`)
+- **Layout/** - Main application layout components
+  - **AppLayout.tsx** - Primary application shell with sidebar navigation and content area
+  - **Sidebar.tsx** - Navigation sidebar with glassmorphism styling and icon-based navigation
+  - **MainContent.tsx** - Content area wrapper with responsive design
+  - **BrowseTab.tsx** - Recording browsing interface with search and filtering
+  - **UploadTab.tsx** - File upload interface with drag-and-drop support
+  - **SettingsTab.tsx** - Application settings and preferences
+- **AIWorkspace/** - AI analysis workspace components
+  - **AIWorkspaceModal.tsx** - Main modal container for AI workspace with multi-panel layout
+  - **TranscriptPanel.tsx** - Transcript display with speaker separation and highlighting
+  - **AnalysisPanel.tsx** - AI analysis configuration and execution interface
+  - **TabNavigation.tsx** - Tab-based navigation for workspace sections
+  - **ToolsTab.tsx** - AI tools selection and configuration
+  - **ResultsOverviewTab.tsx** - Summary view of all analysis results
+  - **ResultTab.tsx** - Individual analysis result display
+  - **AIToolButton.tsx** - Reusable button component for AI tools
+  - **AIResult.tsx** - Result display component with formatted output
+  - **ResizableHandle.tsx** - Draggable handle for resizing panels
+  - **mockAnalysisData.ts** - Mock data for development and testing
+- **RecordingCard/** - Recording display components
+  - **RecordingCard.tsx** - Modern card-based recording display with actions
+- **Tags/** - Tag management components
+  - **TagBadge.tsx** - Tag display component with glassmorphism styling
+  - **TagManager.tsx** - Tag creation and management interface
+- **IconRenderer.tsx** - Dynamic icon rendering component supporting Lucide icons
+- **LocalAuthDropdown.tsx** - Development authentication dropdown
+
+### API Integration (`/frontend_new/src/api/`)
+- **recordings.ts** - Recording-related API endpoints
+- **tags.ts** - Tag management API endpoints
+- **plaud.ts** - Plaud device integration endpoints
+- **analysisTypes.ts** - AI analysis types and results API endpoints
+
+### State Management (`/frontend_new/src/stores/`)
+- **useRecordingStore.ts** - Zustand store for recording state management
+- **useTagStore.ts** - Zustand store for tag state management
+- **useUIStore.ts** - Zustand store for UI state (modals, selections, etc.)
+- **useAnalysisStore.ts** - Zustand store for AI analysis state and results
+
+### Configuration & Styling
+- **index.css** - Main CSS file with Tailwind directives and glassmorphism utilities
+- **App.css** - Application-specific styles
+- **vite.config.ts** - Vite configuration with React plugin and development settings
+- **tailwind.config.js** - Tailwind CSS configuration with custom glassmorphism theme
+- **postcss.config.cjs** - PostCSS configuration for Tailwind
+
+### Types & Constants
+- **src/types/index.ts** - TypeScript type definitions for frontend-specific types
+- **src/constants/iconLibrary.ts** - Centralized icon mapping for Lucide icons
+- **src/utils/index.ts** - Utility functions for the frontend
+
+### Development & Documentation
+- **glassmorphism-test.html** - Standalone HTML file for testing glassmorphism effects
+- **workspace_update_docs/** - Documentation for AI workspace implementation
+  - **description.md** - Detailed description of workspace features
+  - **mockup.html** - Visual mockup of the AI workspace
+
+---
+
+## Frontend (Old) Directory (`/vite-frontend/`)
+
+### Main Application Files  
 - **src/main.tsx** - Entry point that renders the App component to the DOM root element
 - **src/App.tsx** - Root application component that sets up Mantine theming, notifications, global styling, and conditional header with LocalAuthDropdown for development environments
 - **src/Router.tsx** - React Router configuration defining four main routes: home (/), recordings list (/recordings), upload page (/upload), and transcription viewer (/view_transcription/:transcriptionId)
@@ -132,7 +215,7 @@ QuickScribe is a full-stack audio transcription application built with:
 ## Shared Models (`/shared/`)
 
 ### Data Models
-- **Models.ts** - Master TypeScript definitions for all data models including User, Recording, Transcription, PlaudSettings, PlaudMetadata, and Tag interfaces with comprehensive field documentation and default values
+- **Models.ts** - Master TypeScript definitions for all data models including User, Recording, Transcription, PlaudSettings, PlaudMetadata, Tag, AnalysisType, and AnalysisResult interfaces with comprehensive field documentation and default values
 - **models.py** - Auto-generated Python Pydantic models from TypeScript definitions, providing type-safe data validation and serialization for the backend
 - **models.schema.json** - JSON Schema definitions derived from TypeScript models, used for validation and API documentation
 
@@ -170,23 +253,34 @@ QuickScribe is a full-stack audio transcription application built with:
 
 ### Microservices Design
 1. **Flask Backend** - Serves as the main API gateway with Azure service integrations
-2. **React Frontend** - Modern TypeScript SPA with Mantine UI components
-3. **Transcoder Service** - Containerized audio processing with Azure Container Apps
-4. **Shared Models** - Type-safe data models synchronized across all services
+2. **React Frontend (Old)** - Mantine UI-based TypeScript SPA (being phased out)
+3. **React Frontend (New)** - Modern glassmorphism design with AI workspace integration
+4. **Transcoder Service** - Containerized audio processing with Azure Container Apps
+5. **Shared Models** - Type-safe data models synchronized across all services
+
+### Key Features
+- **AI Workspace** - Dynamic analysis types system for modular AI operations on transcripts
+- **Glassmorphism UI** - Modern frosted glass design system with blur effects
+- **Real-time Progress Monitoring** - Comprehensive progress tracking for Plaud sync operations
+- **Tag Management** - Full tagging system with optimistic updates and search
+- **Speaker Diarization** - Advanced speaker separation and labeling
 
 ### Key Integrations
 - **Azure CosmosDB** - Primary database with partition-based scaling
 - **Azure Blob Storage** - Audio file storage with SAS token security
 - **Azure Storage Queues** - Asynchronous processing coordination
 - **Azure Speech Services** - Audio transcription with speaker diarization
-- **Azure OpenAI** - AI-powered speaker inference and content analysis
+- **Azure OpenAI** - AI-powered speaker inference, summarization, and dynamic analysis
 - **Plaud Device API** - Direct integration with Plaud recording devices
+- **Azure Container Apps** - Serverless container hosting for transcoder service
 
 ### Development Infrastructure
-- **Docker Compose** - Local development orchestration
+- **Docker Compose** - Local development orchestration with hot reloading
 - **Comprehensive Testing** - Unit, integration, and end-to-end test suites
 - **Azure DevOps** - CI/CD pipelines with Infrastructure as Code
 - **Monitoring & Logging** - Azure Application Insights with structured logging
 - **Authentication** - Azure AD integration with local development support
+- **State Management** - Zustand for React state management in new frontend
+- **Build Tools** - Vite for fast frontend development and building
 
 This directory mapping provides a complete reference for understanding the QuickScribe codebase structure, making it easier for developers and AI assistants to navigate and work with the application.

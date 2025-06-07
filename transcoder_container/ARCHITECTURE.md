@@ -1,5 +1,7 @@
 # QuickScribe Transcoder Container Architecture
 
+<!-- Last updated for commit: 1f262a350a8810ff29c5898620c0b6d23a2161a7 -->
+
 ## Overview
 
 The QuickScribe transcoder container is a focused microservice that processes Azure Storage Queue messages for audio transcoding and Plaud device synchronization. It's designed as a simple, stateless worker that can be scaled based on queue depth.

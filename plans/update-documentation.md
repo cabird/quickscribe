@@ -129,3 +129,27 @@ The documentation update is complete when:
 - All new components, directories, and architectural changes are documented
 - No outdated information remains in any documentation file
 - The documentation accurately reflects the current state of the codebase
+
+## Final Step: Commit Confirmation
+
+After completing all documentation updates:
+
+1. **Present Summary to User**
+   - Provide a clear summary of all files that were updated
+   - List the key changes made to each documentation file
+   - Show which new features, directories, or architectural changes were documented
+   - Confirm that commit metadata has been added to all appropriate files
+
+2. **Request Commit Confirmation**
+   - Ask the user if they want to commit the documentation changes
+   - Explain that this will create a commit with all the updated documentation
+   - Wait for explicit user confirmation before proceeding
+
+3. **If User Confirms**
+   - Stage all modified documentation files
+   - Create a commit with an appropriate message (e.g., "Update comprehensive project documentation with latest features and architecture")
+   - Include the standard AI-generated commit footer
+
+4. **If User Declines**
+   - Leave the changes unstaged for the user to review and commit manually
+   - Inform them that the documentation updates are complete but not yet committed
