@@ -1,5 +1,17 @@
 import { Modal, Grid, Stack, Text, Group, Button, Badge, Card, Divider, Loader, Center } from '@mantine/core';
-import { IconEye, IconCopy } from '@tabler/icons-react';
+import { 
+  LuEye, 
+  LuCopy, 
+  LuFileText,
+  LuRocket,
+  LuChartBar,
+  LuSearch,
+  LuListTodo,
+  LuCircleHelp,
+  LuSmile,
+  LuTag,
+  LuList
+} from 'react-icons/lu';
 import { notifications } from '@mantine/notifications';
 import { useUIStore } from '../../stores/useUIStore';
 import { useRecordingStore } from '../../stores/useRecordingStore';
@@ -151,18 +163,21 @@ export function AIWorkspaceModal() {
             <Card withBorder radius="md">
               <Stack gap="sm">
                 <Group justify="space-between">
-                  <Text fw={600} size="md">📝 Transcript Preview</Text>
+                  <Group gap="xs">
+                    <LuFileText size={20} />
+                    <Text fw={600} size="md">Transcript Preview</Text>
+                  </Group>
                   <Group gap="xs">
                     <Button 
                       size="xs" 
                       variant="light" 
-                      leftSection={<IconCopy size={14} />}
+                      leftSection={<LuCopy size={14} />}
                       onClick={handleCopyTranscript}
                       disabled={!transcription || transcriptionLoading}
                     >
                       Copy
                     </Button>
-                    <Button size="xs" variant="light" leftSection={<IconEye size={14} />}>
+                    <Button size="xs" variant="light" leftSection={<LuEye size={14} />}>
                       View Full
                     </Button>
                   </Group>
@@ -217,44 +232,47 @@ export function AIWorkspaceModal() {
           <Stack p="md" h="100%" style={{ overflow: 'auto' }}>
             {/* Quick Analysis Tools */}
             <Stack gap="sm">
-              <Text fw={600} size="md">🚀 Analysis Tools</Text>
+              <Group gap="xs">
+                <LuRocket size={20} />
+                <Text fw={600} size="md">Analysis Tools</Text>
+              </Group>
               <Grid>
                 <Grid.Col span={6}>
                   <AIToolButton
-                    icon="📝"
+                    icon={<LuFileText size={24} />}
                     title="Generate Summary"
                     description="Create a concise overview of the main topics and key points"
-                    onComplete={() => handleToolComplete('summary', '📝 Summary', 
+                    onComplete={() => handleToolComplete('summary', 'Summary', 
                       'This podcast episode explores relationship dynamics, focusing on the pattern of over-functioning in marriages. The main discussion centers around Kathy\'s 10-year experience in a marriage where she takes on excessive responsibility, and her desire to create a more equal partnership.'
                     )}
                   />
                 </Grid.Col>
                 <Grid.Col span={6}>
                   <AIToolButton
-                    icon="🏷️"
+                    icon={<LuTag size={24} />}
                     title="Extract Keywords"
                     description="Identify important keywords, topics, and themes"
-                    onComplete={() => handleToolComplete('keywords', '🏷️ Keywords & Topics',
+                    onComplete={() => handleToolComplete('keywords', 'Keywords & Topics',
                       'Primary Keywords: marriage, over-functioning, partnership, communication, boundaries, resentment, therapy, relationships\n\nKey Themes: Relationship dynamics, Personal responsibility, Equal partnership, Emotional needs, Conflict resolution'
                     )}
                   />
                 </Grid.Col>
                 <Grid.Col span={6}>
                   <AIToolButton
-                    icon="❓"
+                    icon={<LuCircleHelp size={24} />}
                     title="Create Q&A"
                     description="Generate relevant questions and answers for study material"
-                    onComplete={() => handleToolComplete('qa', '❓ Questions & Answers',
+                    onComplete={() => handleToolComplete('qa', 'Questions & Answers',
                       'Q: What is over-functioning in marriage?\nA: It\'s when one partner takes on excessive responsibility for tasks and decisions that should be shared equally in the relationship.\n\nQ: How can someone break the cycle of over-functioning?\nA: By setting clear boundaries, communicating needs effectively, and working toward equal responsibility sharing with their partner.'
                     )}
                   />
                 </Grid.Col>
                 <Grid.Col span={6}>
                   <AIToolButton
-                    icon="🎯"
+                    icon={<LuSmile size={24} />}
                     title="Sentiment Analysis"
                     description="Analyze emotional tone and sentiment patterns"
-                    onComplete={() => handleToolComplete('sentiment', '🎯 Sentiment Analysis',
+                    onComplete={() => handleToolComplete('sentiment', 'Sentiment Analysis',
                       'Overall Sentiment: Neutral to Positive\n\nEmotional Journey:\n• Initial frustration and concern (0-10 min)\n• Growing understanding and hope (10-30 min)\n• Determination and optimism (30-50 min)\n\nKey Emotions: Frustration (25%), Hope (35%), Determination (40%)'
                     )}
                   />
@@ -266,24 +284,27 @@ export function AIWorkspaceModal() {
 
             {/* Advanced Analysis */}
             <Stack gap="sm">
-              <Text fw={600} size="md">📊 Advanced Analysis</Text>
+              <Group gap="xs">
+                <LuChartBar size={20} />
+                <Text fw={600} size="md">Advanced Analysis</Text>
+              </Group>
               <Grid>
                 <Grid.Col span={6}>
                   <AIToolButton
-                    icon="🔍"
+                    icon={<LuSearch size={24} />}
                     title="Topic Detection"
                     description="Automatically identify and categorize discussion topics"
-                    onComplete={() => handleToolComplete('topics', '🔍 Topic Detection',
+                    onComplete={() => handleToolComplete('topics', 'Topic Detection',
                       'Topic Distribution:\n• Relationship Dynamics (45%)\n• Communication Patterns (25%)\n• Personal Boundaries (20%)\n• Conflict Resolution (10%)\n\nDiscussion Flow: Problem identification → Pattern analysis → Solution strategies → Action planning'
                     )}
                   />
                 </Grid.Col>
                 <Grid.Col span={6}>
                   <AIToolButton
-                    icon="📋"
+                    icon={<LuListTodo size={24} />}
                     title="Action Items"
                     description="Extract actionable tasks and follow-up items"
-                    onComplete={() => handleToolComplete('actions', '📋 Action Items',
+                    onComplete={() => handleToolComplete('actions', 'Action Items',
                       'Immediate Actions:\n1. Practice equal responsibility sharing in daily tasks\n2. Set clear communication boundaries with partner\n3. Schedule weekly relationship check-ins\n\nLong-term Goals:\n• Develop healthier communication patterns\n• Build mutual respect and understanding\n• Create sustainable relationship dynamics'
                     )}
                   />
@@ -296,7 +317,10 @@ export function AIWorkspaceModal() {
               <>
                 <Divider />
                 <Stack gap="sm">
-                  <Text fw={600} size="md">📋 Generated Analysis</Text>
+                  <Group gap="xs">
+                    <LuList size={20} />
+                    <Text fw={600} size="md">Generated Analysis</Text>
+                  </Group>
                   <Stack gap="md">
                     {results.map((result) => (
                       <AIResult

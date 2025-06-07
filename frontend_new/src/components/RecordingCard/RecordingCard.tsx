@@ -1,5 +1,18 @@
 import { Card, Group, Text, Badge, Button, Stack, ActionIcon, Menu } from '@mantine/core';
-import { IconDots, IconEye, IconDownload, IconTag, IconTrash, IconPlayerPlay, IconRobot, IconCheck, IconRefresh } from '@tabler/icons-react';
+import { 
+  LuEllipsis, 
+  LuEye, 
+  LuDownload, 
+  LuTag, 
+  LuTrash2, 
+  LuPlay, 
+  LuBot, 
+  LuCheck, 
+  LuRefreshCw,
+  LuFileText,
+  LuList,
+  LuCircleHelp
+} from 'react-icons/lu';
 import { useState, useEffect } from 'react';
 import type { Recording, Tag } from '../../types';
 import { useUIStore } from '../../stores/useUIStore';
@@ -203,22 +216,22 @@ export function RecordingCard({ recording: initialRecording, userTags }: Recordi
           <Menu shadow="md" width={180}>
             <Menu.Target>
               <ActionIcon variant="subtle" color="gray">
-                <IconDots size={16} />
+                <LuEllipsis size={16} />
               </ActionIcon>
             </Menu.Target>
             <Menu.Dropdown>
               <Menu.Item
-                leftSection={<IconEye size={14} />}
+                leftSection={<LuEye size={14} />}
                 disabled={transcriptionStatus !== 'completed'}
               >
                 View Transcription
               </Menu.Item>
-              <Menu.Item leftSection={<IconDownload size={14} />}>
+              <Menu.Item leftSection={<LuDownload size={14} />}>
                 Download
               </Menu.Item>
               
               <Menu.Item
-                leftSection={<IconTag size={14} />}
+                leftSection={<LuTag size={14} />}
                 rightSection="►"
               >
                 <Menu trigger="hover" position="right-start" offset={2}>
@@ -236,7 +249,7 @@ export function RecordingCard({ recording: initialRecording, userTags }: Recordi
                           key={tag.id}
                           leftSection={
                             isTagSelected(tag.id) ? (
-                              <IconCheck size={14} color={tag.color} />
+                              <LuCheck size={14} style={{ color: tag.color }} />
                             ) : (
                               <div style={{ width: 14, height: 14 }} />
                             )
@@ -263,7 +276,7 @@ export function RecordingCard({ recording: initialRecording, userTags }: Recordi
               
               <Menu.Divider />
               <Menu.Item 
-                leftSection={<IconTrash size={14} />}
+                leftSection={<LuTrash2 size={14} />}
                 color="red"
                 onClick={handleDelete}
               >
@@ -299,9 +312,24 @@ export function RecordingCard({ recording: initialRecording, userTags }: Recordi
         {/* AI Indicators (visual only for now) */}
         {transcriptionStatus === 'completed' && (
           <Group gap="xs">
-            <Badge size="xs" variant="light" color="violet">📝 Summary</Badge>
-            <Badge size="xs" variant="light" color="indigo">🏷️ Keywords</Badge>
-            <Badge size="xs" variant="light" color="teal">❓ Q&A</Badge>
+            <Badge size="xs" variant="light" color="violet">
+              <Group gap={4}>
+                <LuFileText size={12} />
+                <span>Summary</span>
+              </Group>
+            </Badge>
+            <Badge size="xs" variant="light" color="indigo">
+              <Group gap={4}>
+                <LuTag size={12} />
+                <span>Keywords</span>
+              </Group>
+            </Badge>
+            <Badge size="xs" variant="light" color="teal">
+              <Group gap={4}>
+                <LuCircleHelp size={12} />
+                <span>Q&A</span>
+              </Group>
+            </Badge>
           </Group>
         )}
 
@@ -311,7 +339,7 @@ export function RecordingCard({ recording: initialRecording, userTags }: Recordi
             <Button
               size="sm"
               variant="light"
-              leftSection={transcriptionStatus === 'in_progress' ? <IconRefresh size={16} /> : <IconPlayerPlay size={16} />}
+              leftSection={transcriptionStatus === 'in_progress' ? <LuRefreshCw size={16} /> : <LuPlay size={16} />}
               onClick={handleStartTranscription}
               disabled={transcriptionStatus === 'in_progress'}
               fullWidth
@@ -328,7 +356,10 @@ export function RecordingCard({ recording: initialRecording, userTags }: Recordi
               onClick={handleOpenAIWorkspace}
               fullWidth
             >
-              📝 Open Recording Workspace
+              <Group gap="xs">
+                <LuList size={16} />
+                <span>Open Recording Workspace</span>
+              </Group>
             </Button>
           )}
         </Group>

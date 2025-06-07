@@ -1,7 +1,14 @@
 import { Stack, Text, Button, Checkbox, Group, Progress, Alert } from '@mantine/core';
 import { Dropzone } from '@mantine/dropzone';
 import type { FileWithPath } from '@mantine/dropzone';
-import { IconUpload, IconX, IconFile, IconAlertCircle } from '@tabler/icons-react';
+import { 
+  LuUpload, 
+  LuX, 
+  LuFile, 
+  LuCircleAlert,
+  LuFolder,
+  LuRefreshCw
+} from 'react-icons/lu';
 import { useState, useEffect, useRef } from 'react';
 import { uploadFile } from '../../api/recordings';
 import { useRecordingStore } from '../../stores/useRecordingStore';
@@ -204,13 +211,13 @@ export function UploadTab() {
       >
         <Group justify="center" gap="sm" style={{ pointerEvents: 'none' }}>
           <Dropzone.Accept>
-            <IconUpload size={40} color="var(--mantine-color-blue-6)" />
+            <LuUpload size={40} color="var(--mantine-color-blue-6)" />
           </Dropzone.Accept>
           <Dropzone.Reject>
-            <IconX size={40} color="var(--mantine-color-red-6)" />
+            <LuX size={40} color="var(--mantine-color-red-6)" />
           </Dropzone.Reject>
           <Dropzone.Idle>
-            <IconFile size={40} color="var(--mantine-color-gray-6)" />
+            <LuFile size={40} color="var(--mantine-color-gray-6)" />
           </Dropzone.Idle>
         </Group>
 
@@ -265,7 +272,10 @@ export function UploadTab() {
           onClick={() => (document.querySelector('input[type="file"]') as HTMLInputElement)?.click()}
           loading={uploadLoading}
         >
-          📂 Select Files
+          <Group gap="xs">
+            <LuFolder size={16} />
+            <span>Select Files</span>
+          </Group>
         </Button>
         <Button 
           fullWidth 
@@ -275,7 +285,10 @@ export function UploadTab() {
           loading={uploadLoading}
           disabled={syncProgress && (syncProgress.status === 'queued' || syncProgress.status === 'processing')}
         >
-          🔄 Sync from Plaud
+          <Group gap="xs">
+            <LuRefreshCw size={16} />
+            <span>Sync from Plaud</span>
+          </Group>
         </Button>
       </Stack>
 
@@ -320,7 +333,7 @@ export function UploadTab() {
           {/* Error messages */}
           {syncProgress.errors && syncProgress.errors.length > 0 && (
             <Alert 
-              icon={<IconAlertCircle size={16} />} 
+              icon={<LuCircleAlert size={16} />} 
               title="Some recordings failed" 
               color="orange"
               variant="light"

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Select, Button, Group, Text } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
-import { IconTrash, IconUser } from '@tabler/icons-react';
+import { LuTrash2, LuUser } from 'react-icons/lu';
 
 interface TestUser {
   id: string;
@@ -78,7 +78,7 @@ export function LocalAuthDropdown({ onUserChange }: LocalAuthDropdownProps) {
           title: 'Logged in',
           message: `Logged in as ${data.user.name}`,
           color: 'green',
-          icon: <IconUser size={16} />,
+          icon: <LuUser size={16} />,
         });
       } else {
         const error = await response.json();
@@ -162,7 +162,7 @@ export function LocalAuthDropdown({ onUserChange }: LocalAuthDropdownProps) {
           variant="light"
           color="red"
           size="xs"
-          leftSection={<IconTrash size={14} />}
+          leftSection={<LuTrash2 size={14} />}
           loading={resetting === selectedUserId}
           onClick={() => handleResetUser(selectedUserId)}
         >

@@ -1,14 +1,14 @@
 import { Stack, Group, Text, UnstyledButton, rem } from '@mantine/core';
-import { IconUpload, IconSearch, IconSettings } from '@tabler/icons-react';
+import { LuUpload, LuSearch, LuSettings } from 'react-icons/lu';
 import { useUIStore } from '../../stores/useUIStore';
 import { UploadTab } from './UploadTab';
 import { BrowseTab } from './BrowseTab';
 import { SettingsTab } from './SettingsTab';
 
 const tabs = [
-  { value: 'upload', label: 'Upload', icon: IconUpload },
-  { value: 'browse', label: 'Browse', icon: IconSearch },
-  { value: 'settings', label: 'Settings', icon: IconSettings },
+  { value: 'upload', label: 'Upload', icon: LuUpload },
+  { value: 'browse', label: 'Browse', icon: LuSearch },
+  { value: 'settings', label: 'Settings', icon: LuSettings },
 ] as const;
 
 export function Sidebar() {

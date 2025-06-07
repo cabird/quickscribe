@@ -1,5 +1,5 @@
 import { Modal, Stack, Group, Text, TextInput, Button, ActionIcon, ColorInput, rem } from '@mantine/core';
-import { IconPlus, IconEdit, IconTrash, IconCheck, IconX } from '@tabler/icons-react';
+import { LuPlus, LuPencil, LuTrash2, LuCheck, LuX } from 'react-icons/lu';
 import { useState } from 'react';
 import { useTagStore } from '../../stores/useTagStore';
 import { createTag, updateTag, deleteTag } from '../../api/tags';
@@ -143,7 +143,7 @@ export function TagManager({ onClose }: TagManagerProps) {
               onClick={handleCreateTag}
               loading={loading}
               disabled={!newTagName.trim()}
-              leftSection={<IconPlus size={16} />}
+              leftSection={<LuPlus size={16} />}
             >
               Add
             </Button>
@@ -192,7 +192,7 @@ export function TagManager({ onClose }: TagManagerProps) {
                           loading={loading}
                           disabled={!editName.trim()}
                         >
-                          <IconCheck size={14} />
+                          <LuCheck size={14} />
                         </ActionIcon>
                         <ActionIcon
                           size="sm"
@@ -200,7 +200,7 @@ export function TagManager({ onClose }: TagManagerProps) {
                           onClick={cancelEditing}
                           disabled={loading}
                         >
-                          <IconX size={14} />
+                          <LuX size={14} />
                         </ActionIcon>
                       </Group>
                     </>
@@ -215,7 +215,7 @@ export function TagManager({ onClose }: TagManagerProps) {
                           color="gray"
                           onClick={() => startEditing(tag)}
                         >
-                          <IconEdit size={14} />
+                          <LuPencil size={14} />
                         </ActionIcon>
                         <ActionIcon
                           size="sm"
@@ -223,7 +223,7 @@ export function TagManager({ onClose }: TagManagerProps) {
                           color="red"
                           onClick={() => handleDeleteTag(tag.id)}
                         >
-                          <IconTrash size={14} />
+                          <LuTrash2 size={14} />
                         </ActionIcon>
                       </Group>
                     </>

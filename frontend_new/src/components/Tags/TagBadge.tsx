@@ -1,5 +1,5 @@
 import { Badge, ActionIcon } from '@mantine/core';
-import { IconX } from '@tabler/icons-react';
+import { LuX } from 'react-icons/lu';
 import type { Tag } from '../../types';
 
 interface TagBadgeProps {
@@ -42,7 +42,7 @@ export function TagBadge({ tag, size = 'sm', removable = false, onRemove }: TagB
             color={tag.color}
             onClick={handleRemove}
           >
-            <IconX size={size === 'xs' ? 8 : 10} />
+            <LuX size={size === 'xs' ? 8 : 10} />
           </ActionIcon>
         ) : undefined
       }

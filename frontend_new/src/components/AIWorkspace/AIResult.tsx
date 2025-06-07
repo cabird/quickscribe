@@ -1,5 +1,5 @@
 import { Card, Group, Text, Button, ActionIcon, Textarea } from '@mantine/core';
-import { IconCopy, IconDownload, IconEdit, IconTrash, IconCheck, IconX } from '@tabler/icons-react';
+import { LuCopy, LuDownload, LuPencil, LuTrash2, LuCheck, LuX } from 'react-icons/lu';
 import { useState } from 'react';
 import { notifications } from '@mantine/notifications';
 
@@ -71,16 +71,16 @@ export function AIResult({ title, content, onRemove }: AIResultProps) {
         </Text>
         <Group gap="xs">
           <ActionIcon size="sm" variant="subtle" onClick={handleCopy}>
-            <IconCopy size={14} />
+            <LuCopy size={14} />
           </ActionIcon>
           <ActionIcon size="sm" variant="subtle" onClick={() => setIsEditing(!isEditing)}>
-            <IconEdit size={14} />
+            <LuPencil size={14} />
           </ActionIcon>
           <ActionIcon size="sm" variant="subtle" onClick={handleExport}>
-            <IconDownload size={14} />
+            <LuDownload size={14} />
           </ActionIcon>
           <ActionIcon size="sm" variant="subtle" color="red" onClick={onRemove}>
-            <IconTrash size={14} />
+            <LuTrash2 size={14} />
           </ActionIcon>
         </Group>
       </Group>
@@ -95,10 +95,10 @@ export function AIResult({ title, content, onRemove }: AIResultProps) {
             mb="sm"
           />
           <Group gap="xs">
-            <Button size="xs" leftSection={<IconCheck size={14} />} onClick={handleSaveEdit}>
+            <Button size="xs" leftSection={<LuCheck size={14} />} onClick={handleSaveEdit}>
               Save
             </Button>
-            <Button size="xs" variant="light" leftSection={<IconX size={14} />} onClick={handleCancelEdit}>
+            <Button size="xs" variant="light" leftSection={<LuX size={14} />} onClick={handleCancelEdit}>
               Cancel
             </Button>
           </Group>

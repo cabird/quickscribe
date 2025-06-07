@@ -2,7 +2,7 @@ import { Card, Stack, Text, Button, Progress } from '@mantine/core';
 import { useState } from 'react';
 
 interface AIToolButtonProps {
-  icon: string;
+  icon: React.ReactNode;
   title: string;
   description: string;
   onComplete: () => void;
@@ -82,7 +82,7 @@ export function AIToolButton({ icon, title, description, onComplete }: AIToolBut
       onClick={handleClick}
     >
       <Stack gap="sm" align="center" h="100%">
-        <Text size="xl">{icon}</Text>
+        <div>{icon}</div>
         <Text fw={600} size="sm" ta="center">
           {title}
         </Text>

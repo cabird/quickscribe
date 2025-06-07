@@ -1,5 +1,5 @@
 import { Stack, Text, TextInput, UnstyledButton, Group, Badge, Button, rem } from '@mantine/core';
-import { IconSearch, IconMusic, IconClock, IconSettings, IconCheck, IconPlus } from '@tabler/icons-react';
+import { LuSearch, LuMusic, LuClock, LuSettings, LuCheck, LuPlus } from 'react-icons/lu';
 import { useUIStore } from '../../stores/useUIStore';
 import { useRecordingStore } from '../../stores/useRecordingStore';
 import { useTagStore } from '../../stores/useTagStore';
@@ -7,10 +7,10 @@ import { TagManager } from '../Tags/TagManager';
 import { useState } from 'react';
 
 const statusFilters = [
-  { value: 'all', label: 'All Recordings', icon: IconMusic, color: 'blue' },
-  { value: 'recent', label: 'Recent', icon: IconClock, color: 'green' },
-  { value: 'processing', label: 'Processing', icon: IconSettings, color: 'yellow' },
-  { value: 'completed', label: 'Completed', icon: IconCheck, color: 'teal' },
+  { value: 'all', label: 'All Recordings', icon: LuMusic, color: 'blue' },
+  { value: 'recent', label: 'Recent', icon: LuClock, color: 'green' },
+  { value: 'processing', label: 'Processing', icon: LuSettings, color: 'yellow' },
+  { value: 'completed', label: 'Completed', icon: LuCheck, color: 'teal' },
 ];
 
 export function BrowseTab() {
@@ -62,7 +62,7 @@ export function BrowseTab() {
       {/* Search */}
       <TextInput
         placeholder="Search recordings..."
-        leftSection={<IconSearch size={16} />}
+        leftSection={<LuSearch size={16} />}
         value={filters.search}
         onChange={(e) => setFilters({ search: e.currentTarget.value })}
         styles={{
@@ -124,7 +124,7 @@ export function BrowseTab() {
           <Button 
             size="xs" 
             variant="light"
-            leftSection={<IconPlus size={12} />}
+            leftSection={<LuPlus size={12} />}
             onClick={() => setShowTagManager(true)}
           >
             Manage

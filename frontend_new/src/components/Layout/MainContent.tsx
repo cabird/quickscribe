@@ -1,5 +1,5 @@
 import { Container, Group, Title, Button, SimpleGrid, Loader, Center, Text } from '@mantine/core';
-import { IconGridDots, IconList } from '@tabler/icons-react';
+import { LuGrid3X3, LuList } from 'react-icons/lu';
 import { useUIStore } from '../../stores/useUIStore';
 import { useRecordingStore } from '../../stores/useRecordingStore';
 import { useTagStore } from '../../stores/useTagStore';
@@ -93,14 +93,14 @@ export function MainContent() {
             <Button
               variant={viewMode === 'grid' ? 'filled' : 'light'}
               onClick={() => setViewMode('grid')}
-              leftSection={<IconGridDots size={16} />}
+              leftSection={<LuGrid3X3 size={16} />}
             >
               Grid
             </Button>
             <Button
               variant={viewMode === 'list' ? 'filled' : 'light'}
               onClick={() => setViewMode('list')}
-              leftSection={<IconList size={16} />}
+              leftSection={<LuList size={16} />}
             >
               List
             </Button>
