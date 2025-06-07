@@ -1,6 +1,7 @@
 from .recording_handler import RecordingHandler
 from .transcription_handler import TranscriptionHandler
 from .user_handler import UserHandler
+from .sync_progress_handler import SyncProgressHandler
 from config import config
 
 from flask import g
@@ -20,6 +21,11 @@ def get_user_handler():
         g.user_handler = create_user_handler()
     return g.user_handler
 
+def get_sync_progress_handler():
+    if not hasattr(g, 'sync_progress_handler'):
+        g.sync_progress_handler = create_sync_progress_handler()
+    return g.sync_progress_handler
+
 def create_recording_handler():
     return RecordingHandler(config.COSMOS_URL, config.COSMOS_KEY, config.COSMOS_DB_NAME, config.COSMOS_CONTAINER_NAME)
 
@@ -28,3 +34,8 @@ def create_transcription_handler():
 
 def create_user_handler():
     return UserHandler(config.COSMOS_URL, config.COSMOS_KEY, config.COSMOS_DB_NAME, config.COSMOS_CONTAINER_NAME)
+
+def create_sync_progress_handler():
+    from azure.cosmos import CosmosClient
+    cosmos_client = CosmosClient(config.COSMOS_URL, config.COSMOS_KEY)
+    return SyncProgressHandler(cosmos_client, config.COSMOS_DB_NAME)

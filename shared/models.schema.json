@@ -1,6 +1,28 @@
 {
     "$schema": "http://json-schema.org/draft-07/schema#",
     "definitions": {
+        "ActiveSyncCheckResponse": {
+            "properties": {
+                "has_active_sync": {
+                    "type": "boolean"
+                },
+                "progress": {
+                    "$ref": "#/definitions/SyncProgress"
+                },
+                "sync_token": {
+                    "type": "string"
+                }
+            },
+            "propertyOrder": [
+                "has_active_sync",
+                "sync_token",
+                "progress"
+            ],
+            "required": [
+                "has_active_sync"
+            ],
+            "type": "object"
+        },
         "PlaudMetadata": {
             "properties": {
                 "originalTimestamp": {
@@ -72,6 +94,76 @@
             ],
             "required": [
                 "bearerToken"
+            ],
+            "type": "object"
+        },
+        "PlaudSettingsResponse": {
+            "properties": {
+                "plaudSettings": {
+                    "$ref": "#/definitions/PlaudSettings"
+                }
+            },
+            "propertyOrder": [
+                "plaudSettings"
+            ],
+            "required": [
+                "plaudSettings"
+            ],
+            "type": "object"
+        },
+        "PlaudSyncResponse": {
+            "properties": {
+                "dry_run": {
+                    "type": "boolean"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "sync_token": {
+                    "type": "string"
+                }
+            },
+            "propertyOrder": [
+                "message",
+                "sync_token",
+                "dry_run"
+            ],
+            "required": [
+                "dry_run",
+                "message",
+                "sync_token"
+            ],
+            "type": "object"
+        },
+        "PlaudSyncStatusResponse": {
+            "properties": {
+                "activeSyncToken": {
+                    "type": "string"
+                },
+                "currentSyncActive": {
+                    "type": "boolean"
+                },
+                "hasSettings": {
+                    "type": "boolean"
+                },
+                "lastSyncTimestamp": {
+                    "type": "string"
+                },
+                "syncEnabled": {
+                    "type": "boolean"
+                }
+            },
+            "propertyOrder": [
+                "hasSettings",
+                "syncEnabled",
+                "lastSyncTimestamp",
+                "currentSyncActive",
+                "activeSyncToken"
+            ],
+            "required": [
+                "currentSyncActive",
+                "hasSettings",
+                "syncEnabled"
             ],
             "type": "object"
         },
@@ -203,6 +295,91 @@
                 "partitionKey",
                 "unique_filename",
                 "user_id"
+            ],
+            "type": "object"
+        },
+        "SyncProgress": {
+            "properties": {
+                "currentStep": {
+                    "type": "string"
+                },
+                "errors": {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array"
+                },
+                "estimatedCompletion": {
+                    "type": "string"
+                },
+                "failedRecordings": {
+                    "type": "number"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "lastUpdate": {
+                    "type": "string"
+                },
+                "partitionKey": {
+                    "type": "string"
+                },
+                "processedRecordings": {
+                    "type": "number"
+                },
+                "startTime": {
+                    "type": "string"
+                },
+                "status": {
+                    "enum": [
+                        "completed",
+                        "failed",
+                        "processing",
+                        "queued"
+                    ],
+                    "type": "string"
+                },
+                "syncToken": {
+                    "type": "string"
+                },
+                "totalRecordings": {
+                    "type": "number"
+                },
+                "ttl": {
+                    "type": "number"
+                },
+                "userId": {
+                    "type": "string"
+                }
+            },
+            "propertyOrder": [
+                "id",
+                "syncToken",
+                "userId",
+                "status",
+                "totalRecordings",
+                "processedRecordings",
+                "failedRecordings",
+                "currentStep",
+                "estimatedCompletion",
+                "errors",
+                "startTime",
+                "lastUpdate",
+                "ttl",
+                "partitionKey"
+            ],
+            "required": [
+                "currentStep",
+                "errors",
+                "failedRecordings",
+                "id",
+                "lastUpdate",
+                "partitionKey",
+                "processedRecordings",
+                "startTime",
+                "status",
+                "syncToken",
+                "userId"
             ],
             "type": "object"
         },

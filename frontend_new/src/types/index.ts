@@ -83,6 +83,49 @@ export interface Recording {
     is_dummy_recording?: boolean; // Indicates if this is a dummy recording for testing
 }
 
+// Progress tracking for Plaud sync operations
+export interface SyncProgress {
+    id: string; // Unique identifier (same as syncToken)
+    syncToken: string; // Token identifying this sync operation
+    userId: string; // User who initiated the sync
+    status: 'queued' | 'processing' | 'completed' | 'failed'; // Current status
+    totalRecordings?: number; // Total recordings found (set when processing starts)
+    processedRecordings: number; // Number of recordings successfully processed
+    failedRecordings: number; // Number of recordings that failed
+    currentStep: string; // Current operation description
+    estimatedCompletion?: string; // ISO timestamp of estimated completion
+    errors: string[]; // Array of error messages for failed recordings
+    startTime: string; // ISO timestamp when sync was initiated
+    lastUpdate: string; // ISO timestamp of last progress update
+    ttl?: number; // TTL for automatic cleanup (24 hours from start)
+    partitionKey: string; // For CosmosDB partitioning
+}
+
+// API Response types for Plaud operations
+export interface PlaudSyncResponse {
+    message: string;
+    sync_token: string;
+    dry_run: boolean;
+}
+
+export interface PlaudSyncStatusResponse {
+    hasSettings: boolean;
+    syncEnabled: boolean;
+    lastSyncTimestamp?: string;
+    currentSyncActive: boolean;
+    activeSyncToken?: string;
+}
+
+export interface PlaudSettingsResponse {
+    plaudSettings: PlaudSettings;
+}
+
+export interface ActiveSyncCheckResponse {
+    has_active_sync: boolean;
+    sync_token?: string;
+    progress?: SyncProgress;
+}
+
 // Represents a transcription entity
 export interface Transcription {
     id: string; // Unique identifier for the transcription
@@ -102,23 +145,4 @@ export interface Transcription {
             reasoning: string; // Concise reasoning for the inferred label
         };
     };
-}
-
-// API Response types
-export interface ApiResponse {
-    status: 'success' | 'error';
-    message?: string;
-    error?: string;
-}
-
-// AI Analysis types (for future use)
-export interface AIAnalysis {
-    recording_id: string;
-    summary?: string;
-    keywords?: string[];
-    sentiment?: 'positive' | 'negative' | 'neutral' | 'mixed';
-    topics?: string[];
-    action_items?: string[];
-    qa_pairs?: Array<{ question: string; answer: string }>;
-    created_at: string;
 }

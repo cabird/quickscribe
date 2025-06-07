@@ -1,6 +1,6 @@
 # Add these imports to the top of routes/api.py
 from azure.storage.queue import QueueClient
-from db_handlers.handler_factory import create_user_handler
+from db_handlers.handler_factory import create_user_handler, get_sync_progress_handler, get_user_handler
 from datetime import datetime, UTC
 import uuid
 import json
@@ -112,6 +112,22 @@ def start_plaud_sync():
             
         if not plaud_settings.enableSync:
             return jsonify({'error': 'Plaud sync is disabled'}), 400
+        
+        # Check if sync is already active
+        if plaud_settings.activeSyncToken and plaud_settings.activeSyncStarted:
+            # Check if sync hasn't expired
+            elapsed = datetime.now(UTC) - plaud_settings.activeSyncStarted
+            if elapsed.total_seconds() <= 3600:  # 1 hour timeout
+                return jsonify({
+                    'error': 'Sync already in progress',
+                    'active_sync_token': plaud_settings.activeSyncToken,
+                    'sync_started': plaud_settings.activeSyncStarted.isoformat() if plaud_settings.activeSyncStarted else None
+                }), 409
+            else:
+                # Clear expired sync token
+                logger.info(f"Clearing expired sync token for user {user.id}")
+                plaud_settings.activeSyncToken = None
+                plaud_settings.activeSyncStarted = None
             
         # Get request parameters
         request_data = request.get_json() or {}
@@ -180,6 +196,20 @@ def start_plaud_sync():
         user_handler.save_user(user)
         logger.info(f"Stored sync token for user {user.id}")
         
+        # Create initial sync progress record
+        try:
+            sync_progress_handler = get_sync_progress_handler()
+            sync_progress_handler.create_progress(
+                sync_token=sync_token,
+                user_id=user.id,
+                status='queued',
+                current_step='Sync request queued, waiting for processing...'
+            )
+            logger.info(f"Created sync progress record for token {sync_token}")
+        except Exception as progress_error:
+            logger.error(f"Failed to create sync progress record: {progress_error}")
+            # Don't fail the whole operation if progress tracking fails
+        
         return jsonify({
             'message': 'Plaud sync operation started',
             'sync_token': sync_token,
@@ -188,6 +218,37 @@ def start_plaud_sync():
         
     except Exception as e:
         logger.error(f"Error starting Plaud sync: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@plaud_bp.route('/sync/progress/<sync_token>', methods=['GET'])
+def get_sync_progress(sync_token):
+    """Get detailed sync progress for a specific sync token"""
+    try:
+        current_user = get_current_user()
+        if not current_user:
+            return jsonify({'error': 'User not authenticated'}), 401
+        
+        # Get sync progress
+        sync_progress_handler = get_sync_progress_handler()
+        progress = sync_progress_handler.get_progress(sync_token, current_user.id)
+        
+        if not progress:
+            return jsonify({'error': 'Sync progress not found'}), 404
+        
+        # Convert to dict for JSON response
+        progress_dict = progress.model_dump()
+        
+        # Calculate progress percentage if total is known
+        if progress.totalRecordings and progress.totalRecordings > 0:
+            completed = progress.processedRecordings + progress.failedRecordings
+            progress_dict['progressPercentage'] = min(100, (completed / progress.totalRecordings) * 100)
+        else:
+            progress_dict['progressPercentage'] = None
+        
+        return jsonify(progress_dict), 200
+        
+    except Exception as e:
+        logger.error(f"Error getting sync progress: {e}")
         return jsonify({'error': str(e)}), 500
 
 @plaud_bp.route('/plaud_sync/status/<user_id>', methods=['GET'])
@@ -207,22 +268,73 @@ def get_plaud_sync_status(user_id):
         
         # Check if sync is currently active
         sync_active = False
+        active_sync_token = None
         if current_user.plaudSettings.activeSyncToken and current_user.plaudSettings.activeSyncStarted:
             # Check if sync hasn't expired
             elapsed = datetime.now(UTC) - current_user.plaudSettings.activeSyncStarted
             sync_active = elapsed.total_seconds() <= 3600  # 1 hour timeout
+            if sync_active:
+                active_sync_token = current_user.plaudSettings.activeSyncToken
         
         status = {
             'hasSettings': bool(current_user.plaudSettings.bearerToken),
             'syncEnabled': current_user.plaudSettings.enableSync,
             'lastSyncTimestamp': current_user.plaudSettings.lastSyncTimestamp,
             'currentSyncActive': sync_active,
+            'activeSyncToken': active_sync_token
         }
         
         return jsonify(status), 200
         
     except Exception as e:
         logger.error(f"Error getting Plaud sync status: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@plaud_bp.route('/sync/check_active', methods=['GET'])
+def check_active_sync():
+    """Check if current user has an active sync and return its status"""
+    try:
+        current_user = get_current_user()
+        if not current_user:
+            return jsonify({'error': 'User not authenticated'}), 401
+        
+        # Check if user has an active sync token
+        if (current_user.plaudSettings and 
+            current_user.plaudSettings.activeSyncToken):
+            
+            sync_token = current_user.plaudSettings.activeSyncToken
+            
+            # Try to get the progress for this sync
+            sync_progress_handler = get_sync_progress_handler()
+            progress = sync_progress_handler.get_progress(sync_token, current_user.id)
+            
+            if progress:
+                # Check if sync is still active (not completed or failed)
+                if progress.status in ['queued', 'processing']:
+                    return jsonify({
+                        'has_active_sync': True,
+                        'sync_token': sync_token,
+                        'progress': progress.model_dump()
+                    }), 200
+                else:
+                    # Sync is completed/failed, clear the token
+                    current_user.plaudSettings.activeSyncToken = None
+                    current_user.plaudSettings.activeSyncStarted = None
+                    user_handler = get_user_handler()
+                    user_handler.save_user(current_user)
+                    logger.info(f"Cleared completed sync token for user {current_user.id}")
+            else:
+                # Progress record not found, clear orphaned token
+                current_user.plaudSettings.activeSyncToken = None
+                current_user.plaudSettings.activeSyncStarted = None
+                user_handler = get_user_handler()
+                user_handler.save_user(current_user)
+                logger.info(f"Cleared orphaned sync token for user {current_user.id}")
+        
+        return jsonify({'has_active_sync': False}), 200
+        
+    except Exception as e:
+        logger.error(f"Error checking active sync: {e}")
         return jsonify({'error': str(e)}), 500
 
 # ============================================================================
@@ -381,25 +493,64 @@ def handle_plaud_sync_status(data):
     try:
         user_id = data.get('user_id')
         status = data.get('status')
+        callback_token = data.get('callback_token')
         
         logger.info(f"Plaud sync status update for user {user_id}: {status}")
+        
+        # Get sync progress handler for updating progress
+        sync_progress_handler = get_sync_progress_handler()
         
         if status == 'in_progress':
             # Sync operation started
             message = data.get('message', 'Sync in progress')
+            total_recordings = data.get('total_recordings_found')
             logger.info(f"Plaud sync started for user {user_id}: {message}")
+            
+            # Update progress to processing status
+            update_data = {
+                'status': 'processing',
+                'currentStep': message
+            }
+            if total_recordings is not None:
+                update_data['totalRecordings'] = total_recordings
+                
+            sync_progress_handler.update_progress(callback_token, user_id, **update_data)
             
         elif status == 'recording_processed':
             # Individual recording was processed successfully
             plaud_id = data.get('plaud_id')
             recording_id = data.get('recording_id')
+            filename = data.get('filename', plaud_id)
             logger.info(f"Plaud recording {plaud_id} processed as {recording_id}")
+            
+            # Update progress with successful recording
+            current_progress = sync_progress_handler.get_progress(callback_token, user_id)
+            if current_progress:
+                processed_count = current_progress.processedRecordings + 1
+                total = current_progress.totalRecordings or 0
+                
+                step_message = f"Processing recordings ({processed_count}"
+                if total > 0:
+                    step_message += f"/{total}"
+                step_message += ")"
+                
+                sync_progress_handler.update_progress(
+                    callback_token, 
+                    user_id,
+                    processedRecordings=processed_count,
+                    currentStep=step_message
+                )
             
         elif status == 'recording_failed':
             # Individual recording failed
             plaud_id = data.get('plaud_id')
+            filename = data.get('filename', plaud_id)
             error_message = data.get('error_message')
             logger.error(f"Plaud recording {plaud_id} failed: {error_message}")
+            
+            # Add error to progress tracking
+            error_detail = f"{filename}: {error_message}"
+            sync_progress_handler.add_error(callback_token, user_id, error_detail)
             
         elif status == 'completed':
             # Sync operation completed
@@ -413,17 +564,42 @@ def handle_plaud_sync_status(data):
                        f"{error_count} errors, "
                        f"{processing_time:.1f}s")
             
+            # Mark progress as completed
+            final_message = f"Sync completed: {processed} recordings processed"
+            if error_count > 0:
+                final_message += f", {error_count} errors"
+            
+            sync_progress_handler.update_progress(
+                callback_token,
+                user_id,
+                status='completed',
+                currentStep=final_message
+            )
+            
             # Update user's last sync timestamp
             user_handler = create_user_handler()
             user = user_handler.get_user(user_id)
             if user and user.plaudSettings:
                 user.plaudSettings.lastSyncTimestamp = datetime.now(UTC)
+                user.plaudSettings.activeSyncToken = None  # Clear active sync
+                user.plaudSettings.activeSyncStarted = None
                 user_handler.save_user(user)
                 
         elif status == 'failed':
             # Sync operation failed
             error_message = data.get('error_message')
             logger.error(f"Plaud sync failed for user {user_id}: {error_message}")
+            
+            # Mark progress as failed
+            sync_progress_handler.mark_failed(callback_token, user_id, error_message)
+            
+            # Clear active sync from user
+            user_handler = create_user_handler()
+            user = user_handler.get_user(user_id)
+            if user and user.plaudSettings:
+                user.plaudSettings.activeSyncToken = None
+                user.plaudSettings.activeSyncStarted = None
+                user_handler.save_user(user)
             
         else:
             logger.warning(f"Unknown Plaud sync status: {status}")
@@ -432,6 +608,60 @@ def handle_plaud_sync_status(data):
         
     except Exception as e:
         logger.error(f"Error handling Plaud sync status: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@plaud_bp.route('/admin/cleanup_stale_syncs', methods=['POST'])
+def cleanup_stale_syncs():
+    """Admin endpoint to clean up stale sync operations (2+ hours in queue)"""
+    try:
+        # Get sync progress handler
+        sync_progress_handler = get_sync_progress_handler()
+        
+        # Find stale syncs before marking them failed
+        cutoff_time = datetime.now(UTC) - timedelta(hours=2)
+        query = "SELECT * FROM c WHERE c.status = 'queued' AND c.startTime < @cutoff_time"
+        parameters = [{"name": "@cutoff_time", "value": cutoff_time.isoformat()}]
+        
+        stale_syncs = list(sync_progress_handler.container.query_items(
+            query=query,
+            parameters=parameters
+        ))
+        
+        # Clear user active sync tokens for stale syncs
+        user_handler = get_user_handler()
+        cleared_tokens = 0
+        
+        for item in stale_syncs:
+            try:
+                user_id = item.get('userId')
+                sync_token = item.get('syncToken')
+                
+                if user_id and sync_token:
+                    user = user_handler.get_user(user_id)
+                    if (user and user.plaudSettings and 
+                        user.plaudSettings.activeSyncToken == sync_token):
+                        user.plaudSettings.activeSyncToken = None
+                        user.plaudSettings.activeSyncStarted = None
+                        user_handler.save_user(user)
+                        cleared_tokens += 1
+                        logger.info(f"Cleared stale active sync token for user {user_id}")
+                        
+            except Exception as e:
+                logger.warning(f"Failed to clear user token for stale sync: {str(e)}")
+        
+        # Now mark the syncs as failed
+        cleaned_count = sync_progress_handler.check_stale_syncs()
+        
+        logger.info(f"Cleanup complete: {cleaned_count} stale syncs marked failed, {cleared_tokens} user tokens cleared")
+        
+        return jsonify({
+            'message': f'Cleaned up {cleaned_count} stale sync operations',
+            'stale_syncs_failed': cleaned_count,
+            'user_tokens_cleared': cleared_tokens
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"Error during stale sync cleanup: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
 # ============================================================================

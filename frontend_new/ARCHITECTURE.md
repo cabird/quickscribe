@@ -27,7 +27,8 @@ frontend_new/
 ├── src/
 │   ├── api/                    # API client functions
 │   │   ├── recordings.ts       # Recording CRUD operations
-│   │   └── tags.ts            # Tag management operations
+│   │   ├── tags.ts            # Tag management operations
+│   │   └── plaud.ts           # Plaud device sync and progress monitoring
 │   ├── components/            # React components
 │   │   ├── Layout/            # Application layout components
 │   │   │   ├── AppLayout.tsx          # Main app shell with sidebar/content
@@ -94,7 +95,7 @@ frontend_new/
 - Mantine Dropzone for drag-and-drop file uploads
 - Processing options (auto-transcribe, speaker ID, noise removal)
 - Auto-tagging preferences
-- Plaud device sync integration
+- Plaud device sync integration with real-time progress monitoring
 - Optimistic UI updates during upload
 
 **BrowseTab.tsx** - Filtering and search
@@ -142,6 +143,52 @@ frontend_new/
 - Copy/export functionality
 - Remove operation
 - Inline editing with save/cancel
+
+### Progress Monitoring System
+
+**Real-Time Sync Progress (UploadTab.tsx)**
+- **Progress UI Display**: Inline progress display below sync button
+- **Status Messaging**: Clear communication of queue vs processing states
+- **Progress Bars**: Visual progress indicators when total count is known
+- **Error Handling**: Displays failed recordings with specific error messages
+- **Multi-Device Recovery**: Automatically resumes monitoring on app load
+- **Polling Strategy**: 10-second intervals with intelligent cleanup
+
+**Progress Flow:**
+```typescript
+// On component mount - check for active sync
+useEffect(() => {
+  const checkForActiveSync = async () => {
+    const activeSync = await checkActiveSync();
+    if (activeSync.has_active_sync) {
+      setSyncToken(activeSync.sync_token);
+      setSyncProgress(activeSync.progress);
+      startPolling(activeSync.sync_token);
+    }
+  };
+  checkForActiveSync();
+}, []);
+
+// Real-time polling with automatic cleanup
+const startPolling = (token: string) => {
+  const interval = setInterval(async () => {
+    const progress = await getSyncProgress(token);
+    setSyncProgress(progress);
+    
+    if (progress.status === 'completed' || progress.status === 'failed') {
+      stopPolling();
+      if (progress.status === 'completed') {
+        refreshRecordings();
+      }
+    }
+  }, 10000);
+};
+```
+
+**Conflict Resolution:**
+- 409 errors automatically resume existing sync monitoring
+- Prevents multiple concurrent sync operations
+- Graceful handling of transcoder downtime
 
 ### Tag System
 

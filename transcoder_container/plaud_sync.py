@@ -270,7 +270,7 @@ def handle_plaud_sync(message_content: dict, logger, transcode_func, send_callba
     in_progress_response = {
         **response_template,
         'status': 'in_progress',
-        'message': 'Starting Plaud synchronization'
+        'message': 'Fetching recordings from Plaud...'
     }
     send_callbacks_func(callbacks, in_progress_response)
     
@@ -318,6 +318,15 @@ def handle_plaud_sync(message_content: dict, logger, transcode_func, send_callba
             
             # Calculate skipped recordings
             skipped_recordings = plaud_data.data_file_total - len(new_recordings)
+            
+            # Send updated progress with total count
+            progress_response = {
+                **response_template,
+                'status': 'in_progress',
+                'message': f'Processing {len(new_recordings)} recordings...',
+                'total_recordings_found': len(new_recordings)
+            }
+            send_callbacks_func(callbacks, progress_response)
             
             # To track successfully processed recordings and errors
             processed_recordings = []
@@ -391,6 +400,7 @@ def handle_plaud_sync(message_content: dict, logger, transcode_func, send_callba
                         'status': 'recording_processed',
                         'plaud_id': recording.id,
                         'recording_id': recording_id,
+                        'filename': recording.filename,
                         'original_filename': recording.filename,
                         'duration': recording.duration_seconds,
                         'original_timestamp': recording.recording_datetime.isoformat(),
@@ -415,6 +425,7 @@ def handle_plaud_sync(message_content: dict, logger, transcode_func, send_callba
                     error_response = {
                         **response_template,
                         'status': 'recording_failed',
+                        'filename': recording.filename,
                         'plaud_id': recording.id,
                         'original_filename': recording.filename,
                         'error_message': error_msg,

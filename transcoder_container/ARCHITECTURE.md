@@ -179,12 +179,73 @@ class AudioFile:
     # ... additional metadata fields
 ```
 
-### Plaud Processing
+### Plaud Processing with Progress Monitoring
 
-- Fetches recordings from Plaud API based on last sync timestamp
-- Downloads audio files and converts to MP3
-- Handles Plaud-specific metadata and timing
-- Manages sync state and error recovery
+**Enhanced Sync Workflow** (`handle_plaud_sync` function):
+
+1. **Initialization**
+   - Validates bearer token and sync parameters
+   - Sends initial `in_progress` callback to backend
+   - Creates temporary processing directory
+
+2. **Recording Discovery**
+   - Fetches recordings list from Plaud API
+   - Filters by processed IDs and last sync timestamp  
+   - Sends progress update with `total_recordings_found`
+
+3. **Per-Recording Processing** (with detailed callbacks)
+   ```python
+   for recording in new_recordings:
+       # Download from Plaud
+       downloaded_path = plaud_manager.download_file(recording)
+       
+       # Transcode to MP3
+       transcode_func(downloaded_path, mp3_output_path)
+       
+       # Register with backend (get SAS URL)
+       registration_response = requests.post(callback_url, {
+           "action": "register_plaud_recording",
+           "plaud_id": recording.id,
+           "original_filename": recording.filename,
+           # ... metadata
+       })
+       
+       # Upload to blob storage
+       requests.put(sas_url, mp3_file_data)
+       
+       # Send success callback
+       send_callbacks_func(callbacks, {
+           "status": "recording_processed",
+           "plaud_id": recording.id,
+           "recording_id": recording_id,
+           "filename": recording.filename,
+           "processing_time": elapsed_time
+       })
+   ```
+
+4. **Error Handling & Progress Updates**
+   - Individual recording failures send `recording_failed` callbacks
+   - Includes specific error messages and filename
+   - Continues processing remaining recordings
+   - Rate limiting: 60-second delays between recordings
+
+5. **Completion Summary**
+   - Sends final `completed` callback with statistics
+   - Includes total processed, failed count, processing time
+   - Comprehensive error list for failed recordings
+
+**Progress Callback Types:**
+- `in_progress` - Initial sync start + total count updates
+- `recording_processed` - Per-recording success with metadata
+- `recording_failed` - Per-recording errors with details
+- `completed` - Final summary with statistics
+- `failed` - Overall operation failure
+
+**Timeout & Recovery:**
+- 60-second rate limiting prevents API abuse
+- Individual file download/processing timeouts
+- Comprehensive error logging and callback delivery
+- Handles network interruptions gracefully
 
 ## Container Deployment
 

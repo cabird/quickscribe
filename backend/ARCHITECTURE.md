@@ -47,6 +47,7 @@ backend/
 │   ├── user_handler.py          # User CRUD operations with extended models
 │   ├── recording_handler.py     # Recording management with migration support
 │   ├── transcription_handler.py # Transcription data with speaker mapping
+│   ├── sync_progress_handler.py # Progress tracking for long-running operations
 │   └── util.py                  # Database utility functions and field filtering
 │
 ├── routes/                       # API blueprints with modular routing
@@ -170,6 +171,7 @@ def get_recordings():
 - **users** (partition: `id`) - User profiles, settings, authentication
 - **recordings** (partition: `userId`) - Audio metadata, processing status
 - **transcripts** (partition: `userId`) - Transcription data, AI analysis
+- **sync_progress** (partition: `partitionKey`) - Real-time progress tracking for long-running operations
 
 **Document Examples:**
 ```json
@@ -217,6 +219,23 @@ def get_recordings():
         "Speaker 2": {"name": "Jane Smith", "confidence": 0.88}
     },
     "created_at": "2025-01-01T09:10:00Z"
+}
+
+// Sync Progress Document
+{
+    "id": "sync-token-uuid",
+    "syncToken": "sync-token-uuid", 
+    "userId": "user-uuid",
+    "status": "processing",
+    "totalRecordings": 15,
+    "processedRecordings": 8,
+    "failedRecordings": 1,
+    "currentStep": "Processing recordings (8/15)",
+    "errors": ["file1.mp3: Download failed - network timeout"],
+    "startTime": "2025-01-01T10:00:00Z",
+    "lastUpdate": "2025-01-01T10:05:30Z",
+    "ttl": 1735732800,
+    "partitionKey": "user-uuid"
 }
 ```
 
@@ -319,6 +338,62 @@ def upload_audio_file(file_data, user_id, recording_id):
     }
     send_queue_message("audio-processing", queue_message)
 ```
+
+## Progress Monitoring Architecture
+
+### Real-Time Sync Progress System
+
+The backend implements a comprehensive progress monitoring system for long-running operations like Plaud device synchronization, providing real-time visibility into processing status.
+
+**Key Components:**
+- **SyncProgressHandler** - Database operations for progress tracking
+- **Progress API Endpoints** - REST endpoints for status polling and management
+- **Multi-Device Recovery** - Cross-device sync state restoration
+- **Timeout Management** - Automatic cleanup of stale operations
+
+**Container: sync_progress**
+```python
+class SyncProgressHandler:
+    def create_progress(self, sync_token, user_id, status='queued'):
+        """Create new progress tracking record."""
+        progress = SyncProgress(
+            id=sync_token,
+            syncToken=sync_token, 
+            userId=user_id,
+            status=status,
+            processedRecordings=0,
+            failedRecordings=0,
+            currentStep="Initiating sync...",
+            errors=[],
+            startTime=datetime.now(UTC),
+            ttl=int((datetime.now(UTC) + timedelta(hours=24)).timestamp())
+        )
+        return self._create_document(progress)
+        
+    def update_progress(self, sync_token, user_id, **updates):
+        """Update progress with new status information."""
+        updates['lastUpdate'] = datetime.now(UTC)
+        return self._update_document(sync_token, updates)
+```
+
+**Progress API Endpoints:**
+- `POST /plaud/sync/start` - Initialize sync with progress tracking
+- `GET /plaud/sync/progress/{token}` - Poll current progress status  
+- `GET /plaud/sync/check_active` - Check for active sync on app load
+- `POST /plaud/admin/cleanup_stale_syncs` - Remove stale operations (2h timeout)
+
+**Multi-Device Recovery Flow:**
+1. Frontend loads → calls `/sync/check_active`
+2. Backend checks user's `activeSyncToken` 
+3. If found, returns current progress and sync token
+4. Frontend resumes polling without user intervention
+5. Works across devices, browser refreshes, tab switches
+
+**Timeout & Cleanup Strategy:**
+- **Stale Detection**: Operations queued >2 hours marked as failed
+- **TTL Cleanup**: Progress records auto-deleted after 24 hours
+- **Token Validation**: Prevents unauthorized callback processing
+- **Orphan Handling**: Clears abandoned user sync tokens
 
 ## AI Integration Architecture
 
