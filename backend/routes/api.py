@@ -521,6 +521,16 @@ def manual_postprocess_recording(recording_id):
         # Perform AI post-processing
         postprocess_results = postprocess_recording_full(recording_id)
         
+        # Fetch updated recording and transcription data to include in response
+        updated_recording = recording_handler.get_recording(recording_id)
+        transcription_data = None
+        
+        if updated_recording and updated_recording.transcription_id:
+            transcription_handler = get_transcription_handler()
+            transcription = transcription_handler.get_transcription(updated_recording.transcription_id)
+            if transcription:
+                transcription_data = transcription.model_dump()
+        
         # Prepare response based on results
         response_data = {
             'recording_id': recording_id,
@@ -529,7 +539,9 @@ def manual_postprocess_recording(recording_id):
                 'title_generated': bool(postprocess_results['title']),
                 'description_generated': bool(postprocess_results['description']),
                 'speakers_updated': bool(postprocess_results['speaker_update'])
-            }
+            },
+            'updated_recording': updated_recording.model_dump() if updated_recording else None,
+            'updated_transcription': transcription_data
         }
         
         if postprocess_results['errors']:

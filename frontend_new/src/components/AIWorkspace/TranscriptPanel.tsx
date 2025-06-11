@@ -1,8 +1,10 @@
 import { Card, Stack, Group, Text, Button, Center, Loader, Badge } from '@mantine/core';
-import { LuFileText, LuCopy, LuEye } from 'react-icons/lu';
+import { LuFileText, LuCopy, LuEye, LuBot } from 'react-icons/lu';
 import { notifications } from '@mantine/notifications';
-import { formatDuration, getStatusText } from '../../utils';
+import { formatDuration, getStatusText, showNotificationFromApiResponse } from '../../utils';
 import { TagBadge } from '../Tags/TagBadge';
+import { triggerPostProcessing, fetchRecording } from '../../api/recordings';
+import { useState } from 'react';
 import type { Recording, Transcription, Tag } from '../../types';
 
 interface TranscriptPanelProps {
@@ -11,6 +13,9 @@ interface TranscriptPanelProps {
   transcription: Transcription | null;
   transcriptionLoading: boolean;
   onViewFullTranscript?: () => void;
+  onRecordingUpdate?: (recording: Recording) => void;
+  onTranscriptReload?: () => void;
+  onPostProcessingUpdate?: (recording: Recording, transcription: Transcription) => void;
 }
 
 export function TranscriptPanel({ 
@@ -18,8 +23,12 @@ export function TranscriptPanel({
   recordingTags, 
   transcription, 
   transcriptionLoading,
-  onViewFullTranscript 
+  onViewFullTranscript,
+  onRecordingUpdate,
+  onTranscriptReload,
+  onPostProcessingUpdate
 }: TranscriptPanelProps) {
+  const [postProcessingLoading, setPostProcessingLoading] = useState(false);
   
   const handleCopyTranscript = async () => {
     if (!transcription) return;
@@ -61,6 +70,51 @@ export function TranscriptPanel({
     }
   };
 
+  const handlePostProcessing = async () => {
+    setPostProcessingLoading(true);
+    
+    try {
+      const response = await triggerPostProcessing(recording.id);
+      showNotificationFromApiResponse(response);
+      
+      if (response.status === 'success' && response.data) {
+        // Use the updated data directly from the response instead of making additional API calls
+        const { updated_recording, updated_transcription } = response.data;
+        
+        if (updated_recording) {
+          // Update the recording data
+          if (onRecordingUpdate) {
+            onRecordingUpdate(updated_recording);
+          }
+          
+          // Also dispatch a custom event to update the recording in the store
+          window.dispatchEvent(new CustomEvent('recordingUpdated', { 
+            detail: { recording: updated_recording } 
+          }));
+        }
+        
+        // If both recording and transcription were updated, use the combined callback
+        if (updated_recording && updated_transcription && onPostProcessingUpdate) {
+          console.log('Post-processing completed, updating recording and transcription...');
+          onPostProcessingUpdate(updated_recording, updated_transcription);
+        } else if (response.data?.results?.speakers_updated && onTranscriptReload) {
+          // Fallback to the old method if needed
+          console.log('Speaker names were updated, reloading transcript...');
+          onTranscriptReload();
+        }
+      }
+    } catch (error) {
+      console.error('Error during post-processing:', error);
+      notifications.show({
+        title: 'Error',
+        message: 'Failed to trigger AI post-processing',
+        color: 'red'
+      });
+    } finally {
+      setPostProcessingLoading(false);
+    }
+  };
+
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       {/* Header */}
@@ -71,14 +125,23 @@ export function TranscriptPanel({
             {getStatusText(recording.transcription_status)}
           </Badge>
         </Group>
-        <Group justify="space-between" align="center">
-          <Text fw={500} size="md" style={{ flex: 1 }}>
-            {recording.title || recording.original_filename}
-          </Text>
-          <Text size="sm" c="dimmed">
-            {formatDuration(recording.duration || 0)} • {recording.recorded_timestamp ? new Date(recording.recorded_timestamp).toLocaleDateString() : 'Unknown'}
-          </Text>
-        </Group>
+        <div>
+          <Group justify="space-between" align="flex-start">
+            <div style={{ flex: 1 }}>
+              <Text fw={500} size="md">
+                {recording.title || recording.original_filename}
+              </Text>
+              {recording.description && (
+                <Text size="sm" c="dimmed" mt={2}>
+                  {recording.description}
+                </Text>
+              )}
+            </div>
+            <Text size="sm" c="dimmed">
+              {formatDuration(recording.duration || 0)} • {recording.recorded_timestamp ? new Date(recording.recorded_timestamp).toLocaleDateString() : 'Unknown'}
+            </Text>
+          </Group>
+        </div>
         {recordingTags.length > 0 && (
           <Group gap="xs">
             {recordingTags.map(tag => (
@@ -115,6 +178,17 @@ export function TranscriptPanel({
                   disabled={!transcription || transcriptionLoading}
                 >
                   View Full
+                </Button>
+                <Button 
+                  size="xs" 
+                  variant="filled" 
+                  color="violet"
+                  leftSection={<LuBot size={14} />}
+                  onClick={handlePostProcessing}
+                  loading={postProcessingLoading}
+                  disabled={!transcription || transcriptionLoading || recording.transcription_status !== 'completed'}
+                >
+                  AI Enhance
                 </Button>
               </Group>
             </Group>

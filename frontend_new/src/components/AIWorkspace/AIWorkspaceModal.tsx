@@ -10,11 +10,11 @@ import { AnalysisPanel } from './AnalysisPanel';
 import { ResizableHandle } from './ResizableHandle';
 import { useAnalysisStore } from '../../stores/useAnalysisStore';
 import { notifications } from '@mantine/notifications';
-import type { Transcription, AnalysisResult } from '../../types';
+import type { Recording, Transcription, AnalysisResult } from '../../types';
 
 export function AIWorkspaceModal() {
   const { aiWorkspace, closeAIWorkspace } = useUIStore();
-  const { getRecordingById } = useRecordingStore();
+  const { getRecordingById, updateRecording } = useRecordingStore();
   const { getTagsByIds } = useTagStore();
   
   const [transcription, setTranscription] = useState<Transcription | null>(null);
@@ -135,6 +135,32 @@ export function AIWorkspaceModal() {
     setAnalysisPanelHeight(newHeight);
   };
 
+  const handleRecordingUpdate = (updatedRecording: Recording) => {
+    updateRecording(updatedRecording);
+  };
+
+  const handleTranscriptReload = async () => {
+    if (recording?.transcription_id) {
+      setTranscriptionLoading(true);
+      try {
+        const updatedTranscription = await fetchTranscription(recording.transcription_id);
+        setTranscription(updatedTranscription);
+        setAnalysisResults(updatedTranscription.analysisResults || []);
+      } catch (error) {
+        console.error('Failed to reload transcription:', error);
+      } finally {
+        setTranscriptionLoading(false);
+      }
+    }
+  };
+
+  const handlePostProcessingUpdate = (updatedRecording: Recording, updatedTranscription: Transcription) => {
+    // Update both recording and transcription from the post-processing response
+    handleRecordingUpdate(updatedRecording);
+    setTranscription(updatedTranscription);
+    setAnalysisResults(updatedTranscription.analysisResults || []);
+  };
+
   return (
     <Modal
       opened={aiWorkspace.isOpen}
@@ -174,6 +200,9 @@ export function AIWorkspaceModal() {
             recordingTags={recordingTags}
             transcription={transcription}
             transcriptionLoading={transcriptionLoading}
+            onRecordingUpdate={handleRecordingUpdate}
+            onTranscriptReload={handleTranscriptReload}
+            onPostProcessingUpdate={handlePostProcessingUpdate}
           />
         </div>
 
