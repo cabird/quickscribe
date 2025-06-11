@@ -47,5 +47,22 @@ prompts:
         Here is the transcript: 
 
         __TRANSCRIPT__
+  generate_title:
+    description: "Generate a concise title for an audio recording transcript"
+    prompt: |
+        Generate a concise, descriptive title (maximum 60 characters) for this audio transcript.
+        Focus on the main topic, purpose, or key subject discussed.
+        Be specific and informative. Do not use quotes around the title.
+        Return only the title, nothing else.
+        
+        __TRANSCRIPT__
+  generate_description:
+    description: "Generate a brief description summarizing the recording content"
+    prompt: |
+        Write a 1-2 sentence summary describing the main content and purpose of this audio transcript.
+        Be concise but informative about what was discussed or accomplished.
+        Return only the description, nothing else.
+        
+        __TRANSCRIPT__
         
         

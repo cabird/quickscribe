@@ -5,6 +5,8 @@ import json
 from config import config
 import yaml
 import logging
+import asyncio
+import aiohttp
 from typing import Dict, List
 
 # Configuration
@@ -172,6 +174,97 @@ def send_prompt_to_llm_with_timing(prompt):
         
         # Include timing even for errors
         raise Exception(f"LLM request failed after {llm_response_time_ms}ms: {e}")
+
+
+# =============================================================================
+# Async LLM Functions for Concurrent Processing
+# =============================================================================
+
+async def send_prompt_to_llm_async(prompt: str) -> str:
+    """
+    Async version of send_prompt_to_llm for concurrent processing.
+    Returns just the content string.
+    """
+    async with aiohttp.ClientSession() as session:
+        payload_copy = payload.copy()
+        payload_copy["messages"] = payload["messages"].copy()
+        payload_copy["messages"][1] = payload["messages"][1].copy()
+        payload_copy["messages"][1]["content"] = payload["messages"][1]["content"].copy()
+        payload_copy["messages"][1]["content"][0] = payload["messages"][1]["content"][0].copy()
+        payload_copy["messages"][1]["content"][0]["text"] = prompt
+        
+        try:
+            async with session.post(ENDPOINT, headers=headers, json=payload_copy) as response:
+                response.raise_for_status()
+                response_data = await response.json()
+                return response_data["choices"][0]["message"]["content"]
+                
+        except aiohttp.ClientError as e:
+            raise Exception(f"Async LLM request failed: {e}")
+
+
+async def send_prompt_to_llm_async_with_timing(prompt: str) -> Dict:
+    """
+    Async version with timing metrics for concurrent processing.
+    Returns dict with content, timing, and token usage.
+    """
+    import time
+    
+    start_time = time.time()
+    
+    async with aiohttp.ClientSession() as session:
+        payload_copy = payload.copy()
+        payload_copy["messages"] = payload["messages"].copy()
+        payload_copy["messages"][1] = payload["messages"][1].copy()
+        payload_copy["messages"][1]["content"] = payload["messages"][1]["content"].copy()
+        payload_copy["messages"][1]["content"][0] = payload["messages"][1]["content"][0].copy()
+        payload_copy["messages"][1]["content"][0]["text"] = prompt
+        
+        try:
+            async with session.post(ENDPOINT, headers=headers, json=payload_copy) as response:
+                response.raise_for_status()
+                
+                # Record end time
+                end_time = time.time()
+                llm_response_time_ms = int((end_time - start_time) * 1000)
+                
+                response_data = await response.json()
+                
+                # Extract content and usage information
+                content = response_data["choices"][0]["message"]["content"]
+                usage = response_data.get("usage", {})
+                
+                return {
+                    "content": content,
+                    "llmResponseTimeMs": llm_response_time_ms,
+                    "promptTokens": usage.get("prompt_tokens"),
+                    "responseTokens": usage.get("completion_tokens")
+                }
+                
+        except aiohttp.ClientError as e:
+            end_time = time.time()
+            llm_response_time_ms = int((end_time - start_time) * 1000)
+            raise Exception(f"Async LLM request failed after {llm_response_time_ms}ms: {e}")
+
+
+async def send_multiple_prompts_concurrent(prompts: List[str]) -> List[str]:
+    """
+    Send multiple prompts concurrently and return results in the same order.
+    Returns list of content strings.
+    """
+    tasks = [send_prompt_to_llm_async(prompt) for prompt in prompts]
+    results = await asyncio.gather(*tasks)
+    return results
+
+
+async def send_multiple_prompts_concurrent_with_timing(prompts: List[str]) -> List[Dict]:
+    """
+    Send multiple prompts concurrently with timing metrics.
+    Returns list of dicts with content, timing, and token usage.
+    """
+    tasks = [send_prompt_to_llm_async_with_timing(prompt) for prompt in prompts]
+    results = await asyncio.gather(*tasks)
+    return results
 
 
 

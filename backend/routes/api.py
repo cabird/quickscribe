@@ -4,6 +4,7 @@ from db_handlers.handler_factory import get_user_handler, get_recording_handler,
 from user_util import get_current_user
 from db_handlers.models import User, Recording, Transcription, TranscodingStatus, TranscriptionStatus, Tag
 from util import update_diarized_transcript, get_recording_duration_in_seconds
+from ai_postprocessing import postprocess_recording_full
 import re
 import uuid
 import os
@@ -445,6 +446,21 @@ def transcoding_callback():
             # Track processing time
             if 'processing_time' in data:
                 logger.info(f"Transcoding completed in {data['processing_time']} seconds")
+            
+            # Trigger AI post-processing for completed recordings
+            try:
+                logger.info(f"Starting AI post-processing for recording {recording_id}")
+                postprocess_results = postprocess_recording_full(recording_id)
+                
+                if postprocess_results['errors']:
+                    logger.warning(f"AI post-processing completed with errors for {recording_id}: {postprocess_results['errors']}")
+                else:
+                    logger.info(f"AI post-processing completed successfully for recording {recording_id}")
+                    
+            except Exception as e:
+                # Log error but don't fail the callback - transcoding was successful
+                logger.warning(f"AI post-processing failed for recording {recording_id}: {e}")
+                # Don't re-raise - we want the transcoding callback to succeed
 
         elif status == 'failed':
             recording.transcoding_status = TranscodingStatus.failed
@@ -466,6 +482,66 @@ def transcoding_callback():
         
     except Exception as e:
         logger.error(f"Error processing transcoding callback: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+
+@api_bp.route('/recording/<recording_id>/postprocess', methods=['POST'])
+def manual_postprocess_recording(recording_id):
+    """
+    Manually trigger AI post-processing for an existing recording.
+    This endpoint allows the frontend to request post-processing for recordings
+    that have been transcribed but need AI-generated title, description, or speaker inference.
+    """
+    logger.info(f"Manual post-processing requested for recording {recording_id}")
+    
+    try:
+        current_user = get_current_user()
+        if not current_user:
+            return jsonify({'error': 'User not authenticated'}), 401
+        
+        # Verify recording exists and belongs to user
+        recording_handler = get_recording_handler()
+        recording = recording_handler.get_recording(recording_id)
+        
+        if not recording:
+            logger.error(f"Recording not found: {recording_id}")
+            return jsonify({'error': f'Recording not found: {recording_id}'}), 404
+            
+        if recording.user_id != current_user.id:
+            logger.error(f"Recording {recording_id} does not belong to user {current_user.id}")
+            return jsonify({'error': 'Recording does not belong to current user'}), 403
+        
+        # Check if recording has been transcribed
+        if recording.transcription_status != TranscriptionStatus.completed:
+            return jsonify({
+                'error': 'Recording must be transcribed before post-processing',
+                'current_status': recording.transcription_status
+            }), 400
+        
+        # Perform AI post-processing
+        postprocess_results = postprocess_recording_full(recording_id)
+        
+        # Prepare response based on results
+        response_data = {
+            'recording_id': recording_id,
+            'status': 'completed' if not postprocess_results['errors'] else 'partial',
+            'results': {
+                'title_generated': bool(postprocess_results['title']),
+                'description_generated': bool(postprocess_results['description']),
+                'speakers_updated': bool(postprocess_results['speaker_update'])
+            }
+        }
+        
+        if postprocess_results['errors']:
+            response_data['errors'] = postprocess_results['errors']
+            logger.warning(f"Manual post-processing completed with errors for {recording_id}: {postprocess_results['errors']}")
+        else:
+            logger.info(f"Manual post-processing completed successfully for recording {recording_id}")
+        
+        return jsonify(response_data), 200
+        
+    except Exception as e:
+        logger.error(f"Error in manual post-processing for {recording_id}: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
 

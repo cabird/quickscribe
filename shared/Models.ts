@@ -57,6 +57,7 @@ export interface Recording {
     original_filename: string; // Original filename of the uploaded file
     unique_filename: string; // Unique filename assigned to the uploaded file
     title?: string; // User-editable title for the recording (defaults to original_filename)
+    description?: string; // AI-generated description (1-2 sentences about recording content)
     recorded_timestamp?: string; // ISO timestamp when the recording was actually made
     duration?: number; // Duration of the recording in seconds (may be unknown)
     

@@ -1,3 +1,4 @@
+aiohttp==3.10.11
 annotated-types==0.7.0
 anyio==4.6.0
 argcomplete==3.5.1

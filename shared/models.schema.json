@@ -554,6 +554,9 @@
                 "az_transcription_id": {
                     "type": "string"
                 },
+                "description": {
+                    "type": "string"
+                },
                 "duration": {
                     "type": "number"
                 },
@@ -651,6 +654,7 @@
                 "original_filename",
                 "unique_filename",
                 "title",
+                "description",
                 "recorded_timestamp",
                 "duration",
                 "transcription_status",
