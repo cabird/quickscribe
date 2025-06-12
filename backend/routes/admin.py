@@ -5,16 +5,15 @@ from datetime import datetime, UTC
 from typing import Dict, List, Any, Optional
 import logging
 
-from ..auth import require_auth
-from ..user_util import get_current_user
-from ..db_handlers.handler_factory import (
+from user_util import get_current_user, require_auth
+from db_handlers.handler_factory import (
     get_user_handler,
     get_recording_handler,
     get_transcription_handler,
     get_analysis_type_handler,
     get_sync_progress_handler
 )
-from ..db_handlers.models import User, Recording, Transcription, Tag, AnalysisType, SyncProgress
+from db_handlers.models import User, Recording, Transcription, Tag, AnalysisType, SyncProgress
 
 logger = logging.getLogger(__name__)
 
