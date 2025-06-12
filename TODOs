@@ -6,10 +6,10 @@
 **Issue**: The drag and drop of an audio file doesn't work
 
 **Implementation Plan**:
-1. Fix MIME type configuration in `vite-frontend/src/pages/UploadPage.tsx`
+1. Fix MIME type configuration in `frontend_new/src/components/Layout/UploadTab.tsx`
    - Change `'audio/mp3'` to `'audio/mpeg'` 
    - Add support for additional formats (`audio/wav`, `audio/ogg`, `audio/opus`)
-2. Verify authentication headers are included in XMLHttpRequest
+2. Verify authentication headers are included in upload requests
 3. Update API URL to use environment variable instead of hardcoded path
 4. Test upload functionality with various file formats
 5. Add proper error handling for failed uploads
@@ -89,4 +89,5 @@ These are todos that I've added and haven't been planned out or examined by AI y
   * organize the backend api more.  tags should have their own file.
   * implement handling of a dead letter queue or poison pill messages in the queue
   * If I paste in a transcript, check that it doesn't already exist as a transcript of a recording... not sure how to do this..
+  * code review the /api/admin routes.  It''s like super verbose.  I wonder if there is a better way.  Gemini could probably refactor it?
 

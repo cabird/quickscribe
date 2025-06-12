@@ -1,6 +1,6 @@
 # QuickScribe - Comprehensive Directory Mapping
 
-<!-- Last updated for commit: 1f262a350a8810ff29c5898620c0b6d23a2161a7 -->
+<!-- Last updated for commit: 0b5c14dba1691c16fd9cfef10ae6bccfd3490170 -->
 
 This document provides a complete mapping of the QuickScribe repository structure with detailed summaries of key files and directories. This serves as a reference for understanding the codebase architecture and locating specific functionality.
 
@@ -8,8 +8,7 @@ This document provides a complete mapping of the QuickScribe repository structur
 
 QuickScribe is a full-stack audio transcription application built with:
 - **Backend**: Flask API server with Azure integrations
-- **Frontend (Old)**: React/TypeScript web app with Vite/Mantine UI
-- **Frontend (New)**: Modern React/TypeScript app with glassmorphism design system
+- **Frontend**: Modern React/TypeScript app with glassmorphism design system
 - **Transcoder**: Containerized audio processing microservice
 - **Shared Models**: TypeScript/Python data models synchronized across services
 - **AI Workspace**: Dynamic analysis types system for modular AI-powered operations
@@ -56,6 +55,7 @@ QuickScribe is a full-stack audio transcription application built with:
 ### Route Files (`/backend/routes/`)
 - **api.py** - Main API blueprint with comprehensive CRUD endpoints for users/recordings/transcriptions, file upload handling with Azure queue integration, transcoding callbacks, and full tag management system
 - **ai_routes.py** - AI services blueprint providing speaker inference and summarization endpoints that use Azure OpenAI to analyze diarized transcripts and infer speaker names
+- **ai_postprocessing.py** - AI post-processing business logic orchestrating title generation, description creation, and speaker inference with concurrent processing
 - **az_transcription_routes.py** - Azure Speech Services integration providing transcription job management, status checking, and result processing with speaker diarization support
 - **plaud.py** - Plaud device integration blueprint handling settings management, sync operations via Azure queues, callback processing for recording registration, and sync status tracking
 - **local_routes.py** - Development-only routes for local authentication, test user management, data reset functionality, and dummy recording creation (only active when LOCAL_AUTH_ENABLED)
@@ -64,11 +64,12 @@ QuickScribe is a full-stack audio transcription application built with:
 - **util.py** - General utilities including audio duration calculation (MP3/M4A), duration formatting, text truncation, speaker label updates, and URL-safe slug generation for tags
 - **auth.py** - Azure AD authentication using MSAL (Microsoft Authentication Library) with OAuth2 flow for production user authentication and session management
 - **blob_util.py** - Azure Blob Storage operations including file upload/download, SAS URL generation with configurable permissions, queue message sending for transcoding jobs, and blob deletion
-- **llms.py** - Azure OpenAI integration for AI-powered features including speaker name inference from transcripts, speaker summary generation, and JSON response parsing with prompt template management
+- **llms.py** - Azure OpenAI integration with async infrastructure for concurrent LLM calls, supporting both synchronous and asynchronous prompt processing for enhanced performance
 - **user_util.py** - Current user resolution supporting both production Azure AD authentication and local development authentication with test user session management
 
 ### Configuration & Management
-- **api_version.py** - Simple version tracking (currently 0.1.58) used throughout the application for logging and deployment tracking
+- **api_version.py** - Simple version tracking used throughout the application for logging and deployment tracking
+- **prompts.yaml** - Centralized AI prompt templates for post-processing operations including title generation and description creation
 - **logging_config.py** - Centralized logging configuration with Azure Application Insights integration, structured JSON logging, and custom metadata filtering for enhanced observability
 - **manage.py** - CLI management tool using Click for administrative tasks including database/blob consistency checking, user management, Azure Speech Services job monitoring, and data cleanup operations
 
@@ -148,46 +149,6 @@ A complete redesign of the QuickScribe frontend using modern React with TypeScri
 
 ---
 
-## Frontend (Old) Directory (`/vite-frontend/`)
-
-### Main Application Files  
-- **src/main.tsx** - Entry point that renders the App component to the DOM root element
-- **src/App.tsx** - Root application component that sets up Mantine theming, notifications, global styling, and conditional header with LocalAuthDropdown for development environments
-- **src/Router.tsx** - React Router configuration defining four main routes: home (/), recordings list (/recordings), upload page (/upload), and transcription viewer (/view_transcription/:transcriptionId)
-
-### Components (`/vite-frontend/src/components/`)
-- **LocalAuthDropdown.tsx** - Development tool for local authentication that allows switching between test users, fetching user lists, handling login/logout, and resetting user data
-- **Recording.tsx** - Table row component for individual recordings with transcription status monitoring, action buttons (start transcription, view, download, delete, etc.), and speaker labeling functionality
-- **RecordingCard.tsx** - Card-based display component for recordings with similar functionality to Recording.tsx but in a more visual card format, featuring real-time transcription status updates and CustomEvent dispatching
-- **RecordingCompleteDialog.tsx** - Modal dialog for saving recordings with title and description inputs, used after recording completion
-- **SpeakerLabelDialog.tsx** - Basic dialog component for labeling speakers in transcriptions with input fields for each speaker and loading state handling
-- **ColorSchemeToggle/** - Mantine color scheme toggle component for light/dark mode switching
-- **Welcome/** - Template welcome component with Mantine branding and stories/tests
-
-### Pages (`/vite-frontend/src/pages/`)
-- **Home.page.tsx** - Landing page with gradient background, QuickScribe branding, navigation buttons to recordings/upload pages, Plaud sync functionality, and API version display
-- **RecordingCardsPage.tsx** - Grid view of all recordings using RecordingCard components, with loading states, event listening for recording updates, and deletion handling
-- **UploadPage.tsx** - File upload interface using Mantine's Dropzone component with progress tracking, drag-and-drop support for MP3/M4A files, and XMLHttpRequest-based upload with progress monitoring
-- **ViewTranscriptionPage.tsx** - Displays individual transcriptions with speaker-separated dialogue formatting, copy-to-clipboard functionality, and navigation back to recordings list
-
-### API Integration (`/vite-frontend/src/api/`)
-- **recordings.ts** - Core API functions for recording operations including fetching recordings/individual records, starting transcriptions, deleting recordings/transcriptions, and checking transcription status with comprehensive error handling
-- **util.ts** - Simple utility for fetching API version information from the backend
-
-### Type Definitions & Interfaces
-- **src/interfaces/Models.ts** - Comprehensive TypeScript interfaces for the entire application including User, Recording, Transcription, PlaudSettings, PlaudMetadata, and Tag models with detailed field documentation
-- **src/types/global.d.ts** - Global type declarations
-
-### Configuration
-- **package.json** - Project dependencies including React, Mantine UI components, axios for API calls, FontAwesome icons, audio recording libraries, and comprehensive development tooling
-- **vite.config.mjs** - Vite configuration with React plugin, TypeScript path resolution, development server proxy setup for backend API routes (/api, /az_transcription, /plaud), and Docker-compatible host settings
-- **tsconfig.json** - TypeScript configuration with modern ES modules, strict type checking, path aliases (@/* for src, @test-utils), and DOM/testing library type support
-
-### Styling & Utilities
-- **src/Common.ts** - Shared utilities for API response handling and notification display with standardized success/error messaging
-- **src/GlobalStyle.ts** - Styled-components global styling applying gradient background across the application
-- **src/theme.ts** - Mantine theme configuration (currently minimal override)
-- **src/util.ts** - Utility function for formatting duration display in human-readable format (hours/minutes/seconds)
 
 ---
 
@@ -253,10 +214,9 @@ A complete redesign of the QuickScribe frontend using modern React with TypeScri
 
 ### Microservices Design
 1. **Flask Backend** - Serves as the main API gateway with Azure service integrations
-2. **React Frontend (Old)** - Mantine UI-based TypeScript SPA (being phased out)
-3. **React Frontend (New)** - Modern glassmorphism design with AI workspace integration
-4. **Transcoder Service** - Containerized audio processing with Azure Container Apps
-5. **Shared Models** - Type-safe data models synchronized across all services
+2. **React Frontend** - Modern glassmorphism design with AI workspace integration
+3. **Transcoder Service** - Containerized audio processing with Azure Container Apps
+4. **Shared Models** - Type-safe data models synchronized across all services
 
 ### Key Features
 - **AI Workspace** - Dynamic analysis types system for modular AI operations on transcripts

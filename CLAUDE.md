@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-<!-- Last updated for commit: 1f262a350a8810ff29c5898620c0b6d23a2161a7 -->
+<!-- Last updated for commit: 0b5c14dba1691c16fd9cfef10ae6bccfd3490170 -->
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
@@ -37,10 +37,19 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 QuickScribe is a full-stack audio transcription application with three main components:
 - **Backend**: Flask API server with Azure integrations (`/backend/`)
-- **Frontend**: React/TypeScript web app with Vite (`/vite-frontend/`)
+- **Frontend**: Modern React/TypeScript web app (`/frontend_new/`)
 - **Transcoder**: Containerized audio processing service (`/transcoder_container/`)
 
 ## Key Commands
+
+#### AI Post-Processing
+```bash
+# Test AI post-processing on completed recordings
+curl -X POST http://localhost:5000/api/recording/<recording_id>/postprocess
+
+# Check llms.py async infrastructure
+python -c "import backend.llms; print('Async LLM infrastructure ready')"
+```
 
 ### Backend Development
 ```bash
@@ -62,36 +71,26 @@ make bump_version
 
 ### Frontend Development
 ```bash
-cd vite-frontend
+cd frontend_new
 
 # Install dependencies
-yarn install
+npm install
 
 # Start development server
-yarn dev
+npm run dev
 
 # Build for production
-yarn build
-
-# Deploy built assets to backend
-yarn deploy_local
+npm run build
 
 # Run tests
-yarn test
+npm test
 
 # Type checking
-yarn typecheck
+npm run typecheck
 
 # Linting
-yarn lint
+npm run lint
 ```
-
-#### Frontend Package Management Setup
-- **Package Manager**: Yarn v4.5.1 (Modern Yarn with Plug'n'Play)
-- **Important**: Uses Yarn PnP, so `node_modules/` may appear empty - this is normal
-- **Dependencies**: Already installed if `yarn.lock` exists and `dist/` directory is present
-- **No Manual Setup Needed**: Frontend environment is ready to use if files exist
-- **API Routing**: Uses Vite proxy in development (`/api` → `http://backend:8000`), same-domain in production
 
 ### Transcoder Container
 ```bash
@@ -122,21 +121,15 @@ make logs
 
 ### Shared Models
 - Models shared amongst the backend, transcoding container, and frontend are stored in <repo>/shared/Models.ts
-- Generated Python models in `backend/db_handlers/models.py`
+- Generated Python models in `backend/db_handlers/models.py` (includes new `description` field for recordings)
 - Build with `make build` in backend directory (requires virtual environment: `source venv/bin/activate`)
-- TypeScript models in `vite-frontend/src/interfaces/Models.ts`
+- TypeScript models in `frontend_new/src/types/index.ts`
 
 #### Model Synchronization Workflow
 1. Edit `shared/Models.ts` 
 2. Run `make build` in backend directory
-3. Frontend models are automatically synchronized:
-   - **Old frontend**: Manual copy: `cp shared/Models.ts vite-frontend/src/interfaces/Models.ts`
-   - **New frontend**: Automatic via `npm run sync-models` (runs before dev/build)
+3. Frontend models are automatically synchronized via `npm run sync-models` (runs before dev/build)
 4. Update frontend components to handle optional fields safely
-
-**Note**: 
-- Old vite-frontend models must be manually copied after changes
-- New frontend_new models sync automatically via npm scripts
 
 ### Database Structure
 - **CosmosDB** containers: `recordings`, `users`, `transcripts`
@@ -153,6 +146,7 @@ make logs
 - Message sent to `audio-processing-queue`
 - Transcoder picks up message, processes file
 - Status updates via callback to `/api/transcoder/callback`
+- Automatic AI post-processing triggered on completion (title, description, speakers)
 
 ## Environment Configuration
 
@@ -176,9 +170,9 @@ Critical variables:
 ## Testing Strategy
 
 ### Frontend Testing
-- Unit tests with Vitest: `yarn test`
+- Unit tests with Vitest: `npm test`
 - Component testing with React Testing Library
-- Run specific test: `yarn test <filename>`
+- Run specific test: `npm test <filename>`
 
 ### Backend Testing
 - **Pytest Framework**: Comprehensive test suite with unit, integration, and E2E tests
@@ -197,7 +191,7 @@ Critical variables:
 ## Deployment Process
 
 ### Production Deployment
-1. Frontend: `yarn build` → assets copied to `backend/static/`
+1. Frontend: `npm run build` → assets served by backend static file handler
 2. Backend: `make deploy_azure` → deploys to App Service
 3. Transcoder: `make azure-deploy` → deploys to Container Apps
 

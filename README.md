@@ -1,6 +1,6 @@
 # QuickScribe
 
-<!-- Last updated for commit: 1f262a350a8810ff29c5898620c0b6d23a2161a7 -->
+<!-- Last updated for commit: 0b5c14dba1691c16fd9cfef10ae6bccfd3490170 -->
 
 A full-stack audio transcription application with AI-powered analysis, built with modern cloud-native architecture on Azure.
 
@@ -18,10 +18,11 @@ QuickScribe is a comprehensive audio transcription platform that integrates with
 
 ### 🤖 AI-Powered Analysis
 - Dynamic analysis types system for modular AI operations
-- Speaker inference and labeling
+- Automatic post-processing (title, description, speaker inference)
+- Speaker inference and labeling with reasoning
 - Content summarization and insights
 - Customizable analysis workflows
-- Integration with Azure OpenAI
+- Integration with Azure OpenAI with async processing
 
 ### 📱 Plaud Device Integration
 - Automatic sync with Plaud recording devices
@@ -48,15 +49,15 @@ QuickScribe is a comprehensive audio transcription platform that integrates with
 QuickScribe consists of three main components:
 
 ### Backend API Server
-- Flask-based REST API
+- Flask-based REST API with AI post-processing pipeline
 - Azure Cosmos DB for data storage
 - Azure service integrations
 - Comprehensive handler pattern for data access
+- Async LLM infrastructure for concurrent processing
 
-### Frontend Applications
-- **New Frontend**: Modern React app with glassmorphism design
-- **Legacy Frontend**: Mantine-based UI (being phased out)
-- Both frontends share the same API
+### Frontend Application
+- **Frontend**: Modern React app with glassmorphism design
+- TypeScript-based with comprehensive component library
 
 ### Transcoder Microservice
 - Containerized audio processing service
@@ -90,7 +91,7 @@ QuickScribe consists of three main components:
 
 ### Prerequisites
 - Docker and Docker Compose
-- Node.js 18+ and Yarn
+- Node.js 18+ and npm
 - Python 3.11+
 - Azure account (for cloud deployment)
 
@@ -136,8 +137,8 @@ python app.py
 #### Frontend Development
 ```bash
 cd frontend_new
-yarn install
-yarn dev
+npm install
+npm run dev
 ```
 
 #### Running Tests
@@ -148,7 +149,7 @@ python run_tests.py all
 
 # Frontend tests
 cd frontend_new
-yarn test
+npm test
 ```
 
 ## Documentation
@@ -174,8 +175,8 @@ make deploy_azure
 2. Build and deploy the frontend:
 ```bash
 cd frontend_new
-yarn build
-yarn deploy
+npm run build
+npm run deploy
 ```
 
 3. Deploy the transcoder:
