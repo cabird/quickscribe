@@ -29,6 +29,7 @@ export function UploadTab() {
   // Sync progress state
   const [syncProgress, setSyncProgress] = useState<SyncProgress | null>(null);
   const [syncToken, setSyncToken] = useState<string | null>(null);
+  const [syncButtonLoading, setSyncButtonLoading] = useState(false);
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const { setRecordings } = useRecordingStore();
@@ -138,7 +139,7 @@ export function UploadTab() {
       return;
     }
 
-    setUploadLoading(true);
+    setSyncButtonLoading(true);
     
     try {
       const response = await startPlaudSync(false); // dry_run = false for real sync
@@ -181,7 +182,7 @@ export function UploadTab() {
         color: 'red',
       });
     } finally {
-      setUploadLoading(false);
+      setSyncButtonLoading(false);
     }
   };
 
@@ -287,8 +288,8 @@ export function UploadTab() {
           variant="light"
           color="orange"
           onClick={handlePlaudSync}
-          loading={uploadLoading}
-          disabled={syncProgress && (syncProgress.status === 'queued' || syncProgress.status === 'processing')}
+          loading={syncButtonLoading}
+          disabled={syncButtonLoading || (syncProgress && (syncProgress.status === 'queued' || syncProgress.status === 'processing'))}
         >
           <Group gap="xs">
             <LuRefreshCw size={16} />

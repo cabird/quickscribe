@@ -1,6 +1,6 @@
 # QuickScribe Transcoder Container
 
-<!-- Last updated for commit: 1f262a350a8810ff29c5898620c0b6d23a2161a7 -->
+<!-- Last updated for commit: 0b5c14dba1691c16fd9cfef10ae6bccfd3490170 -->
 
 A containerized audio processing service for the QuickScribe application, designed to handle audio transcoding, Plaud device synchronization, and Azure queue-based processing in a scalable microservice architecture.
 

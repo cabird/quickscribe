@@ -201,6 +201,11 @@ export function RecordingCard({ recording: initialRecording, userTags }: Recordi
             <Text fw={600} size="md" lineClamp={2}>
               {recording.title || recording.original_filename}
             </Text>
+            {recording.description && (
+              <Text size="sm" c="dimmed" lineClamp={2}>
+                {recording.description}
+              </Text>
+            )}
             <Text size="sm" c="dimmed">
               Duration: {formatDuration(recording.duration || 0)}
             </Text>
@@ -307,27 +312,19 @@ export function RecordingCard({ recording: initialRecording, userTags }: Recordi
           </Group>
         )}
 
-        {/* AI Indicators (visual only for now) */}
-        {transcriptionStatus === 'completed' && (
+        {/* Participants */}
+        {recording.participants && recording.participants.length > 0 && (
           <Group gap="xs">
-            <Badge size="xs" variant="light" color="violet">
-              <Group gap={4}>
-                <LuFileText size={12} />
-                <span>Summary</span>
-              </Group>
-            </Badge>
-            <Badge size="xs" variant="light" color="indigo">
-              <Group gap={4}>
-                <LuTag size={12} />
-                <span>Keywords</span>
-              </Group>
-            </Badge>
-            <Badge size="xs" variant="light" color="teal">
-              <Group gap={4}>
-                <LuCircleHelp size={12} />
-                <span>Q&A</span>
-              </Group>
-            </Badge>
+            {recording.participants.map((participant, index) => (
+              <Badge 
+                key={index} 
+                size="xs" 
+                variant="light" 
+                color="blue"
+              >
+                {participant}
+              </Badge>
+            ))}
           </Group>
         )}
 

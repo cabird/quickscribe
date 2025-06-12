@@ -1,6 +1,6 @@
 # QuickScribe Backend Architecture
 
-<!-- Last updated for commit: 1f262a350a8810ff29c5898620c0b6d23a2161a7 -->
+<!-- Last updated for commit: 0b5c14dba1691c16fd9cfef10ae6bccfd3490170 -->
 
 ## Overview
 
@@ -87,11 +87,13 @@ backend/
 │
 ├── auth.py                    # Azure AD authentication with MSAL integration
 ├── blob_util.py              # Azure Blob Storage operations and SAS tokens
-├── llms.py                   # Azure OpenAI integration for AI features
+├── llms.py                   # Azure OpenAI integration with async infrastructure
+├── ai_postprocessing.py      # AI post-processing orchestration (title, description, speakers)
 ├── user_util.py              # User session management and resolution
 ├── util.py                   # General utility functions and helpers
 ├── logging_config.py         # Centralized logging with Application Insights
 ├── manage.py                 # CLI management tools for administration
+├── prompts.yaml              # AI prompt templates for post-processing
 │
 ├── deploy-to-azure.sh        # Azure deployment automation script
 ├── deploy-local.sh           # Local deployment testing script

@@ -60,6 +60,7 @@ export interface Recording {
     description?: string; // AI-generated description (1-2 sentences about recording content)
     recorded_timestamp?: string; // ISO timestamp when the recording was actually made
     duration?: number; // Duration of the recording in seconds (may be unknown)
+    participants?: string[]; // List of participant names extracted from speaker mapping (e.g., ["John", "Mary"])
     
     // Transcription related fields
     transcription_status?: "not_started" | "in_progress" | "completed" | "failed"; // Transcription status with specific values

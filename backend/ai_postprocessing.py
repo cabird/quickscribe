@@ -201,13 +201,15 @@ async def generate_title_and_description_concurrent(transcript_text: str) -> Dic
         }
 
 
-def update_speaker_names(transcription_id: str, transcript_text: str) -> Optional[Dict]:
+def update_speaker_names(transcription_id: str, transcript_text: str, recording_id: str) -> Optional[Dict]:
     """
     Update speaker names in a diarized transcript using existing LLM functionality.
+    Also updates the recording with participants list.
     
     Args:
         transcription_id: ID of the transcription to update
         transcript_text: The diarized transcript text
+        recording_id: ID of the recording to update with participants
         
     Returns:
         Dict with speaker mapping results or None if failed
@@ -235,13 +237,18 @@ def update_speaker_names(transcription_id: str, transcript_text: str) -> Optiona
         
         if transcription:
             transcription.speaker_mapping = formatted_speaker_mapping
-            transcription.diarized_transcript = updated_transcript
             transcription_handler.update_transcription(transcription)
+            
+            # Extract participant names and update recording
+            participants = list(speaker_data["name"] for speaker_data in raw_speaker_mapping.values())
+            
+            # Update recording with participants using common function
+            update_recording_participants(recording_id, participants)
             
             logger.info(f"Updated speaker names for transcription {transcription_id}")
             return {
                 'speaker_mapping': formatted_speaker_mapping,
-                'updated_transcript': updated_transcript
+                'participants': participants
             }
     except Exception as e:
         logger.warning(f"Speaker inference failed for transcription {transcription_id}: {e}")
@@ -387,15 +394,19 @@ def postprocess_recording_full(recording_id: str) -> Dict[str, any]:
             logger.error(f"Exception details: {type(e).__name__}: {str(e)}")
             results['errors'].append(error_msg)
         
-        # Update speaker names if we have a diarized transcript
-        if transcription_id and "Speaker " in transcript_text:
+        # Always run speaker inference if we have a transcription
+        if transcription_id:
+            logger.info(f"Starting speaker inference for recording {recording_id}")
             try:
-                speaker_results = update_speaker_names(transcription_id, transcript_text)
+                speaker_results = update_speaker_names(transcription_id, transcript_text, recording_id)
                 results['speaker_update'] = speaker_results
+                logger.info(f"Speaker inference completed for recording {recording_id}: {speaker_results is not None}")
             except Exception as e:
                 error_msg = f"Failed to update speaker names: {e}"
                 logger.warning(error_msg)
                 results['errors'].append(error_msg)
+        else:
+            logger.info(f"Skipping speaker inference for recording {recording_id}: no transcription available")
         
         success_count = sum([1 for key in ['title', 'description', 'speaker_update'] if results[key]])
         logger.info(f"AI post-processing completed for recording {recording_id}. "
@@ -410,3 +421,76 @@ def postprocess_recording_full(recording_id: str) -> Dict[str, any]:
         results['errors'].append(error_msg)
     
     return results
+
+
+def update_recording_participants(recording_id: str, participants: list[str]) -> None:
+    """
+    Update recording participants list.
+    
+    Args:
+        recording_id: ID of the recording to update
+        participants: List of participant names
+    """
+    recording_handler = get_recording_handler()
+    recording = recording_handler.get_recording(recording_id)
+    if recording:
+        recording.participants = participants
+        recording_handler.update_recording(recording)
+        logger.info(f"Updated recording {recording_id} with participants: {participants}")
+
+
+def update_diarized_transcript_with_names(diarized_transcript: str, speaker_mapping: dict) -> str:
+    """
+    Update diarized transcript by replacing speaker labels with actual names.
+    
+    Args:
+        diarized_transcript: Original transcript with Speaker 1, Speaker 2, etc.
+        speaker_mapping: Dict mapping speaker labels to names
+        
+    Returns:
+        Updated transcript with real names
+    """
+    updated_transcript = diarized_transcript
+    for speaker_label, speaker_name in speaker_mapping.items():
+        updated_transcript = updated_transcript.replace(f"{speaker_label}:", f"{speaker_name}:")
+    return updated_transcript
+
+
+def update_transcription_speaker_data(transcription_id: str, speaker_mapping: dict, reasoning: str = "User edited") -> dict:
+    """
+    Update transcription with new speaker mapping and transcript.
+    
+    Args:
+        transcription_id: ID of transcription to update
+        speaker_mapping: Dict mapping speaker labels to names
+        reasoning: Reasoning for the mapping
+        
+    Returns:
+        Dict with updated speaker mapping and transcript
+    """
+    from db_handlers.models import SpeakerMapping
+    
+    transcription_handler = get_transcription_handler()
+    transcription = transcription_handler.get_transcription(transcription_id)
+    
+    if not transcription:
+        raise ValueError(f"Transcription {transcription_id} not found")
+    
+    # Convert to proper SpeakerMapping objects
+    formatted_speaker_mapping = {}
+    for speaker_label, speaker_name in speaker_mapping.items():
+        formatted_speaker_mapping[speaker_label] = SpeakerMapping(
+            name=speaker_name,
+            reasoning=reasoning
+        )
+    
+    # Update transcription with speaker mapping only - leave diarized transcript unchanged
+    transcription.speaker_mapping = formatted_speaker_mapping
+    transcription_handler.update_transcription(transcription)
+    
+    logger.info(f"Updated transcription {transcription_id} with speaker mapping: {speaker_mapping}")
+    
+    return {
+        'speaker_mapping': {k: v.model_dump() for k, v in formatted_speaker_mapping.items()},
+        'participants': list(speaker_mapping.values())
+    }

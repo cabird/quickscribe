@@ -28,19 +28,50 @@ prompts:
 
         __TRANSCRIPT__
   get_speaker_summaries:
-    description: "This prompt is used to get the summary for each speaker in a diarized transcript."
+    description: "This prompt is used to get identifying characteristics for each speaker in a diarized transcript."
     prompt: |
-        I have a transcript labeled with speaker tags. I want to show a summary for each speaker to the user
-        so that they can label the speakers.  Please provide a one-sentence summary for each speaker.
+        I have a transcript labeled with speaker tags. I need to help users identify and distinguish between speakers.
+        For each speaker, provide a one to three sentence summary that focuses on WHO they are, not WHAT they discussed.
 
-        Please output in the following format:
+        Focus on:
+        - Their role or relationship to others (teacher, student, manager, client, interviewer, etc.)
+        - Communication style (formal, casual, questioning, directive, supportive, etc.)
+        - Relationship dynamics (leads the conversation, asks questions, provides expertise, etc.)
+        - Distinctive speaking patterns or tone
+        - How they interact with other speakers
+        - Interpersonal relationships when clearly evident (spouse, manager/employee, parent/child, teacher/student, client/service provider, etc.)
+        - Actual names mentioned in the conversation (if Speaker 1 says "Thanks, John" and Speaker 2 responds, Speaker 2 is likely named John)
+        - Any hints about names or relationships, even if not completely certain
 
-        
-        *** JSON ***
+        When relationships or names are possible, mention them:
+        - "Speaker 1 appears to be the manager of Speaker 2 based on directive tone and decision-making authority"
+        - "Speaker 1 seems to be the spouse/partner of Speaker 2 given their familiar, intimate communication style"
+        - "Speaker 1 acts as the interviewer while Speaker 2 is the interviewee based on question patterns"
+        - "Speaker 2 could be named John because other speakers address them as 'John'"
+        - "Speaker 1 might be named Sarah because Speaker 3 asks 'What do you think, Sarah?'"
+        - "Speaker 3 could be the parent of Speaker 1 based on protective tone and references to 'my daughter'"
+
+        Feel free to make educated guesses about names and relationships based on context clues, tone, and conversation patterns. It's better to provide a helpful hint that might be wrong than to miss a potential identification.
+
+        Avoid:
+        - Topic summaries (don't just say "talked about X topic")
+        - Content that applies to all speakers equally
+        - Generic descriptions that could fit anyone
+
+        Example good summaries:
+        - "Facilitates the discussion and asks probing questions to guide the conversation"
+        - "Provides technical expertise and responds to questions with detailed explanations. Could be named Mike based on how others address him."
+        - "Takes a supportive role and frequently acknowledges others' contributions. Might be the spouse of Speaker 1 given their familiar interaction."
+        - "Appears to be the supervisor of Speaker 2 based on directive communication and approval-giving"
+
+        IMPORTANT: Return only valid JSON with no additional text, explanations, or formatting. 
+        Do not wrap the JSON in code blocks or add any other content.
+
+        Required format:
         { "speaker_summaries": {
-            "Speaker Name 1": "<one-sentence summary>",
-            "Speaker Name 2": "<one-sentence summary>",
-            "Speaker Name 3": "<one-sentence summary>"
+            "Speaker Name 1": "<one to three sentence identifying summary>",
+            "Speaker Name 2": "<one to three sentence identifying summary>",
+            "Speaker Name 3": "<one to three sentence identifying summary>"
           }
         }
 
@@ -62,6 +93,29 @@ prompts:
         Write a 1-2 sentence summary describing the main content and purpose of this audio transcript.
         Be concise but informative about what was discussed or accomplished.
         Return only the description, nothing else.
+        
+        __TRANSCRIPT__
+  generate_title_and_description:
+    description: "Generate both title and description for an audio recording transcript in one call"
+    prompt: |
+        Analyze this audio transcript and generate both a title and description.
+        
+        For the title:
+        - Maximum 60 characters
+        - Concise and descriptive
+        - Focus on the main topic or purpose
+        - No quotes around the title
+        
+        For the description:
+        - 1-2 sentences summarizing the main content
+        - Informative about what was discussed or accomplished
+        - Concise but comprehensive
+        
+        IMPORTANT: Return only valid JSON with no additional text, explanations, or formatting. 
+        Do not wrap the JSON in code blocks or add any other content.
+        
+        Required format:
+        {"title": "Your generated title here", "description": "Your generated description here"}
         
         __TRANSCRIPT__
         

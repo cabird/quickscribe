@@ -3,8 +3,8 @@ from flask import Blueprint, request, jsonify, url_for
 from db_handlers.handler_factory import get_user_handler, get_recording_handler, get_transcription_handler
 from user_util import get_current_user
 from db_handlers.models import User, Recording, Transcription, TranscodingStatus, TranscriptionStatus, Tag
-from util import update_diarized_transcript, get_recording_duration_in_seconds
-from ai_postprocessing import postprocess_recording_full
+from util import get_recording_duration_in_seconds
+from ai_postprocessing import postprocess_recording_full, update_transcription_speaker_data, update_recording_participants
 import re
 import uuid
 import os
@@ -169,24 +169,6 @@ def update_transcription(transcription_id):
     return jsonify({'error': 'Transcription not found'}), 404
 
 
-@api_bp.route('/update_speaker_labels/<transcription_id>', methods=['POST'])
-def update_speaker_labels(transcription_id):
-    logger.info(f"update_speaker_labels: transcription_id {transcription_id}")
-    #output the request json
-    logger.info(f"update_speaker_labels: request json {request.json}")
-    transcription_handler = get_transcription_handler()
-    transcription = transcription_handler.get_transcription(transcription_id)
-    if transcription and transcription.diarized_transcript:
-        speaker_labels = request.json
-        # TODO - update the speaker labels... do we need them?
-        updated_transcript = update_diarized_transcript(transcription.diarized_transcript, speaker_labels)
-        transcription.diarized_transcript = updated_transcript
-
-        #transcription.speaker_mapping = speaker_labels
-        logger.info(f"update_speaker_labels: updated_transcript")
-        transcription_handler.update_transcription(transcription)
-        return jsonify({'message': 'Speaker labels updated successfully'}), 200
-    return jsonify({'error': 'Transcription not found or does not have a diarized transcript'}), 404
 
 
 
@@ -554,6 +536,101 @@ def manual_postprocess_recording(recording_id):
         
     except Exception as e:
         logger.error(f"Error in manual post-processing for {recording_id}: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+
+@api_bp.route('/recording/<recording_id>/update_speakers', methods=['POST'])
+def update_speakers(recording_id):
+    """
+    Update speaker names for a recording.
+    Accepts a mapping of speaker labels to names and updates both the transcription
+    speaker mapping and the recording participants list.
+    """
+    logger.info(f"Update speakers requested for recording {recording_id}")
+    
+    try:
+        current_user = get_current_user()
+        if not current_user:
+            return jsonify({'error': 'User not authenticated'}), 401
+        
+        # Validate request data
+        if not request.json:
+            return jsonify({'error': 'No speaker mapping provided'}), 400
+            
+        speaker_mapping = request.json
+        
+        # Validate speaker mapping format
+        if not isinstance(speaker_mapping, dict):
+            return jsonify({'error': 'Speaker mapping must be a dictionary'}), 400
+            
+        # Validate speaker names
+        errors = []
+        names_seen = set()
+        for speaker_label, speaker_name in speaker_mapping.items():
+            if not speaker_name or not speaker_name.strip():
+                errors.append(f"Speaker name cannot be empty for {speaker_label}")
+            elif len(speaker_name.strip()) > 50:
+                errors.append(f"Speaker name too long for {speaker_label} (max 50 characters)")
+            elif speaker_name.strip() in names_seen:
+                errors.append(f"Duplicate speaker name: {speaker_name.strip()}")
+            else:
+                names_seen.add(speaker_name.strip())
+                # Update mapping with trimmed names
+                speaker_mapping[speaker_label] = speaker_name.strip()
+        
+        if errors:
+            return jsonify({'error': 'Validation failed', 'details': errors}), 400
+        
+        # Verify recording exists and belongs to user
+        recording_handler = get_recording_handler()
+        recording = recording_handler.get_recording(recording_id)
+        
+        if not recording:
+            logger.error(f"Recording not found: {recording_id}")
+            return jsonify({'error': f'Recording not found: {recording_id}'}), 404
+            
+        if recording.user_id != current_user.id:
+            logger.error(f"Recording {recording_id} does not belong to user {current_user.id}")
+            return jsonify({'error': 'Recording does not belong to current user'}), 403
+        
+        # Check if recording has been transcribed
+        if not recording.transcription_id:
+            return jsonify({'error': 'Recording has not been transcribed yet'}), 400
+            
+        # Update transcription speaker data
+        try:
+            speaker_results = update_transcription_speaker_data(
+                recording.transcription_id, 
+                speaker_mapping, 
+                reasoning="User edited"
+            )
+            
+            # Update recording participants
+            participants = list(speaker_mapping.values())
+            update_recording_participants(recording_id, participants)
+            
+            # Fetch updated data for response
+            updated_recording = recording_handler.get_recording(recording_id)
+            transcription_handler = get_transcription_handler()
+            updated_transcription = transcription_handler.get_transcription(recording.transcription_id)
+            
+            response_data = {
+                'status': 'success',
+                'message': 'Speaker mapping updated successfully',
+                'updated_recording': updated_recording.model_dump() if updated_recording else None,
+                'updated_transcription': updated_transcription.model_dump() if updated_transcription else None,
+                'speaker_results': speaker_results
+            }
+            
+            logger.info(f"Successfully updated speakers for recording {recording_id}")
+            return jsonify(response_data), 200
+            
+        except Exception as e:
+            logger.error(f"Error updating speaker data for recording {recording_id}: {e}")
+            return jsonify({'error': f'Failed to update speaker data: {str(e)}'}), 500
+        
+    except Exception as e:
+        logger.error(f"Error in update_speakers for {recording_id}: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
 

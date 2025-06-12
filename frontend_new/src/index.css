@@ -9,10 +9,10 @@
   /* Glassmorphism Background Gradient */
   background: linear-gradient(135deg, 
     rgba(74, 144, 226, 0.2) 0%,
-    rgba(143, 148, 251, 0.2) 25%,
-    rgba(145, 234, 228, 0.2) 50%,
-    rgba(250, 128, 114, 0.2) 75%,
-    rgba(253, 230, 138, 0.2) 100%
+    rgba(56, 149, 211, 0.2) 25%,
+    rgba(30, 136, 229, 0.2) 50%,
+    rgba(25, 118, 210, 0.2) 75%,
+    rgba(21, 101, 192, 0.2) 100%
   );
   
   /* Glassmorphism CSS Variables */
@@ -50,10 +50,10 @@ body {
   /* Enhanced glassmorphism background */
   background: linear-gradient(135deg, 
     rgba(74, 144, 226, 0.3) 0%,
-    rgba(143, 148, 251, 0.3) 25%,
-    rgba(145, 234, 228, 0.3) 50%,
-    rgba(250, 128, 114, 0.3) 75%,
-    rgba(253, 230, 138, 0.3) 100%
+    rgba(56, 149, 211, 0.3) 25%,
+    rgba(30, 136, 229, 0.3) 50%,
+    rgba(25, 118, 210, 0.3) 75%,
+    rgba(21, 101, 192, 0.3) 100%
   );
   background-attachment: fixed;
 }
@@ -158,10 +158,10 @@ button:focus-visible {
     color: #213547;
     background: linear-gradient(135deg, 
       rgba(74, 144, 226, 0.15) 0%,
-      rgba(143, 148, 251, 0.15) 25%,
-      rgba(145, 234, 228, 0.15) 50%,
-      rgba(250, 128, 114, 0.15) 75%,
-      rgba(253, 230, 138, 0.15) 100%
+      rgba(56, 149, 211, 0.15) 25%,
+      rgba(30, 136, 229, 0.15) 50%,
+      rgba(25, 118, 210, 0.15) 75%,
+      rgba(21, 101, 192, 0.15) 100%
     );
   }
   a:hover {

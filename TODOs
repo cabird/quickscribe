@@ -90,4 +90,8 @@ These are todos that I've added and haven't been planned out or examined by AI y
   * implement handling of a dead letter queue or poison pill messages in the queue
   * If I paste in a transcript, check that it doesn't already exist as a transcript of a recording... not sure how to do this..
   * code review the /api/admin routes.  It''s like super verbose.  I wonder if there is a better way.  Gemini could probably refactor it?
+  * save a flag indicating if the user editted the speakers.  In that case, don't let the "AI Enhance" button change them.
+  * If there is no speaker mapping, clicking on "edit speakers" shows no summaries or text boxes.
+  * If I delete a plaud recording, how do I ensure I don't download it again???
+  * in the "browse" tab, under tags, there should be a list of people, you can click on a person to see only recordings with them in it.  You can click multiple people and tags and see the recordings with all of them.
 

@@ -107,3 +107,73 @@ export const fetchTranscription = async (transcriptionId: string): Promise<Trans
     console.log("Transcription fetched", response.data);
     return response.data;
 };
+
+export const triggerPostProcessing = async (recordingId: string): Promise<ApiResponse> => {
+    try {
+        const response = await axios.post(`/api/recording/${recordingId}/postprocess`);
+        
+        if (response.status === 200) {
+            const responseData = response.data;
+            return {
+                status: 'success',
+                message: responseData.status === 'completed' 
+                    ? 'AI post-processing completed successfully'
+                    : 'AI post-processing completed with some errors',
+                data: responseData
+            };
+        } else {
+            return {
+                status: 'error',
+                error: 'Failed to trigger post-processing'
+            };
+        }
+    } catch (error: any) {
+        console.error('Error triggering post-processing:', error);
+        return {
+            status: 'error',
+            error: error.response?.data?.error || 'Failed to trigger post-processing'
+        };
+    }
+};
+
+export const updateSpeakers = async (recordingId: string, speakerMapping: Record<string, string>): Promise<ApiResponse> => {
+    try {
+        const response = await axios.post(`/api/recording/${recordingId}/update_speakers`, speakerMapping);
+        
+        if (response.status === 200) {
+            const responseData = response.data;
+            return {
+                status: 'success',
+                message: responseData.message || 'Speaker mapping updated successfully',
+                data: responseData
+            };
+        } else {
+            return {
+                status: 'error',
+                error: 'Failed to update speakers'
+            };
+        }
+    } catch (error: any) {
+        console.error('Error updating speakers:', error);
+        return {
+            status: 'error',
+            error: error.response?.data?.error || 'Failed to update speakers'
+        };
+    }
+};
+
+export const getSpeakerSummaries = async (transcriptionId: string): Promise<Record<string, string> | null> => {
+    try {
+        const response = await axios.get(`/api/ai/get_speaker_summaries/${transcriptionId}`);
+        
+        if (response.status === 200) {
+            return response.data;
+        } else {
+            console.error('Failed to get speaker summaries:', response.status);
+            return null;
+        }
+    } catch (error: any) {
+        console.error('Error getting speaker summaries:', error);
+        return null;
+    }
+};

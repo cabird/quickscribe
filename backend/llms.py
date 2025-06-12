@@ -185,6 +185,10 @@ async def send_prompt_to_llm_async(prompt: str) -> str:
     Async version of send_prompt_to_llm for concurrent processing.
     Returns just the content string.
     """
+    logger = logging.getLogger(__name__)
+    logger.info(f"Starting async LLM request to: {ENDPOINT}")
+    logger.debug(f"Prompt length: {len(prompt)} characters")
+    
     async with aiohttp.ClientSession() as session:
         payload_copy = payload.copy()
         payload_copy["messages"] = payload["messages"].copy()
@@ -194,13 +198,30 @@ async def send_prompt_to_llm_async(prompt: str) -> str:
         payload_copy["messages"][1]["content"][0]["text"] = prompt
         
         try:
+            logger.debug(f"Sending request with payload keys: {list(payload_copy.keys())}")
             async with session.post(ENDPOINT, headers=headers, json=payload_copy) as response:
+                logger.info(f"Received response with status: {response.status}")
+                
+                if response.status != 200:
+                    error_text = await response.text()
+                    logger.error(f"LLM request failed with status {response.status}: {error_text}")
+                    raise aiohttp.ClientResponseError(
+                        request_info=response.request_info,
+                        history=response.history,
+                        status=response.status,
+                        message=f"HTTP {response.status}: {error_text}"
+                    )
+                
                 response.raise_for_status()
                 response_data = await response.json()
                 return response_data["choices"][0]["message"]["content"]
                 
         except aiohttp.ClientError as e:
+            logger.error(f"Async LLM request failed with aiohttp error: {e}")
             raise Exception(f"Async LLM request failed: {e}")
+        except Exception as e:
+            logger.error(f"Unexpected error in async LLM request: {e}")
+            raise
 
 
 async def send_prompt_to_llm_async_with_timing(prompt: str) -> Dict:

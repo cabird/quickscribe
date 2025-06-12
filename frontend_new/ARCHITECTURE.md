@@ -1,6 +1,6 @@
 # QuickScribe Frontend Architecture
 
-<!-- Last updated for commit: 1f262a350a8810ff29c5898620c0b6d23a2161a7 -->
+<!-- Last updated for commit: 0b5c14dba1691c16fd9cfef10ae6bccfd3490170 -->
 
 ## Overview
 
@@ -147,6 +147,7 @@ The AI Workspace has been completely redesigned with a sophisticated tabbed inte
 - Scrollable transcript content with speaker formatting
 - Copy transcript functionality
 - View full transcript option
+- AI Enhance button for post-processing (title, description, speaker names)
 
 **AnalysisPanel.tsx** - Tabbed analysis container
 - Dynamic tab management based on completed analyses
@@ -347,6 +348,7 @@ const startPolling = (token: string) => {
 - `POST /az_transcription/start_transcription/:id` - Start transcription
 - `GET /api/delete_recording/:id` - Delete recording
 - `GET /az_transcription/check_transcription_status/:id` - Poll status
+- `POST /api/recording/:id/postprocess` - Trigger AI post-processing (title, description, speakers)
 
 ### Tag Operations
 - `GET /api/tags/get` - Fetch all user tags
@@ -495,6 +497,7 @@ cp -r dist/* ../backend/frontend-dist/
 - Keyboard shortcuts (hotkeys library)
 - Advanced filtering (date ranges, duration, etc.)
 - Batch analysis operations (run multiple analyses at once)
+- Enhanced AI post-processing integration (completed recordings automatically processed)
 
 ### Architecture Supports
 - Progressive Web App features

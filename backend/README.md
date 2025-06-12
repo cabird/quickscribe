@@ -1,6 +1,6 @@
 # QuickScribe Backend
 
-<!-- Last updated for commit: 1f262a350a8810ff29c5898620c0b6d23a2161a7 -->
+<!-- Last updated for commit: 0b5c14dba1691c16fd9cfef10ae6bccfd3490170 -->
 
 A Flask API server for the QuickScribe audio transcription application, built with Python, Azure services integration, and comprehensive data management.
 
@@ -12,13 +12,14 @@ A Flask API server for the QuickScribe audio transcription application, built wi
 - Real-time transcription status tracking
 - Comprehensive tag management system
 - Dynamic AI analysis types system for modular operations
+- AI post-processing pipeline (title, description, speaker inference)
 
 ✅ **Azure Services Integration**
 - Azure Cosmos DB for scalable document storage
 - Azure Blob Storage for audio file management
 - Azure Speech Services for transcription processing
 - Azure Storage Queues for asynchronous processing
-- Azure OpenAI for AI-powered analysis features
+- Azure OpenAI for AI-powered analysis and post-processing features
 - Azure Container Apps for microservices deployment
 
 ✅ **Authentication & Security**

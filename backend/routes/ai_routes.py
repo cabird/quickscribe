@@ -30,8 +30,46 @@ def get_speaker_summaries(transcription_id):
     transcription = transcription_handler.get_transcription(transcription_id)
     if transcription and transcription.diarized_transcript:
         logger.info(f"get_speaker_summaries: found diarized transcript")
-        summaries = get_speaker_summaries_via_llm(transcription.diarized_transcript)
-        logger.info(f"get_speaker_summaries: summaries {summaries}")
+        
+        # Process transcript line by line to create sequential speaker mapping
+        lines = transcription.diarized_transcript.split('\n')
+        speaker_mapping = {}  # original_name -> Speaker X
+        speaker_counter = 1
+        normalized_transcript_lines = []
+        
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+                
+            # Check if line starts with a speaker pattern (name followed by colon)
+            speaker_match = line.split(':', 1)
+            if len(speaker_match) == 2:
+                original_speaker = speaker_match[0].strip()
+                content = speaker_match[1].strip()
+                
+                # If this is a new speaker, assign them the next number
+                if original_speaker not in speaker_mapping:
+                    speaker_mapping[original_speaker] = f"Speaker {speaker_counter}"
+                    speaker_counter += 1
+                
+                # Add normalized line
+                normalized_transcript_lines.append(f"{speaker_mapping[original_speaker]}: {content}")
+            else:
+                # Non-speaker line, add as-is
+                normalized_transcript_lines.append(line)
+        
+        # Create normalized transcript with Speaker 1, Speaker 2, etc.
+        normalized_transcript = '\n'.join(normalized_transcript_lines)
+        
+        logger.info(f"get_speaker_summaries: speaker_mapping {speaker_mapping}")
+        logger.info(f"get_speaker_summaries: normalized transcript preview: {normalized_transcript[:200]}...")
+        
+        # Get summaries from LLM using normalized transcript
+        summaries = get_speaker_summaries_via_llm(normalized_transcript)
+        logger.info(f"get_speaker_summaries: LLM returned summaries {summaries}")
+        
+        # Return summaries with Speaker 1, Speaker 2, etc. keys
         return jsonify(summaries), 200
     return jsonify({'error': 'Transcription not found or does not have a diarized transcript'}), 404
 
@@ -262,6 +300,15 @@ def execute_analysis():
         transcript_text = transcription.diarized_transcript or transcription.text
         if not transcript_text:
             return jsonify({'error': 'No transcript content available for analysis'}), 400
+            
+        # Transform transcript to use speaker names if mapping exists
+        from db_handlers.transcription_handler import TranscriptionHandler
+        transcript_text = TranscriptionHandler.transform_transcript_with_speaker_names(
+            transcript_text, 
+            transcription.speaker_mapping
+        )
+        if transcription.speaker_mapping:
+            logger.info(f"Transformed transcript for analysis using speaker mapping")
             
         # Replace {transcript} placeholder in prompt template with actual transcript
         final_prompt = prompt_template.replace('{transcript}', transcript_text)

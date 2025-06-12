@@ -9,7 +9,7 @@ from typing import List, Dict, Optional, Any
 from dataclasses import dataclass, field
 
 # Constants
-RATE_LIMITING_SLEEP_SECONDS = 60
+RATE_LIMITING_SLEEP_SECONDS = 15
 
 @dataclass
 class AudioFile:

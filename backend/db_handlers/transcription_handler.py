@@ -139,3 +139,43 @@ class TranscriptionHandler:
             enable_cross_partition_query=True
         ))
         return [Transcription(**filter_cosmos_fields(item)) for item in items]
+    
+    @staticmethod
+    def transform_transcript_with_speaker_names(transcript_text: str, speaker_mapping: Optional[Dict[str, SpeakerMapping]]) -> str:
+        """
+        Transform a diarized transcript to use speaker names from the mapping.
+        
+        Args:
+            transcript_text: The diarized transcript with "Speaker 1:", "Speaker 2:", etc.
+            speaker_mapping: Optional mapping from speaker labels to SpeakerMapping objects
+            
+        Returns:
+            Transformed transcript with actual speaker names, or original if no mapping
+        """
+        if not transcript_text or not speaker_mapping:
+            return transcript_text
+            
+        lines = transcript_text.split('\n')
+        transformed_lines = []
+        
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+                
+            # Check if line starts with a speaker pattern (Speaker X:)
+            speaker_match = line.split(':', 1)
+            if len(speaker_match) == 2:
+                speaker_label = speaker_match[0].strip()
+                content = speaker_match[1].strip()
+                
+                # Use speaker mapping if available
+                if speaker_label in speaker_mapping:
+                    speaker_name = speaker_mapping[speaker_label].name
+                    transformed_lines.append(f"{speaker_name}: {content}")
+                else:
+                    transformed_lines.append(line)
+            else:
+                transformed_lines.append(line)
+        
+        return '\n'.join(transformed_lines)

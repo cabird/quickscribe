@@ -53,10 +53,6 @@ def ellide(text, max_length):
     else:
         return text
 
-def update_diarized_transcript(diarized_transcript: str, speaker_labels: Dict[str, str]) -> str:
-    for original_speaker, new_label in speaker_labels.items():
-        diarized_transcript = diarized_transcript.replace(original_speaker, new_label)
-    return diarized_transcript
 
 def slugify(text: str) -> str:
     """Convert text to a slug suitable for tag IDs and other URL-safe identifiers."""

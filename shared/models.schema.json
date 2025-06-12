@@ -569,6 +569,12 @@
                 "original_filename": {
                     "type": "string"
                 },
+                "participants": {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array"
+                },
                 "partitionKey": {
                     "type": "string"
                 },
@@ -657,6 +663,7 @@
                 "description",
                 "recorded_timestamp",
                 "duration",
+                "participants",
                 "transcription_status",
                 "transcription_status_updated_at",
                 "transcription_id",

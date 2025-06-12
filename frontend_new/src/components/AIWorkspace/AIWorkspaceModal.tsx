@@ -8,6 +8,7 @@ import { useState, useEffect } from 'react';
 import { TranscriptPanel } from './TranscriptPanel';
 import { AnalysisPanel } from './AnalysisPanel';
 import { ResizableHandle } from './ResizableHandle';
+import { EditSpeakersModal } from './EditSpeakersModal';
 import { useAnalysisStore } from '../../stores/useAnalysisStore';
 import { notifications } from '@mantine/notifications';
 import type { Recording, Transcription, AnalysisResult } from '../../types';
@@ -22,6 +23,7 @@ export function AIWorkspaceModal() {
   const [analysisResults, setAnalysisResults] = useState<AnalysisResult[]>([]);
   const { getAnalysisTypeByName } = useAnalysisStore();
   const [analysisPanelHeight, setAnalysisPanelHeight] = useState(350);
+  const [editSpeakersModalOpen, setEditSpeakersModalOpen] = useState(false);
 
   const recording = getRecordingById(aiWorkspace.recordingId || '');
   
@@ -161,6 +163,17 @@ export function AIWorkspaceModal() {
     setAnalysisResults(updatedTranscription.analysisResults || []);
   };
 
+  const handleEditSpeakers = () => {
+    setEditSpeakersModalOpen(true);
+  };
+
+  const handleSpeakersUpdated = (updatedRecording: Recording, updatedTranscription: Transcription) => {
+    // Similar to post-processing update - update both recording and transcription
+    handleRecordingUpdate(updatedRecording);
+    setTranscription(updatedTranscription);
+    setEditSpeakersModalOpen(false);
+  };
+
   return (
     <Modal
       opened={aiWorkspace.isOpen}
@@ -203,6 +216,7 @@ export function AIWorkspaceModal() {
             onRecordingUpdate={handleRecordingUpdate}
             onTranscriptReload={handleTranscriptReload}
             onPostProcessingUpdate={handlePostProcessingUpdate}
+            onEditSpeakers={handleEditSpeakers}
           />
         </div>
 
@@ -221,6 +235,17 @@ export function AIWorkspaceModal() {
           />
         </div>
       </div>
+      
+      {/* Edit Speakers Modal */}
+      {transcription && (
+        <EditSpeakersModal
+          opened={editSpeakersModalOpen}
+          onClose={() => setEditSpeakersModalOpen(false)}
+          recording={recording}
+          transcription={transcription}
+          onSpeakersUpdated={handleSpeakersUpdated}
+        />
+      )}
     </Modal>
   );
 }

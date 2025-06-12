@@ -1,6 +1,6 @@
 # QuickScribe New Frontend
 
-<!-- Last updated for commit: 1f262a350a8810ff29c5898620c0b6d23a2161a7 -->
+<!-- Last updated for commit: 0b5c14dba1691c16fd9cfef10ae6bccfd3490170 -->
 
 A modern React frontend for the QuickScribe audio transcription application, built with Vite, TypeScript, and featuring a glassmorphism design system with AI workspace integration.
 

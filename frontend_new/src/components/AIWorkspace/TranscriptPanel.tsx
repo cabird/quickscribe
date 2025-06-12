@@ -1,5 +1,5 @@
 import { Card, Stack, Group, Text, Button, Center, Loader, Badge } from '@mantine/core';
-import { LuFileText, LuCopy, LuEye, LuBot } from 'react-icons/lu';
+import { LuFileText, LuCopy, LuEye, LuBot, LuUsers } from 'react-icons/lu';
 import { notifications } from '@mantine/notifications';
 import { formatDuration, getStatusText, showNotificationFromApiResponse } from '../../utils';
 import { TagBadge } from '../Tags/TagBadge';
@@ -16,6 +16,7 @@ interface TranscriptPanelProps {
   onRecordingUpdate?: (recording: Recording) => void;
   onTranscriptReload?: () => void;
   onPostProcessingUpdate?: (recording: Recording, transcription: Transcription) => void;
+  onEditSpeakers?: () => void;
 }
 
 export function TranscriptPanel({ 
@@ -26,7 +27,8 @@ export function TranscriptPanel({
   onViewFullTranscript,
   onRecordingUpdate,
   onTranscriptReload,
-  onPostProcessingUpdate
+  onPostProcessingUpdate,
+  onEditSpeakers
 }: TranscriptPanelProps) {
   const [postProcessingLoading, setPostProcessingLoading] = useState(false);
   
@@ -42,7 +44,11 @@ export function TranscriptPanel({
           .map(line => {
             const speakerMatch = line.match(/^([^:]+):\s*(.*)$/);
             if (speakerMatch) {
-              return `${speakerMatch[1]}: ${speakerMatch[2]}`;
+              const speakerLabel = speakerMatch[1];
+              const content = speakerMatch[2];
+              // Use speaker mapping if available, otherwise use original label
+              const displayName = transcription.speaker_mapping?.[speakerLabel]?.name || speakerLabel;
+              return `${displayName}: ${content}`;
             }
             return line;
           })
@@ -182,13 +188,23 @@ export function TranscriptPanel({
                 <Button 
                   size="xs" 
                   variant="filled" 
-                  color="violet"
+                  color="blue"
                   leftSection={<LuBot size={14} />}
                   onClick={handlePostProcessing}
                   loading={postProcessingLoading}
                   disabled={!transcription || transcriptionLoading || recording.transcription_status !== 'completed'}
                 >
                   AI Enhance
+                </Button>
+                <Button 
+                  size="xs" 
+                  variant="outline" 
+                  color="blue"
+                  leftSection={<LuUsers size={14} />}
+                  onClick={onEditSpeakers}
+                  disabled={!transcription || transcriptionLoading || recording.transcription_status !== 'completed' || !transcription?.diarized_transcript}
+                >
+                  Edit Speakers
                 </Button>
               </Group>
             </Group>
@@ -217,7 +233,11 @@ export function TranscriptPanel({
                       .map(line => {
                         const speakerMatch = line.match(/^([^:]+):\s*(.*)$/);
                         if (speakerMatch) {
-                          return `<div style="margin-bottom: 1rem;"><strong style="color: var(--mantine-color-blue-6);">${speakerMatch[1]}:</strong><br/>${speakerMatch[2]}</div>`;
+                          const speakerLabel = speakerMatch[1];
+                          const content = speakerMatch[2];
+                          // Use speaker mapping if available, otherwise use original label
+                          const displayName = transcription.speaker_mapping?.[speakerLabel]?.name || speakerLabel;
+                          return `<div style="margin-bottom: 1rem;"><strong style="color: var(--mantine-color-blue-6);">${displayName}:</strong><br/>${content}</div>`;
                         }
                         return `<div style="margin-bottom: 0.5rem;">${line}</div>`;
                       })
