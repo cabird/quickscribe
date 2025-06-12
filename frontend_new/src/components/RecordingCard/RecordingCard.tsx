@@ -6,12 +6,9 @@ import {
   LuTag, 
   LuTrash2, 
   LuPlay, 
-  LuBot, 
   LuCheck, 
   LuRefreshCw,
-  LuFileText,
-  LuList,
-  LuCircleHelp
+  LuList
 } from 'react-icons/lu';
 import { useState, useEffect } from 'react';
 import type { Recording, Tag } from '../../types';
@@ -22,6 +19,7 @@ import { startTranscription, deleteRecording, deleteTranscription, checkTranscri
 import { addTagToRecording, removeTagFromRecording } from '../../api/tags';
 import { notifications } from '@mantine/notifications';
 import { TagBadge } from '../Tags/TagBadge';
+import { ParticipantBadge } from '../ParticipantBadge';
 
 interface RecordingCardProps {
   recording: Recording;
@@ -313,20 +311,7 @@ export function RecordingCard({ recording: initialRecording, userTags }: Recordi
         )}
 
         {/* Participants */}
-        {recording.participants && recording.participants.length > 0 && (
-          <Group gap="xs">
-            {recording.participants.map((participant, index) => (
-              <Badge 
-                key={index} 
-                size="xs" 
-                variant="light" 
-                color="blue"
-              >
-                {participant}
-              </Badge>
-            ))}
-          </Group>
-        )}
+        <ParticipantBadge participants={recording.participants || []} size="xs" />
 
         {/* Action Buttons */}
         <Group gap="xs" mt="auto">

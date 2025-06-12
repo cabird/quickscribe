@@ -3,6 +3,7 @@ import { LuFileText, LuCopy, LuEye, LuBot, LuUsers } from 'react-icons/lu';
 import { notifications } from '@mantine/notifications';
 import { formatDuration, getStatusText, showNotificationFromApiResponse } from '../../utils';
 import { TagBadge } from '../Tags/TagBadge';
+import { ParticipantBadge } from '../ParticipantBadge';
 import { triggerPostProcessing, fetchRecording } from '../../api/recordings';
 import { useState } from 'react';
 import type { Recording, Transcription, Tag } from '../../types';
@@ -46,8 +47,9 @@ export function TranscriptPanel({
             if (speakerMatch) {
               const speakerLabel = speakerMatch[1];
               const content = speakerMatch[2];
-              // Use speaker mapping if available, otherwise use original label
-              const displayName = transcription.speaker_mapping?.[speakerLabel]?.name || speakerLabel;
+              // Use speaker mapping with new participant format
+              const speakerData = transcription.speaker_mapping?.[speakerLabel];
+              const displayName = speakerData?.displayName || speakerData?.name || speakerLabel;
               return `${displayName}: ${content}`;
             }
             return line;
@@ -84,6 +86,16 @@ export function TranscriptPanel({
       showNotificationFromApiResponse(response);
       
       if (response.status === 'success' && response.data) {
+        // Check if speaker inference was skipped due to manual verification
+        if (response.data.speaker_update?.skipped === 'manually_verified') {
+          notifications.show({
+            title: 'AI Enhancement Completed',
+            message: 'Title and description updated. Speaker assignments preserved (manually verified).',
+            color: 'blue',
+            autoClose: 5000,
+          });
+        }
+        
         // Use the updated data directly from the response instead of making additional API calls
         const { updated_recording, updated_transcription } = response.data;
         
@@ -155,6 +167,9 @@ export function TranscriptPanel({
             ))}
           </Group>
         )}
+        
+        {/* Participants */}
+        <ParticipantBadge participants={recording.participants || []} size="xs" />
       </Stack>
 
       {/* Transcript Card */}
@@ -235,9 +250,18 @@ export function TranscriptPanel({
                         if (speakerMatch) {
                           const speakerLabel = speakerMatch[1];
                           const content = speakerMatch[2];
-                          // Use speaker mapping if available, otherwise use original label
-                          const displayName = transcription.speaker_mapping?.[speakerLabel]?.name || speakerLabel;
-                          return `<div style="margin-bottom: 1rem;"><strong style="color: var(--mantine-color-blue-6);">${displayName}:</strong><br/>${content}</div>`;
+                          // Use speaker mapping with new participant format
+                          const speakerData = transcription.speaker_mapping?.[speakerLabel];
+                          const displayName = speakerData?.displayName || speakerData?.name || speakerLabel;
+                          const isVerified = speakerData?.manuallyVerified;
+                          const participantId = speakerData?.participantId;
+                          
+                          // Add visual indicators for participant status
+                          const nameStyle = participantId 
+                            ? `color: var(--mantine-color-blue-6); ${isVerified ? 'font-weight: 600;' : ''}`
+                            : 'color: var(--mantine-color-gray-6);';
+                          
+                          return `<div style="margin-bottom: 1rem;"><strong style="${nameStyle}">${displayName}:</strong><br/>${content}</div>`;
                         }
                         return `<div style="margin-bottom: 0.5rem;">${line}</div>`;
                       })

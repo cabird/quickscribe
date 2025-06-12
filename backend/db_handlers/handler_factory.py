@@ -3,6 +3,7 @@ from .transcription_handler import TranscriptionHandler
 from .user_handler import UserHandler
 from .sync_progress_handler import SyncProgressHandler
 from .analysis_type_handler import AnalysisTypeHandler
+from .participant_handler import ParticipantHandler
 from config import config
 
 from flask import g
@@ -32,6 +33,11 @@ def get_analysis_type_handler():
         g.analysis_type_handler = create_analysis_type_handler()
     return g.analysis_type_handler
 
+def get_participant_handler():
+    if not hasattr(g, 'participant_handler'):
+        g.participant_handler = create_participant_handler()
+    return g.participant_handler
+
 def create_recording_handler():
     return RecordingHandler(config.COSMOS_URL, config.COSMOS_KEY, config.COSMOS_DB_NAME, config.COSMOS_CONTAINER_NAME)
 
@@ -48,3 +54,6 @@ def create_sync_progress_handler():
 
 def create_analysis_type_handler():
     return AnalysisTypeHandler(config.COSMOS_URL, config.COSMOS_KEY, config.COSMOS_DB_NAME, 'analysis_types')
+
+def create_participant_handler():
+    return ParticipantHandler()

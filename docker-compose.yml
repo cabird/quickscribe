@@ -21,6 +21,7 @@ services:
     build:
       context: ./frontend_new
       dockerfile: Dockerfile
+    user: "${UID:-$(id -u)}:${GID:-$(id -g)}"
     ports:
       - "3000:3000"
     environment:

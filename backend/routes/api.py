@@ -4,7 +4,7 @@ from db_handlers.handler_factory import get_user_handler, get_recording_handler,
 from user_util import get_current_user
 from db_handlers.models import User, Recording, Transcription, TranscodingStatus, TranscriptionStatus, Tag
 from util import get_recording_duration_in_seconds
-from ai_postprocessing import postprocess_recording_full, update_transcription_speaker_data, update_recording_participants
+from ai_postprocessing import postprocess_recording_full, update_transcription_speaker_data, update_recording_participants, update_transcription_speaker_data_with_participants, update_recording_participants_with_participants
 import re
 import uuid
 import os
@@ -563,20 +563,30 @@ def update_speakers(recording_id):
         if not isinstance(speaker_mapping, dict):
             return jsonify({'error': 'Speaker mapping must be a dictionary'}), 400
             
-        # Validate speaker names
+        # Validate speaker data - handle both old string format and new participant format
         errors = []
-        names_seen = set()
-        for speaker_label, speaker_name in speaker_mapping.items():
-            if not speaker_name or not speaker_name.strip():
-                errors.append(f"Speaker name cannot be empty for {speaker_label}")
-            elif len(speaker_name.strip()) > 50:
-                errors.append(f"Speaker name too long for {speaker_label} (max 50 characters)")
-            elif speaker_name.strip() in names_seen:
-                errors.append(f"Duplicate speaker name: {speaker_name.strip()}")
+        
+        for speaker_label, speaker_data in speaker_mapping.items():
+            if isinstance(speaker_data, str):
+                # Old format - just validate the name
+                if not speaker_data or not speaker_data.strip():
+                    errors.append(f"Speaker name cannot be empty for {speaker_label}")
+                elif len(speaker_data.strip()) > 50:
+                    errors.append(f"Speaker name too long for {speaker_label} (max 50 characters)")
+            elif isinstance(speaker_data, dict):
+                # New format with participant data
+                participant_id = speaker_data.get('participantId')
+                display_name = speaker_data.get('displayName', '').strip()
+                
+                if not participant_id:
+                    errors.append(f"Participant ID required for {speaker_label}")
+                
+                if not display_name:
+                    errors.append(f"Display name required for {speaker_label}")
+                elif len(display_name) > 50:
+                    errors.append(f"Display name too long for {speaker_label} (max 50 characters)")
             else:
-                names_seen.add(speaker_name.strip())
-                # Update mapping with trimmed names
-                speaker_mapping[speaker_label] = speaker_name.strip()
+                errors.append(f"Invalid speaker data format for {speaker_label}")
         
         if errors:
             return jsonify({'error': 'Validation failed', 'details': errors}), 400
@@ -597,17 +607,26 @@ def update_speakers(recording_id):
         if not recording.transcription_id:
             return jsonify({'error': 'Recording has not been transcribed yet'}), 400
             
-        # Update transcription speaker data
+        # Update transcription and recording with participant-aware data
         try:
-            speaker_results = update_transcription_speaker_data(
-                recording.transcription_id, 
-                speaker_mapping, 
-                reasoning="User edited"
-            )
-            
-            # Update recording participants
-            participants = list(speaker_mapping.values())
-            update_recording_participants(recording_id, participants)
+            # Handle both old and new format
+            if all(isinstance(data, str) for data in speaker_mapping.values()):
+                # Old format: just speaker names
+                speaker_results = update_transcription_speaker_data(
+                    recording.transcription_id, 
+                    speaker_mapping, 
+                    reasoning="User edited"
+                )
+                participants = list(speaker_mapping.values())
+                update_recording_participants(recording_id, participants)
+            else:
+                # New format: participant-aware updates
+                speaker_results = update_transcription_speaker_data_with_participants(
+                    recording.transcription_id,
+                    speaker_mapping,
+                    reasoning="User edited"
+                )
+                update_recording_participants_with_participants(recording_id, speaker_mapping)
             
             # Fetch updated data for response
             updated_recording = recording_handler.get_recording(recording_id)

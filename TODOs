@@ -66,6 +66,25 @@
 4. Update frontend to use the deletion endpoint
 5. Add tests for the deletion functionality
 
+### 5. Optimize transcription storage for performance
+**Issue**: Transcriptions contain massive fields (transcript_json, az_raw_transcription) that are sent to frontend but never used, causing unnecessary bandwidth and memory usage
+
+**Implementation Plan**:
+1. Audit current usage of `transcript_json` and `az_raw_transcription` fields:
+   - Check if they're used anywhere in frontend
+   - Check if they're used in backend processing after transcription completion
+2. Design separation strategy:
+   - Option A: Move fields to separate documents (e.g., transcription_raw container)
+   - Option B: Remove fields entirely if not needed
+   - Option C: Add field exclusion in API responses
+3. Implement chosen strategy:
+   - Update Transcription model to make fields optional
+   - Modify transcription handlers to exclude large fields from standard queries
+   - Create separate endpoints for accessing raw data if needed
+4. Update frontend to handle the optimized transcription format
+5. Test performance improvements in data transfer and memory usage
+6. Consider migration strategy for existing transcriptions with large fields
+
 
 # Unprocessed Todos:
 
@@ -94,4 +113,5 @@ These are todos that I've added and haven't been planned out or examined by AI y
   * If there is no speaker mapping, clicking on "edit speakers" shows no summaries or text boxes.
   * If I delete a plaud recording, how do I ensure I don't download it again???
   * in the "browse" tab, under tags, there should be a list of people, you can click on a person to see only recordings with them in it.  You can click multiple people and tags and see the recordings with all of them.
+  * Add profile photo/avatar support for participants (V2 feature)
 

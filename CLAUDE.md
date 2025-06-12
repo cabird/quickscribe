@@ -53,11 +53,18 @@ python -c "import backend.llms; print('Async LLM infrastructure ready')"
 
 ### Backend Development
 ```bash
+# IMPORTANT: Always use the virtual environment for backend operations
+cd backend && source venv/bin/activate
+
 # Build shared models from TypeScript definitions
 make build
 
 # Run Flask development server
-cd backend && python app.py
+python app.py
+
+# Run tests (requires virtual environment)
+python run_tests.py unit
+python run_tests.py fast
 
 # Deploy to Azure production
 make deploy_azure

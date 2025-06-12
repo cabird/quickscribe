@@ -258,7 +258,124 @@
             ],
             "type": "object"
         },
+        "CreateParticipantRequest": {
+            "properties": {
+                "aliases": {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array"
+                },
+                "displayName": {
+                    "type": "string"
+                },
+                "email": {
+                    "type": "string"
+                },
+                "firstName": {
+                    "type": "string"
+                },
+                "lastName": {
+                    "type": "string"
+                },
+                "notes": {
+                    "type": "string"
+                },
+                "organization": {
+                    "type": "string"
+                },
+                "relationshipToUser": {
+                    "type": "string"
+                },
+                "role": {
+                    "type": "string"
+                }
+            },
+            "propertyOrder": [
+                "displayName",
+                "firstName",
+                "lastName",
+                "email",
+                "role",
+                "organization",
+                "relationshipToUser",
+                "notes",
+                "aliases"
+            ],
+            "required": [
+                "displayName"
+            ],
+            "type": "object"
+        },
+        "CreateParticipantResponse": {
+            "properties": {
+                "count": {
+                    "type": "number"
+                },
+                "data": {
+                    "$ref": "#/definitions/Participant"
+                },
+                "error": {
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "status": {
+                    "enum": [
+                        "error",
+                        "success"
+                    ],
+                    "type": "string"
+                }
+            },
+            "propertyOrder": [
+                "status",
+                "data",
+                "count",
+                "message",
+                "error"
+            ],
+            "required": [
+                "status"
+            ],
+            "type": "object"
+        },
         "DeleteAnalysisTypeResponse": {
+            "properties": {
+                "count": {
+                    "type": "number"
+                },
+                "data": {
+                    "type": "null"
+                },
+                "error": {
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "status": {
+                    "enum": [
+                        "error",
+                        "success"
+                    ],
+                    "type": "string"
+                }
+            },
+            "propertyOrder": [
+                "status",
+                "data",
+                "count",
+                "message",
+                "error"
+            ],
+            "required": [
+                "status"
+            ],
+            "type": "object"
+        },
+        "DeleteParticipantResponse": {
             "properties": {
                 "count": {
                     "type": "number"
@@ -402,6 +519,231 @@
             "required": [
                 "count",
                 "status"
+            ],
+            "type": "object"
+        },
+        "GetParticipantResponse": {
+            "properties": {
+                "count": {
+                    "type": "number"
+                },
+                "data": {
+                    "$ref": "#/definitions/Participant"
+                },
+                "error": {
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "status": {
+                    "enum": [
+                        "error",
+                        "success"
+                    ],
+                    "type": "string"
+                }
+            },
+            "propertyOrder": [
+                "status",
+                "data",
+                "count",
+                "message",
+                "error"
+            ],
+            "required": [
+                "status"
+            ],
+            "type": "object"
+        },
+        "GetParticipantsResponse": {
+            "properties": {
+                "count": {
+                    "type": "number"
+                },
+                "data": {
+                    "items": {
+                        "$ref": "#/definitions/Participant"
+                    },
+                    "type": "array"
+                },
+                "error": {
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "status": {
+                    "enum": [
+                        "error",
+                        "success"
+                    ],
+                    "type": "string"
+                }
+            },
+            "propertyOrder": [
+                "count",
+                "status",
+                "data",
+                "message",
+                "error"
+            ],
+            "required": [
+                "count",
+                "status"
+            ],
+            "type": "object"
+        },
+        "MergeParticipantsRequest": {
+            "properties": {
+                "merge_fields": {
+                    "properties": {
+                        "aliases": {
+                            "items": {
+                                "type": "string"
+                            },
+                            "type": "array"
+                        },
+                        "displayName": {
+                            "type": "string"
+                        },
+                        "notes": {
+                            "type": "string"
+                        }
+                    },
+                    "propertyOrder": [
+                        "displayName",
+                        "aliases",
+                        "notes"
+                    ],
+                    "type": "object"
+                }
+            },
+            "propertyOrder": [
+                "merge_fields"
+            ],
+            "type": "object"
+        },
+        "MergeParticipantsResponse": {
+            "properties": {
+                "count": {
+                    "type": "number"
+                },
+                "data": {
+                    "$ref": "#/definitions/Participant"
+                },
+                "error": {
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "status": {
+                    "enum": [
+                        "error",
+                        "success"
+                    ],
+                    "type": "string"
+                }
+            },
+            "propertyOrder": [
+                "status",
+                "data",
+                "count",
+                "message",
+                "error"
+            ],
+            "required": [
+                "status"
+            ],
+            "type": "object"
+        },
+        "Participant": {
+            "properties": {
+                "aliases": {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array"
+                },
+                "createdAt": {
+                    "type": "string"
+                },
+                "displayName": {
+                    "type": "string"
+                },
+                "email": {
+                    "type": "string"
+                },
+                "firstName": {
+                    "type": "string"
+                },
+                "firstSeen": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "isUser": {
+                    "type": "boolean"
+                },
+                "lastName": {
+                    "type": "string"
+                },
+                "lastSeen": {
+                    "type": "string"
+                },
+                "notes": {
+                    "type": "string"
+                },
+                "organization": {
+                    "type": "string"
+                },
+                "partitionKey": {
+                    "type": "string"
+                },
+                "relationshipToUser": {
+                    "type": "string"
+                },
+                "role": {
+                    "type": "string"
+                },
+                "updatedAt": {
+                    "type": "string"
+                },
+                "userId": {
+                    "type": "string"
+                }
+            },
+            "propertyOrder": [
+                "id",
+                "userId",
+                "firstName",
+                "lastName",
+                "displayName",
+                "aliases",
+                "email",
+                "role",
+                "organization",
+                "relationshipToUser",
+                "notes",
+                "isUser",
+                "firstSeen",
+                "lastSeen",
+                "createdAt",
+                "updatedAt",
+                "partitionKey"
+            ],
+            "required": [
+                "aliases",
+                "createdAt",
+                "displayName",
+                "firstSeen",
+                "id",
+                "lastSeen",
+                "partitionKey",
+                "updatedAt",
+                "userId"
             ],
             "type": "object"
         },
@@ -570,10 +912,20 @@
                     "type": "string"
                 },
                 "participants": {
-                    "items": {
-                        "type": "string"
-                    },
-                    "type": "array"
+                    "anyOf": [
+                        {
+                            "items": {
+                                "type": "string"
+                            },
+                            "type": "array"
+                        },
+                        {
+                            "items": {
+                                "$ref": "#/definitions/RecordingParticipant"
+                            },
+                            "type": "array"
+                        }
+                    ]
                 },
                 "partitionKey": {
                     "type": "string"
@@ -688,6 +1040,87 @@
                 "partitionKey",
                 "unique_filename",
                 "user_id"
+            ],
+            "type": "object"
+        },
+        "RecordingParticipant": {
+            "properties": {
+                "confidence": {
+                    "type": "number"
+                },
+                "displayName": {
+                    "type": "string"
+                },
+                "manuallyVerified": {
+                    "type": "boolean"
+                },
+                "participantId": {
+                    "type": "string"
+                },
+                "speakerLabel": {
+                    "type": "string"
+                }
+            },
+            "propertyOrder": [
+                "participantId",
+                "displayName",
+                "speakerLabel",
+                "confidence",
+                "manuallyVerified"
+            ],
+            "required": [
+                "confidence",
+                "displayName",
+                "manuallyVerified",
+                "participantId",
+                "speakerLabel"
+            ],
+            "type": "object"
+        },
+        "SearchParticipantsResponse": {
+            "properties": {
+                "count": {
+                    "type": "number"
+                },
+                "data": {
+                    "items": {
+                        "$ref": "#/definitions/Participant"
+                    },
+                    "type": "array"
+                },
+                "error": {
+                    "type": "string"
+                },
+                "fuzzy_search": {
+                    "type": "boolean"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "search_term": {
+                    "type": "string"
+                },
+                "status": {
+                    "enum": [
+                        "error",
+                        "success"
+                    ],
+                    "type": "string"
+                }
+            },
+            "propertyOrder": [
+                "search_term",
+                "fuzzy_search",
+                "status",
+                "data",
+                "count",
+                "message",
+                "error"
+            ],
+            "required": [
+                "fuzzy_search",
+                "search_term",
+                "status"
             ],
             "type": "object"
         },
@@ -833,7 +1266,19 @@
                 "speaker_mapping": {
                     "additionalProperties": {
                         "properties": {
+                            "confidence": {
+                                "type": "number"
+                            },
+                            "displayName": {
+                                "type": "string"
+                            },
+                            "manuallyVerified": {
+                                "type": "boolean"
+                            },
                             "name": {
+                                "type": "string"
+                            },
+                            "participantId": {
                                 "type": "string"
                             },
                             "reasoning": {
@@ -842,7 +1287,11 @@
                         },
                         "propertyOrder": [
                             "name",
-                            "reasoning"
+                            "displayName",
+                            "reasoning",
+                            "participantId",
+                            "confidence",
+                            "manuallyVerified"
                         ],
                         "required": [
                             "name",
@@ -922,6 +1371,97 @@
                 },
                 "data": {
                     "$ref": "#/definitions/AnalysisType"
+                },
+                "error": {
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "status": {
+                    "enum": [
+                        "error",
+                        "success"
+                    ],
+                    "type": "string"
+                }
+            },
+            "propertyOrder": [
+                "status",
+                "data",
+                "count",
+                "message",
+                "error"
+            ],
+            "required": [
+                "status"
+            ],
+            "type": "object"
+        },
+        "UpdateLastSeenRequest": {
+            "properties": {
+                "timestamp": {
+                    "type": "string"
+                }
+            },
+            "propertyOrder": [
+                "timestamp"
+            ],
+            "type": "object"
+        },
+        "UpdateParticipantRequest": {
+            "properties": {
+                "aliases": {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array"
+                },
+                "displayName": {
+                    "type": "string"
+                },
+                "email": {
+                    "type": "string"
+                },
+                "firstName": {
+                    "type": "string"
+                },
+                "lastName": {
+                    "type": "string"
+                },
+                "notes": {
+                    "type": "string"
+                },
+                "organization": {
+                    "type": "string"
+                },
+                "relationshipToUser": {
+                    "type": "string"
+                },
+                "role": {
+                    "type": "string"
+                }
+            },
+            "propertyOrder": [
+                "displayName",
+                "firstName",
+                "lastName",
+                "email",
+                "role",
+                "organization",
+                "relationshipToUser",
+                "notes",
+                "aliases"
+            ],
+            "type": "object"
+        },
+        "UpdateParticipantResponse": {
+            "properties": {
+                "count": {
+                    "type": "number"
+                },
+                "data": {
+                    "$ref": "#/definitions/Participant"
                 },
                 "error": {
                     "type": "string"

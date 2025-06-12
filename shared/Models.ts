@@ -36,6 +36,40 @@ export const DEFAULT_TAGS: Tag[] = [
     { id: "self-memos", name: "Self Memos", color: "#44BB44" }
 ];
 
+// Represents a participant in conversations (first-class entity)
+export interface Participant {
+    id: string;                    // UUID for participant
+    userId: string;                // Owner of this participant profile
+    firstName?: string;            // First name
+    lastName?: string;             // Last name
+    displayName: string;           // How they should be displayed (e.g., "John Smith", "Dr. Johnson")
+    aliases: string[];             // Alternative names/spellings they've been called
+    email?: string;                // Contact info if known
+    role?: string;                 // Their role/title (e.g., "CEO", "Project Manager")
+    organization?: string;         // Company/org they belong to
+    relationshipToUser?: string;   // "Colleague", "Boss", "Client", "Friend", etc.
+    notes?: string;                // User notes about this person
+    isUser?: boolean;              // True if this participant is the user themselves
+    
+    // Tracking (basic, not analytics)
+    firstSeen: string;             // ISO date of first appearance
+    lastSeen: string;              // ISO date of most recent appearance
+    
+    // Metadata
+    createdAt: string;
+    updatedAt: string;
+    partitionKey: string;          // userId for partitioning
+}
+
+// Represents a participant's involvement in a specific recording
+export interface RecordingParticipant {
+    participantId: string;         // References Participant.id
+    displayName: string;           // Denormalized for quick display
+    speakerLabel: string;          // "Speaker 1", "Speaker 2", etc.
+    confidence: number;            // AI confidence in identification (0-1)
+    manuallyVerified: boolean;     // User confirmed this mapping
+}
+
 // Represents a user in the system
 export interface User {
     id: string; // Unique identifier for the user
@@ -60,7 +94,7 @@ export interface Recording {
     description?: string; // AI-generated description (1-2 sentences about recording content)
     recorded_timestamp?: string; // ISO timestamp when the recording was actually made
     duration?: number; // Duration of the recording in seconds (may be unknown)
-    participants?: string[]; // List of participant names extracted from speaker mapping (e.g., ["John", "Mary"])
+    participants?: string[] | RecordingParticipant[]; // LEGACY: string[] for backward compatibility, NEW: RecordingParticipant[] for enhanced participant tracking
     
     // Transcription related fields
     transcription_status?: "not_started" | "in_progress" | "completed" | "failed"; // Transcription status with specific values
@@ -175,8 +209,12 @@ export interface Transcription {
      // Detailed speaker mapping with inferred name and reasoning for each speaker
      speaker_mapping?: {
         [speakerLabel: string]: {
-            name: string; // Inferred name or label for the speaker
+            name: string; // Inferred name or label for the speaker (kept for backward compatibility)
+            displayName?: string; // How the speaker should be displayed (optional for backward compatibility)
             reasoning: string; // Concise reasoning for the inferred label
+            participantId?: string; // References Participant.id when linked
+            confidence?: number; // AI confidence in identification (0-1)
+            manuallyVerified?: boolean; // User confirmed this mapping
         };
     };
 
@@ -232,6 +270,58 @@ export interface ExecuteAnalysisRequest {
 }
 
 export interface ExecuteAnalysisResponse extends ApiResponse<AnalysisResult> {}
+
+// Participant API Messages
+export interface CreateParticipantRequest {
+    displayName: string;
+    firstName?: string;
+    lastName?: string;
+    email?: string;
+    role?: string;
+    organization?: string;
+    relationshipToUser?: string;
+    notes?: string;
+    aliases?: string[];
+}
+
+export interface UpdateParticipantRequest {
+    displayName?: string;
+    firstName?: string;
+    lastName?: string;
+    email?: string;
+    role?: string;
+    organization?: string;
+    relationshipToUser?: string;
+    notes?: string;
+    aliases?: string[];
+}
+
+export interface MergeParticipantsRequest {
+    merge_fields?: {
+        displayName?: string;
+        aliases?: string[];
+        notes?: string;
+    };
+}
+
+export interface UpdateLastSeenRequest {
+    timestamp?: string; // ISO date string, defaults to now
+}
+
+export interface SearchParticipantsResponse extends ApiResponse<Participant[]> {
+    search_term: string;
+    fuzzy_search: boolean;
+}
+
+export interface GetParticipantsResponse extends ApiResponse<Participant[]> {
+    count: number;
+}
+
+export interface CreateParticipantResponse extends ApiResponse<Participant> {}
+export interface UpdateParticipantResponse extends ApiResponse<Participant> {}
+export interface GetParticipantResponse extends ApiResponse<Participant> {}
+export interface DeleteParticipantResponse extends ApiResponse<null> {}
+export interface MergeParticipantsResponse extends ApiResponse<Participant> {}
 
 // Common error response for failed requests
 export interface ErrorResponse {

@@ -44,3 +44,4 @@ Each migration should:
 ## Current Migrations
 
 - `001_normalize_diarized_transcripts.py`: Converts existing diarized transcripts from speaker names to "Speaker X" format with proper speaker mapping
+- `002_create_participant_profiles.py`: Migrates legacy participant data to new participant entity system - creates Participant profiles for all speakers and updates recordings/transcriptions to reference them

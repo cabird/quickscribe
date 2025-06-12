@@ -1,9 +1,10 @@
-import { Modal, Stack, Text, TextInput, Button, Group, Loader, Alert } from '@mantine/core';
-import { LuUsers } from 'react-icons/lu';
-import { useState, useEffect } from 'react';
+import { Modal, Stack, Text, TextInput, Button, Group, Loader, Alert, Select, Paper, Divider } from '@mantine/core';
+import { LuUsers, LuUser } from 'react-icons/lu';
+import { useState, useEffect, useCallback } from 'react';
 import { updateSpeakers, getSpeakerSummaries } from '../../api/recordings';
+import { getParticipants, createParticipant } from '../../api/participants';
 import { showNotificationFromApiResponse } from '../../utils';
-import type { Recording, Transcription } from '../../types';
+import type { Recording, Transcription, Participant, CreateParticipantRequest } from '../../types';
 
 interface EditSpeakersModalProps {
   opened: boolean;
@@ -17,7 +18,9 @@ interface SpeakerData {
   label: string;
   currentName: string;
   summary: string;
-  newName: string;
+  selectedParticipantId: string | null;
+  showCreateForm: boolean;
+  newParticipantData: CreateParticipantRequest;
 }
 
 export function EditSpeakersModal({
@@ -28,36 +31,32 @@ export function EditSpeakersModal({
   onSpeakersUpdated
 }: EditSpeakersModalProps) {
   const [speakers, setSpeakers] = useState<SpeakerData[]>([]);
+  const [participants, setParticipants] = useState<Participant[]>([]);
   const [summariesLoading, setSummariesLoading] = useState(false);
+  const [participantsLoading, setParticipantsLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
 
-  // Initialize speakers from transcription speaker_mapping
-  useEffect(() => {
-    if (opened && transcription?.speaker_mapping) {
-      const speakerData: SpeakerData[] = Object.entries(transcription.speaker_mapping).map(
-        ([label, mapping]) => ({
-          label,
-          currentName: mapping.name,
-          summary: '',
-          newName: mapping.name // Initialize with current name
-        })
-      );
-      setSpeakers(speakerData);
-      
-      // Fetch speaker summaries
-      fetchSpeakerSummaries();
+  const loadParticipants = async () => {
+    setParticipantsLoading(true);
+    try {
+      const allParticipants = await getParticipants();
+      setParticipants(allParticipants);
+    } catch (error) {
+      console.error('Failed to load participants:', error);
+      setParticipants([]);
+    } finally {
+      setParticipantsLoading(false);
     }
-  }, [opened, transcription]);
+  };
 
-  const fetchSpeakerSummaries = async () => {
+  const fetchSpeakerSummaries = useCallback(async () => {
     if (!transcription?.id) return;
     
     setSummariesLoading(true);
     try {
       const summaries = await getSpeakerSummaries(transcription.id);
       console.log('DEBUG: Received speaker summaries:', summaries);
-      console.log('DEBUG: Current speakers state:', speakers);
       
       if (summaries) {
         setSpeakers(prev => prev.map(speaker => {
@@ -79,38 +78,111 @@ export function EditSpeakersModal({
     } finally {
       setSummariesLoading(false);
     }
-  };
+  }, [transcription?.id]);
+
+  const extractSpeakersFromDiarizedTranscript = useCallback((diarizedTranscript: string): string[] => {
+    const speakerLabels = new Set<string>();
+    const lines = diarizedTranscript.split('\n');
+    
+    for (const line of lines) {
+      const speakerMatch = line.match(/^([^:]+):\s*(.*)$/);
+      if (speakerMatch) {
+        const speakerLabel = speakerMatch[1].trim();
+        if (speakerLabel) {
+          speakerLabels.add(speakerLabel);
+        }
+      }
+    }
+    
+    return Array.from(speakerLabels).sort();
+  }, []);
+
+  const initializeSpeakers = useCallback(() => {
+    let speakerData: SpeakerData[] = [];
+    
+    if (transcription?.speaker_mapping) {
+      // Use existing speaker mapping if available (AI enhanced)
+      speakerData = Object.entries(transcription.speaker_mapping).map(
+        ([label, mapping]) => ({
+          label,
+          currentName: mapping.displayName || mapping.name,
+          summary: '',
+          selectedParticipantId: mapping.participantId || null,
+          showCreateForm: false,
+          newParticipantData: {
+            displayName: mapping.displayName || mapping.name
+          }
+        })
+      );
+    } else if (transcription?.diarized_transcript) {
+      // Extract speakers from raw diarized transcript
+      const speakerLabels = extractSpeakersFromDiarizedTranscript(transcription.diarized_transcript);
+      speakerData = speakerLabels.map(label => ({
+        label,
+        currentName: label, // Use the raw speaker label as default name
+        summary: '',
+        selectedParticipantId: null,
+        showCreateForm: false,
+        newParticipantData: {
+          displayName: label
+        }
+      }));
+    }
+    
+    setSpeakers(speakerData);
+    
+    // Fetch speaker summaries if we have speakers
+    if (speakerData.length > 0) {
+      fetchSpeakerSummaries();
+    }
+  }, [transcription?.speaker_mapping, transcription?.diarized_transcript, extractSpeakersFromDiarizedTranscript, fetchSpeakerSummaries]);
+
+  // Load participants and initialize speakers
+  useEffect(() => {
+    if (opened) {
+      loadParticipants();
+      initializeSpeakers();
+    }
+  }, [opened, transcription, initializeSpeakers]);
 
   const validateSpeakers = (): string[] => {
     const errors: string[] = [];
-    const names = new Set<string>();
 
     for (const speaker of speakers) {
-      const trimmedName = speaker.newName.trim();
-      
-      if (!trimmedName) {
-        errors.push(`${speaker.label}: Name cannot be empty`);
-      } else if (trimmedName.length > 50) {
-        errors.push(`${speaker.label}: Name too long (max 50 characters)`);
-      } else if (names.has(trimmedName.toLowerCase())) {
-        errors.push(`Duplicate name: "${trimmedName}"`);
-      } else {
-        names.add(trimmedName.toLowerCase());
+      if (!speaker.selectedParticipantId && !speaker.showCreateForm) {
+        errors.push(`${speaker.label}: Please select a participant or create a new one`);
+      } else if (speaker.showCreateForm && !speaker.newParticipantData.displayName.trim()) {
+        errors.push(`${speaker.label}: Participant name cannot be empty`);
       }
     }
 
     return errors;
   };
 
-  const handleSpeakerNameChange = (index: number, newName: string) => {
+  const handleParticipantSelect = (index: number, participantId: string | null) => {
     setSpeakers(prev => prev.map((speaker, i) => 
-      i === index ? { ...speaker, newName } : speaker
+      i === index ? { 
+        ...speaker, 
+        selectedParticipantId: participantId,
+        showCreateForm: participantId === 'create-new'
+      } : speaker
     ));
     
-    // Clear validation errors when user starts typing
     if (validationErrors.length > 0) {
       setValidationErrors([]);
     }
+  };
+
+  const handleNewParticipantDataChange = (index: number, field: keyof CreateParticipantRequest, value: string) => {
+    setSpeakers(prev => prev.map((speaker, i) => 
+      i === index ? {
+        ...speaker,
+        newParticipantData: {
+          ...speaker.newParticipantData,
+          [field]: value
+        }
+      } : speaker
+    ));
   };
 
   const handleSave = async () => {
@@ -123,11 +195,30 @@ export function EditSpeakersModal({
 
     setSaving(true);
     try {
-      // Create speaker mapping object
-      const speakerMapping: Record<string, string> = {};
-      speakers.forEach(speaker => {
-        speakerMapping[speaker.label] = speaker.newName.trim();
-      });
+      // Process speakers: create new participants if needed, then build mapping
+      const speakerMapping: Record<string, { participantId: string; displayName: string }> = {};
+
+      for (const speaker of speakers) {
+        if (speaker.showCreateForm) {
+          // Create new participant
+          try {
+            const newParticipant = await createParticipant(speaker.newParticipantData);
+            speakerMapping[speaker.label] = {
+              participantId: newParticipant.id,
+              displayName: newParticipant.displayName
+            };
+          } catch (error) {
+            throw new Error(`Failed to create participant for ${speaker.label}: ${error}`);
+          }
+        } else if (speaker.selectedParticipantId) {
+          // Use existing participant
+          const participant = participants.find(p => p.id === speaker.selectedParticipantId);
+          speakerMapping[speaker.label] = {
+            participantId: speaker.selectedParticipantId,
+            displayName: participant?.displayName || speaker.currentName
+          };
+        }
+      }
 
       const response = await updateSpeakers(recording.id, speakerMapping);
       showNotificationFromApiResponse(response);
@@ -150,19 +241,43 @@ export function EditSpeakersModal({
       }
     } catch (error) {
       console.error('Error updating speakers:', error);
+      setValidationErrors([error instanceof Error ? error.message : 'Failed to update speakers']);
     } finally {
       setSaving(false);
     }
   };
 
   const handleCancel = () => {
-    // Reset to original names
-    setSpeakers(prev => prev.map(speaker => ({
-      ...speaker,
-      newName: speaker.currentName
-    })));
+    // Reset to original state
+    initializeSpeakers();
     setValidationErrors([]);
     onClose();
+  };
+
+  // Helper function to find smart participant suggestions
+  const findSuggestedParticipant = (speakerName: string): Participant | null => {
+    if (!participants.length) return null;
+    
+    // Exact match first
+    let match = participants.find(p => 
+      p.displayName.toLowerCase() === speakerName.toLowerCase()
+    );
+    if (match) return match;
+    
+    // Alias match
+    match = participants.find(p => 
+      p.aliases.some(alias => alias.toLowerCase() === speakerName.toLowerCase())
+    );
+    if (match) return match;
+    
+    // Fuzzy match (starts with)
+    match = participants.find(p => 
+      p.displayName.toLowerCase().startsWith(speakerName.toLowerCase()) ||
+      p.firstName?.toLowerCase().startsWith(speakerName.toLowerCase()) ||
+      p.lastName?.toLowerCase().startsWith(speakerName.toLowerCase())
+    );
+    
+    return match;
   };
 
   return (
@@ -189,38 +304,119 @@ export function EditSpeakersModal({
           </Alert>
         )}
 
-        {speakers.map((speaker, index) => (
-          <Stack key={speaker.label} gap="xs">
-            <Text fw={500} size="sm" c="dimmed">
-              {speaker.label}
+        {!transcription?.speaker_mapping && transcription?.diarized_transcript && (
+          <Alert color="blue" variant="light">
+            <Text size="sm">
+              <strong>Speaker labels detected from transcript</strong><br />
+              These are the raw speaker labels from the transcription service. For better speaker identification and names, consider running "AI Enhance" first.
             </Text>
-            
-            {summariesLoading ? (
-              <Group gap="xs" align="center">
-                <Loader size="xs" />
-                <Text size="sm" c="dimmed">Loading speaker summary...</Text>
-              </Group>
-            ) : (
-              <Text size="sm" c="dimmed" style={{ 
-                fontStyle: 'italic',
-                padding: '8px 12px',
-                backgroundColor: 'var(--mantine-color-gray-0)',
-                borderRadius: '6px',
-                border: '1px solid var(--mantine-color-gray-3)'
-              }}>
-                {speaker.summary}
-              </Text>
-            )}
-            
-            <TextInput
-              placeholder="Enter speaker name"
-              value={speaker.newName}
-              onChange={(e) => handleSpeakerNameChange(index, e.target.value)}
-              disabled={saving}
-              maxLength={50}
-            />
-          </Stack>
-        ))}
+          </Alert>
+        )}
+
+        {speakers.length === 0 ? (
+          <Alert color="yellow" variant="light">
+            <Text size="sm">
+              <strong>No speakers detected</strong><br />
+              This recording doesn't appear to have speaker separation (diarization). This usually means it's either a single speaker recording or the transcription service didn't detect multiple speakers.
+            </Text>
+          </Alert>
+        ) : (
+          speakers.map((speaker, index) => {
+          const suggestedParticipant = findSuggestedParticipant(speaker.currentName);
+          const selectData = [
+            ...participants.map(p => ({
+              value: p.id,
+              label: `${p.displayName}${p.email ? ` (${p.email})` : ''}${p.isUser ? ' [You]' : ''}`
+            })),
+            { value: 'create-new', label: '+ Create New Participant' }
+          ];
+
+          return (
+            <Stack key={speaker.label} gap="md">
+              <Paper p="md" withBorder>
+                <Stack gap="sm">
+                  <Group justify="space-between">
+                    <Text fw={500} size="sm" c="dimmed">
+                      {speaker.label}
+                    </Text>
+                    <Text size="xs" c="dimmed">
+                      Currently: {speaker.currentName}
+                    </Text>
+                  </Group>
+                  
+                  {summariesLoading ? (
+                    <Group gap="xs" align="center">
+                      <Loader size="xs" />
+                      <Text size="sm" c="dimmed">Loading speaker summary...</Text>
+                    </Group>
+                  ) : (
+                    <Text size="sm" c="dimmed" style={{ 
+                      fontStyle: 'italic',
+                      padding: '8px 12px',
+                      backgroundColor: 'var(--mantine-color-gray-0)',
+                      borderRadius: '6px',
+                      border: '1px solid var(--mantine-color-gray-3)'
+                    }}>
+                      {speaker.summary}
+                    </Text>
+                  )}
+
+                  <Select
+                    label="Assign to Participant"
+                    placeholder={participantsLoading ? "Loading participants..." : "Select a participant"}
+                    data={selectData}
+                    value={speaker.selectedParticipantId}
+                    onChange={(value) => handleParticipantSelect(index, value)}
+                    disabled={saving || participantsLoading}
+                    searchable
+                    leftSection={<LuUser size={16} />}
+                    comboboxProps={{ withinPortal: true }}
+                  />
+
+                  {suggestedParticipant && !speaker.selectedParticipantId && (
+                    <Alert color="blue" variant="light" p="xs">
+                      <Text size="sm">
+                        💡 Suggestion: <strong>{suggestedParticipant.displayName}</strong>
+                        {suggestedParticipant.email && ` (${suggestedParticipant.email})`}
+                      </Text>
+                    </Alert>
+                  )}
+
+                  {speaker.showCreateForm && (
+                    <Stack gap="xs" mt="sm">
+                      <Divider label="Create New Participant" />
+                      <TextInput
+                        label="Display Name"
+                        placeholder="Enter participant name"
+                        value={speaker.newParticipantData.displayName}
+                        onChange={(e) => handleNewParticipantDataChange(index, 'displayName', e.target.value)}
+                        disabled={saving}
+                        required
+                      />
+                      <Group grow>
+                        <TextInput
+                          label="First Name"
+                          placeholder="First name (optional)"
+                          value={speaker.newParticipantData.firstName || ''}
+                          onChange={(e) => handleNewParticipantDataChange(index, 'firstName', e.target.value)}
+                          disabled={saving}
+                        />
+                        <TextInput
+                          label="Last Name"
+                          placeholder="Last name (optional)"
+                          value={speaker.newParticipantData.lastName || ''}
+                          onChange={(e) => handleNewParticipantDataChange(index, 'lastName', e.target.value)}
+                          disabled={saving}
+                        />
+                      </Group>
+                    </Stack>
+                  )}
+                </Stack>
+              </Paper>
+            </Stack>
+          );
+        })
+        )}
 
         <Group justify="flex-end" mt="md">
           <Button

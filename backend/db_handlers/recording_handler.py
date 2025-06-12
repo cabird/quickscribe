@@ -30,7 +30,7 @@ class Recording(models.Recording):
         super().__init__(**data)
     
     def model_dump(self, **kwargs) -> Dict[str, Any]:
-        """Override model_dump to handle enum conversions properly"""
+        """Override model_dump to handle enum conversions and participant serialization"""
         data = super().model_dump(**kwargs)
 
         # Ensure enums are converted to their string values for serialization
@@ -38,6 +38,15 @@ class Recording(models.Recording):
             data['transcription_status'] = data['transcription_status'].value
         if 'transcoding_status' in data and isinstance(data['transcoding_status'], models.TranscodingStatus):
             data['transcoding_status'] = data['transcoding_status'].value
+            
+        # Handle participants field - serialize RecordingParticipant objects to dictionaries
+        if 'participants' in data and data['participants'] is not None:
+            if isinstance(data['participants'], list) and len(data['participants']) > 0:
+                # Check if first item is a RecordingParticipant object
+                first_item = data['participants'][0]
+                if hasattr(first_item, 'model_dump'):
+                    # Convert RecordingParticipant objects to dictionaries
+                    data['participants'] = [p.model_dump() if hasattr(p, 'model_dump') else p for p in data['participants']]
             
         return data
 

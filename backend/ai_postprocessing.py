@@ -14,7 +14,7 @@ import json
 import logging
 import yaml
 from typing import Dict, Optional, Tuple
-from db_handlers.handler_factory import get_recording_handler, get_transcription_handler
+from db_handlers.handler_factory import get_recording_handler, get_transcription_handler, get_participant_handler
 from db_handlers.models import Recording, Transcription
 from llms import (
     send_multiple_prompts_concurrent, 
@@ -201,61 +201,194 @@ async def generate_title_and_description_concurrent(transcript_text: str) -> Dic
         }
 
 
-def update_speaker_names(transcription_id: str, transcript_text: str, recording_id: str) -> Optional[Dict]:
+def update_speaker_names(transcription_id: str, transcript_text: str, recording_id: str, recording: 'Recording' = None, transcription: 'Transcription' = None) -> Optional[Dict]:
     """
-    Update speaker names in a diarized transcript using existing LLM functionality.
-    Also updates the recording with participants list.
+    Enhanced speaker inference with participant linking.
+    Uses existing LLM speaker inference then suggests/creates participant profiles.
     
     Args:
         transcription_id: ID of the transcription to update
         transcript_text: The diarized transcript text
         recording_id: ID of the recording to update with participants
+        recording: Optional recording object (to avoid refetching)
+        transcription: Optional transcription object (to avoid refetching)
         
     Returns:
         Dict with speaker mapping results or None if failed
     """
     try:
+        # Get user ID for participant operations
+        if not recording:
+            recording_handler = get_recording_handler()
+            recording = recording_handler.get_recording(recording_id)
+            if not recording:
+                logger.error(f"Recording {recording_id} not found")
+                return None
+        
+        user_id = recording.user_id
+        
         # Use existing speaker inference functionality
         raw_speaker_mapping, updated_transcript = get_speaker_mapping(transcript_text)
         
-        # Convert raw dictionary to proper SpeakerMapping objects
+        # Get participant suggestions/creations based on speaker names
+        participant_suggestions = suggest_participants_for_speakers(user_id, raw_speaker_mapping)
+        
+        # Convert raw dictionary to enhanced SpeakerMapping objects with participant info
         from db_handlers.models import SpeakerMapping
         formatted_speaker_mapping = {}
+        recording_participants = []
         
         for speaker_id, speaker_data in raw_speaker_mapping.items():
-            # Convert the nested dict to SpeakerMapping object
+            # Get participant info for this speaker
+            participant_info = participant_suggestions.get(speaker_id, {})
+            
+            # Create enhanced SpeakerMapping with participant data
             formatted_speaker_mapping[speaker_id] = SpeakerMapping(
                 name=speaker_data["name"],
-                reasoning=speaker_data["reasoning"]
+                displayName=participant_info.get("displayName", speaker_data["name"]),
+                reasoning=speaker_data["reasoning"],
+                participantId=participant_info.get("participantId"),
+                confidence=participant_info.get("confidence"),
+                manuallyVerified=participant_info.get("manuallyVerified", False)
             )
+            
+            # Create RecordingParticipant entry if we have a valid participant
+            if participant_info.get("participantId"):
+                from db_handlers.models import RecordingParticipant
+                recording_participants.append(RecordingParticipant(
+                    participantId=participant_info["participantId"],
+                    displayName=participant_info["displayName"],
+                    speakerLabel=speaker_id,
+                    confidence=participant_info["confidence"],
+                    manuallyVerified=participant_info["manuallyVerified"]
+                ))
         
-        logger.info(f"Converted speaker mapping for {len(formatted_speaker_mapping)} speakers")
+        logger.info(f"Enhanced speaker mapping for {len(formatted_speaker_mapping)} speakers with {len(recording_participants)} participant links")
         
-        # Update the transcription with new speaker mapping and transcript
+        # Update the transcription with enhanced speaker mapping
         transcription_handler = get_transcription_handler()
-        transcription = transcription_handler.get_transcription(transcription_id)
+        if not transcription:
+            transcription = transcription_handler.get_transcription(transcription_id)
         
         if transcription:
             transcription.speaker_mapping = formatted_speaker_mapping
             transcription_handler.update_transcription(transcription)
             
-            # Extract participant names and update recording
-            participants = list(speaker_data["name"] for speaker_data in raw_speaker_mapping.values())
+            # Update recording with participant data (new format)
+            if recording_participants:
+                recording.participants = recording_participants
+                if 'recording_handler' not in locals():
+                    recording_handler = get_recording_handler()
+                recording_handler.update_recording(recording)
+                logger.info(f"Updated recording {recording_id} with {len(recording_participants)} participant links")
             
-            # Update recording with participants using common function
-            update_recording_participants(recording_id, participants)
+            # Extract participant names for backward compatibility
+            participant_names = [p.displayName for p in recording_participants]
+            if not participant_names:
+                # Fallback to speaker names if no participants linked
+                participant_names = [speaker_data["name"] for speaker_data in raw_speaker_mapping.values()]
             
             logger.info(f"Updated speaker names for transcription {transcription_id}")
             return {
                 'speaker_mapping': formatted_speaker_mapping,
-                'participants': participants
+                'participants': participant_names,
+                'recording_participants': recording_participants,
+                'participant_suggestions': participant_suggestions
             }
     except Exception as e:
         logger.warning(f"Speaker inference failed for transcription {transcription_id}: {e}")
         return None
 
 
-def get_transcript_text_for_processing(recording_id: str) -> Tuple[Optional[str], Optional[str]]:
+def suggest_participants_for_speakers(user_id: str, speaker_mapping: Dict) -> Dict:
+    """
+    Suggest existing participants for speaker names and auto-create profiles for new speakers.
+    
+    Args:
+        user_id: ID of the user
+        speaker_mapping: Dictionary of speaker labels to speaker data
+        
+    Returns:
+        Dictionary mapping speaker labels to participant info
+    """
+    try:
+        participant_handler = get_participant_handler()
+        suggestions = {}
+        
+        for speaker_label, speaker_data in speaker_mapping.items():
+            speaker_name = speaker_data.get("name", "").strip()
+            
+            # Skip generic speaker names
+            if not speaker_name or speaker_name.lower().startswith("speaker "):
+                continue
+            
+            # Search for existing participants
+            existing_participants = participant_handler.find_participants_by_name(
+                user_id, speaker_name, fuzzy=True
+            )
+            
+            if existing_participants:
+                # Use the best match (first result from search)
+                best_match = existing_participants[0]
+                confidence = 1.0 if speaker_name.lower() == best_match.displayName.lower() else 0.8
+                
+                suggestions[speaker_label] = {
+                    "participantId": best_match.id,
+                    "displayName": best_match.displayName,
+                    "confidence": confidence,
+                    "manuallyVerified": False,
+                    "matched_existing": True
+                }
+                
+                # Update last seen for existing participant
+                participant_handler.update_participant_last_seen(user_id, best_match.id)
+                
+                logger.info(f"Matched speaker '{speaker_name}' to existing participant '{best_match.displayName}' (confidence: {confidence})")
+                
+            else:
+                # Create new participant profile
+                try:
+                    # Parse name into firstName/lastName if possible
+                    name_parts = speaker_name.split()
+                    firstName = name_parts[0] if name_parts else ""
+                    lastName = " ".join(name_parts[1:]) if len(name_parts) > 1 else ""
+                    
+                    new_participant = participant_handler.create_participant(
+                        user_id=user_id,
+                        displayName=speaker_name,
+                        firstName=firstName if firstName else None,
+                        lastName=lastName if lastName else None
+                    )
+                    
+                    suggestions[speaker_label] = {
+                        "participantId": new_participant.id,
+                        "displayName": new_participant.displayName,
+                        "confidence": 0.9,  # High confidence for new creation
+                        "manuallyVerified": False,
+                        "matched_existing": False
+                    }
+                    
+                    logger.info(f"Created new participant '{speaker_name}' for speaker label '{speaker_label}'")
+                    
+                except Exception as e:
+                    logger.error(f"Failed to create participant for speaker '{speaker_name}': {e}")
+                    # Continue without participant linkage for this speaker
+                    suggestions[speaker_label] = {
+                        "participantId": None,
+                        "displayName": speaker_name,
+                        "confidence": 0.0,
+                        "manuallyVerified": False,
+                        "matched_existing": False
+                    }
+        
+        return suggestions
+        
+    except Exception as e:
+        logger.error(f"Error suggesting participants for speakers: {e}")
+        return {}
+
+
+def get_transcript_text_for_processing(recording_id: str) -> Tuple[Optional[str], Optional[str], Optional['Transcription']]:
     """
     Get the best available transcript text for AI processing.
     
@@ -263,7 +396,7 @@ def get_transcript_text_for_processing(recording_id: str) -> Tuple[Optional[str]
         recording_id: ID of the recording
         
     Returns:
-        Tuple of (transcript_text, transcription_id) or (None, None) if not available
+        Tuple of (transcript_text, transcription_id, transcription) or (None, None, None) if not available
     """
     try:
         transcription_handler = get_transcription_handler()
@@ -271,7 +404,7 @@ def get_transcript_text_for_processing(recording_id: str) -> Tuple[Optional[str]
         
         if not transcription:
             logger.warning(f"No transcription found for recording {recording_id}")
-            return None, None
+            return None, None, None
             
         # Prefer diarized transcript, fall back to regular text
         diarized_length = len(transcription.diarized_transcript) if transcription.diarized_transcript else 0
@@ -283,16 +416,38 @@ def get_transcript_text_for_processing(recording_id: str) -> Tuple[Optional[str]
         
         if not transcript_text:
             logger.warning(f"No transcript text available for recording {recording_id}")
-            return None, None
+            return None, None, None
         
         used_type = "diarized" if transcription.diarized_transcript else "regular"
         logger.info(f"Using {used_type} transcript: {len(transcript_text)} characters")
             
-        return transcript_text, transcription.id
+        return transcript_text, transcription.id, transcription
         
     except Exception as e:
         logger.error(f"Error getting transcript for recording {recording_id}: {e}")
-        return None, None
+        return None, None, None
+
+
+def has_manually_verified_speakers(transcription: 'Transcription') -> bool:
+    """
+    Check if the transcription has any manually verified speakers.
+    
+    Args:
+        transcription: The transcription object to check
+        
+    Returns:
+        True if any speakers are manually verified, False otherwise
+    """
+    if not transcription or not transcription.speaker_mapping:
+        return False
+    
+    # Check if any speakers are manually verified
+    for speaker_data in transcription.speaker_mapping.values():
+        if hasattr(speaker_data, 'manuallyVerified') and speaker_data.manuallyVerified:
+            logger.info(f"Found manually verified speaker: {speaker_data}")
+            return True
+    
+    return False
 
 
 def truncate_transcript_for_processing(transcript_text: str, max_words: int = 2000) -> str:
@@ -351,7 +506,7 @@ def postprocess_recording_full(recording_id: str) -> Dict[str, any]:
             results['errors'].append(error_msg)
             return results
             
-        transcript_text, transcription_id = get_transcript_text_for_processing(recording_id)
+        transcript_text, transcription_id, transcription = get_transcript_text_for_processing(recording_id)
         
         if not transcript_text:
             error_msg = f"No transcript available for recording {recording_id}"
@@ -394,17 +549,21 @@ def postprocess_recording_full(recording_id: str) -> Dict[str, any]:
             logger.error(f"Exception details: {type(e).__name__}: {str(e)}")
             results['errors'].append(error_msg)
         
-        # Always run speaker inference if we have a transcription
-        if transcription_id:
-            logger.info(f"Starting speaker inference for recording {recording_id}")
-            try:
-                speaker_results = update_speaker_names(transcription_id, transcript_text, recording_id)
-                results['speaker_update'] = speaker_results
-                logger.info(f"Speaker inference completed for recording {recording_id}: {speaker_results is not None}")
-            except Exception as e:
-                error_msg = f"Failed to update speaker names: {e}"
-                logger.warning(error_msg)
-                results['errors'].append(error_msg)
+        # Run speaker inference only if no speakers are manually verified
+        if transcription_id and transcription:
+            if has_manually_verified_speakers(transcription):
+                logger.info(f"Skipping speaker inference for recording {recording_id}: speakers have been manually verified by user")
+                results['speaker_update'] = {'skipped': 'manually_verified'}
+            else:
+                logger.info(f"Starting speaker inference for recording {recording_id}")
+                try:
+                    speaker_results = update_speaker_names(transcription_id, transcript_text, recording_id, recording, transcription)
+                    results['speaker_update'] = speaker_results
+                    logger.info(f"Speaker inference completed for recording {recording_id}: {speaker_results is not None}")
+                except Exception as e:
+                    error_msg = f"Failed to update speaker names: {e}"
+                    logger.warning(error_msg)
+                    results['errors'].append(error_msg)
         else:
             logger.info(f"Skipping speaker inference for recording {recording_id}: no transcription available")
         
@@ -423,9 +582,55 @@ def postprocess_recording_full(recording_id: str) -> Dict[str, any]:
     return results
 
 
+def update_transcription_speaker_data_with_participants(transcription_id: str, speaker_mapping: dict, reasoning: str = "User edited") -> dict:
+    """
+    Update transcription speaker mapping with participant data.
+    
+    Args:
+        transcription_id: ID of the transcription to update
+        speaker_mapping: Dict of speaker label -> participant data
+        reasoning: Reason for the update
+        
+    Returns:
+        Results dict with update status
+    """
+    from db_handlers.models import SpeakerMapping
+    
+    transcription_handler = get_transcription_handler()
+    transcription = transcription_handler.get_transcription(transcription_id)
+    
+    if not transcription:
+        return {'error': f'Transcription {transcription_id} not found'}
+    
+    # Update speaker mapping with participant data
+    updated_mapping = {}
+    for speaker_label, participant_data in speaker_mapping.items():
+        if isinstance(participant_data, dict):
+            participant_id = participant_data.get('participantId')
+            display_name = participant_data.get('displayName')
+            
+            # Create enhanced SpeakerMapping
+            speaker_mapping_obj = SpeakerMapping(
+                name=display_name,
+                displayName=display_name,
+                reasoning=reasoning,
+                participantId=participant_id,
+                confidence=1.0,
+                manuallyVerified=True
+            )
+            updated_mapping[speaker_label] = speaker_mapping_obj
+    
+    if updated_mapping:
+        transcription.speaker_mapping = updated_mapping
+        transcription_handler.update_transcription(transcription)
+        logger.info(f"Updated transcription {transcription_id} speaker mapping with participant links")
+    
+    return {'success': True, 'updated_speakers': len(updated_mapping)}
+
+
 def update_recording_participants(recording_id: str, participants: list[str]) -> None:
     """
-    Update recording participants list.
+    Update recording participants list (old format).
     
     Args:
         recording_id: ID of the recording to update
@@ -437,6 +642,44 @@ def update_recording_participants(recording_id: str, participants: list[str]) ->
         recording.participants = participants
         recording_handler.update_recording(recording)
         logger.info(f"Updated recording {recording_id} with participants: {participants}")
+
+
+def update_recording_participants_with_participants(recording_id: str, speaker_mapping: dict) -> None:
+    """
+    Update recording participants with full participant data.
+    
+    Args:
+        recording_id: ID of the recording to update
+        speaker_mapping: Dict of speaker label -> participant data
+    """
+    from db_handlers.models import RecordingParticipant
+    
+    recording_handler = get_recording_handler()
+    recording = recording_handler.get_recording(recording_id)
+    if not recording:
+        return
+    
+    # Create RecordingParticipant objects from speaker mapping
+    new_participants = []
+    for speaker_label, participant_data in speaker_mapping.items():
+        if isinstance(participant_data, dict):
+            participant_id = participant_data.get('participantId')
+            display_name = participant_data.get('displayName')
+            
+            if participant_id and display_name:
+                recording_participant = RecordingParticipant(
+                    participantId=participant_id,
+                    displayName=display_name,
+                    speakerLabel=speaker_label,
+                    confidence=1.0,  # High confidence for manually assigned
+                    manuallyVerified=True
+                )
+                new_participants.append(recording_participant)
+    
+    if new_participants:
+        recording.participants = new_participants
+        recording_handler.update_recording(recording)
+        logger.info(f"Updated recording {recording_id} with {len(new_participants)} participant links")
 
 
 def update_diarized_transcript_with_names(diarized_transcript: str, speaker_mapping: dict) -> str:

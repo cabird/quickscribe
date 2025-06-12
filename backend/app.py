@@ -16,6 +16,7 @@ from routes.plaud import plaud_bp
 from routes.ai_routes import ai_bp
 from routes.local_routes import local_bp
 from routes.admin import admin_bp
+from routes.participant_routes import participant_bp
 from api_version import API_VERSION
 from user_util import get_current_user
 from config import config
@@ -73,6 +74,7 @@ def create_app(test_config=None):
     app.register_blueprint(ai_bp, url_prefix='/api/ai')
     app.register_blueprint(local_bp, url_prefix='/api/local')
     app.register_blueprint(admin_bp, url_prefix='/api/admin')
+    app.register_blueprint(participant_bp, url_prefix='/api/participants')
     
     # Initialize Azure services only if not in testing mode
     if not app.config.get('TESTING'):
