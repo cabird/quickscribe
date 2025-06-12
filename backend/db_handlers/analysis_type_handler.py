@@ -226,6 +226,30 @@ class AnalysisTypeHandler:
             print(f"Error creating built-in analysis type: {e}")
             return None
 
+    def get_all_analysis_types(self) -> List[AnalysisType]:
+        """Get all analysis types from all users (built-in + all custom types)."""
+        try:
+            # Query for all analysis types across all partitions
+            query = "SELECT * FROM c WHERE IS_DEFINED(c.isBuiltIn)"
+            items = list(self.container.query_items(
+                query=query,
+                enable_cross_partition_query=True
+            ))
+            
+            # Handle legacy data that doesn't have shortTitle
+            analysis_types = []
+            for item in items:
+                filtered_item = filter_cosmos_fields(item)
+                # Provide default shortTitle if missing (for legacy data)
+                if 'shortTitle' not in filtered_item or filtered_item['shortTitle'] is None:
+                    filtered_item['shortTitle'] = filtered_item.get('title', 'Unknown')[:12]
+                analysis_types.append(AnalysisType(**filtered_item))
+            
+            return analysis_types
+        except Exception as e:
+            print(f"Error retrieving all analysis types: {e}")
+            return []
+
     def _is_name_taken(self, name: str, user_id: str) -> bool:
         """Check if an analysis type name is already taken by this user."""
         try:

@@ -126,3 +126,16 @@ class TranscriptionHandler:
         :param transcription_id: ID of the transcription to delete.
         """
         self.container.delete_item(item=transcription_id, partition_key="transcription")
+    
+    def get_all_transcriptions(self) -> List[Transcription]:
+        """
+        Get all transcriptions from all users.
+        
+        :return: List of Transcription model instances.
+        """
+        query = "SELECT * FROM c WHERE c.partitionKey = 'transcription'"
+        items = list(self.container.query_items(
+            query=query, 
+            enable_cross_partition_query=True
+        ))
+        return [Transcription(**filter_cosmos_fields(item)) for item in items]
