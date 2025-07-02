@@ -5,6 +5,7 @@ import { useRecordingStore } from '../../stores/useRecordingStore';
 import { useTagStore } from '../../stores/useTagStore';
 import { RecordingCard } from '../RecordingCard/RecordingCard';
 import { useMemo } from 'react';
+import type { Recording } from '../../types';
 
 export function MainContent() {
   const { viewMode, setViewMode, filters } = useUIStore();
@@ -50,6 +51,29 @@ export function MainContent() {
         (recording.title || recording.original_filename).toLowerCase().includes(searchLower)
       );
     }
+
+    // Sort recordings by date (oldest first)
+    // Priority: recorded_timestamp > upload_timestamp > end of list
+    filtered.sort((a, b) => {
+      const getTimestamp = (recording: Recording) => {
+        return recording.recorded_timestamp || recording.upload_timestamp || null;
+      };
+      
+      const timestampA = getTimestamp(a);
+      const timestampB = getTimestamp(b);
+      
+      // If both have timestamps, sort by date (oldest first)
+      if (timestampA && timestampB) {
+        return new Date(timestampA).getTime() - new Date(timestampB).getTime();
+      }
+      
+      // If only one has a timestamp, it goes first
+      if (timestampA && !timestampB) return -1;
+      if (!timestampA && timestampB) return 1;
+      
+      // If neither has timestamps, maintain original order
+      return 0;
+    });
 
     return filtered;
   }, [recordings, filters]);

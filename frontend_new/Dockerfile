@@ -1,6 +1,11 @@
 FROM node:18-alpine
 
 WORKDIR /app
+    
+RUN mkdir -p node_modules && chmod -R 777 node_modules
+ARG UID=1000
+ARG GID=1000
+RUN mkdir -p node_modules && chown -R ${UID}:${GID} node_modules
 
 # Install dependencies first
 COPY package*.json ./

@@ -137,7 +137,9 @@ export function TagManager({ onClose }: TagManagerProps) {
               onChange={setNewTagColor}
               swatches={DEFAULT_COLORS}
               size="sm"
-              style={{ width: rem(60) }}
+              style={{ width: '60px' }}
+              format="hex"
+              placeholder="Pick color"
             />
             <Button
               onClick={handleCreateTag}
@@ -181,7 +183,9 @@ export function TagManager({ onClose }: TagManagerProps) {
                           onChange={setEditColor}
                           swatches={DEFAULT_COLORS}
                           size="sm"
-                          style={{ width: rem(60) }}
+                          style={{ width: '60px' }}
+                          format="hex"
+                          placeholder="Pick color"
                         />
                       </Group>
                       <Group gap="xs">

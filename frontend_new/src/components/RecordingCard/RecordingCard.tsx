@@ -192,7 +192,7 @@ export function RecordingCard({ recording: initialRecording, userTags }: Recordi
         overflow: 'hidden',
       }}
     >
-      <Stack gap="md">
+      <Stack gap="md" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
         {/* Header */}
         <Group justify="space-between" align="flex-start">
           <Stack gap={4} style={{ flex: 1 }}>
@@ -297,52 +297,53 @@ export function RecordingCard({ recording: initialRecording, userTags }: Recordi
           {statusText}
         </Badge>
 
-        {/* Tags */}
-        {getRecordingTags().length > 0 && (
-          <Group gap="xs">
-            {getRecordingTags().map(tag => (
-              <TagBadge 
-                key={tag.id} 
-                tag={tag} 
-                size="xs"
-              />
-            ))}
-          </Group>
+        {/* Content section that grows to fill space */}
+        <div style={{ flex: 1 }}>
+          {/* Tags */}
+          {getRecordingTags().length > 0 && (
+            <Group gap="xs" mb="sm">
+              {getRecordingTags().map(tag => (
+                <TagBadge 
+                  key={tag.id} 
+                  tag={tag} 
+                  size="xs"
+                />
+              ))}
+            </Group>
+          )}
+
+          {/* Participants */}
+          <ParticipantBadge participants={recording.participants || []} size="xs" />
+        </div>
+
+        {/* Action Buttons - Always at bottom */}
+        {transcriptionStatus !== 'completed' && (
+          <Button
+            size="sm"
+            variant="light"
+            leftSection={transcriptionStatus === 'in_progress' ? <LuRefreshCw size={16} /> : <LuPlay size={16} />}
+            onClick={handleStartTranscription}
+            disabled={transcriptionStatus === 'in_progress'}
+            fullWidth
+          >
+            {transcriptionStatus === 'in_progress' ? 'Transcribing...' : 'Start Transcription'}
+          </Button>
         )}
-
-        {/* Participants */}
-        <ParticipantBadge participants={recording.participants || []} size="xs" />
-
-        {/* Action Buttons */}
-        <Group gap="xs" mt="auto">
-          {transcriptionStatus !== 'completed' && (
-            <Button
-              size="sm"
-              variant="light"
-              leftSection={transcriptionStatus === 'in_progress' ? <LuRefreshCw size={16} /> : <LuPlay size={16} />}
-              onClick={handleStartTranscription}
-              disabled={transcriptionStatus === 'in_progress'}
-              fullWidth
-            >
-              {transcriptionStatus === 'in_progress' ? 'Transcribing...' : 'Start Transcription'}
-            </Button>
-          )}
-          
-          {transcriptionStatus === 'completed' && (
-            <Button
-              size="sm"
-              variant="filled"
-              color="violet"
-              onClick={handleOpenAIWorkspace}
-              fullWidth
-            >
-              <Group gap="xs">
-                <LuList size={16} />
-                <span>Open Recording Workspace</span>
-              </Group>
-            </Button>
-          )}
-        </Group>
+        
+        {transcriptionStatus === 'completed' && (
+          <Button
+            size="sm"
+            variant="filled"
+            color="violet"
+            onClick={handleOpenAIWorkspace}
+            fullWidth
+          >
+            <Group gap="xs">
+              <LuList size={16} />
+              <span>Open Recording Workspace</span>
+            </Group>
+          </Button>
+        )}
       </Stack>
     </Card>
   );
