@@ -9,6 +9,7 @@ import { TranscriptPanel } from './TranscriptPanel';
 import { AnalysisPanel } from './AnalysisPanel';
 import { ResizableHandle } from './ResizableHandle';
 import { EditSpeakersModal } from './EditSpeakersModal';
+import { AudioPlayer } from './AudioPlayer';
 import { useAnalysisStore } from '../../stores/useAnalysisStore';
 import { notifications } from '@mantine/notifications';
 import type { Recording, Transcription, AnalysisResult } from '../../types';
@@ -24,6 +25,8 @@ export function AIWorkspaceModal() {
   const { getAnalysisTypeByName } = useAnalysisStore();
   const [analysisPanelHeight, setAnalysisPanelHeight] = useState(350);
   const [editSpeakersModalOpen, setEditSpeakersModalOpen] = useState(false);
+  const [showAudioPlayer, setShowAudioPlayer] = useState(false);
+  const [currentAudioTime, setCurrentAudioTime] = useState(0);
 
   const recording = getRecordingById(aiWorkspace.recordingId || '');
   
@@ -217,6 +220,9 @@ export function AIWorkspaceModal() {
             onTranscriptReload={handleTranscriptReload}
             onPostProcessingUpdate={handlePostProcessingUpdate}
             onEditSpeakers={handleEditSpeakers}
+            showAudioPlayer={showAudioPlayer}
+            onToggleAudioPlayer={() => setShowAudioPlayer(!showAudioPlayer)}
+            currentAudioTime={currentAudioTime}
           />
         </div>
 
@@ -235,6 +241,25 @@ export function AIWorkspaceModal() {
           />
         </div>
       </div>
+      
+      {/* Audio Player */}
+      {showAudioPlayer && recording && (
+        <div style={{ 
+          position: 'absolute', 
+          bottom: 0, 
+          left: 0, 
+          right: 0,
+          zIndex: 1000,
+          background: 'white',
+          borderTop: '1px solid var(--mantine-color-gray-3)',
+        }}>
+          <AudioPlayer 
+            recordingId={recording.id}
+            onTimeUpdate={setCurrentAudioTime}
+            onClose={() => setShowAudioPlayer(false)}
+          />
+        </div>
+      )}
       
       {/* Edit Speakers Modal */}
       {transcription && (

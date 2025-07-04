@@ -1,9 +1,10 @@
 import { Card, Stack, Group, Text, Button, Center, Loader, Badge } from '@mantine/core';
-import { LuFileText, LuCopy, LuEye, LuBot, LuUsers } from 'react-icons/lu';
+import { LuFileText, LuCopy, LuEye, LuBot, LuUsers, LuHeadphones } from 'react-icons/lu';
 import { notifications } from '@mantine/notifications';
 import { formatDuration, getStatusText, showNotificationFromApiResponse } from '../../utils';
 import { TagBadge } from '../Tags/TagBadge';
 import { ParticipantBadge } from '../ParticipantBadge';
+import { ClickableTranscript } from './ClickableTranscript';
 import { triggerPostProcessing, fetchRecording } from '../../api/recordings';
 import { useState } from 'react';
 import type { Recording, Transcription, Tag } from '../../types';
@@ -18,6 +19,9 @@ interface TranscriptPanelProps {
   onTranscriptReload?: () => void;
   onPostProcessingUpdate?: (recording: Recording, transcription: Transcription) => void;
   onEditSpeakers?: () => void;
+  showAudioPlayer?: boolean;
+  onToggleAudioPlayer?: () => void;
+  currentAudioTime?: number;
 }
 
 export function TranscriptPanel({ 
@@ -29,7 +33,10 @@ export function TranscriptPanel({
   onRecordingUpdate,
   onTranscriptReload,
   onPostProcessingUpdate,
-  onEditSpeakers
+  onEditSpeakers,
+  showAudioPlayer,
+  onToggleAudioPlayer,
+  currentAudioTime
 }: TranscriptPanelProps) {
   const [postProcessingLoading, setPostProcessingLoading] = useState(false);
   
@@ -221,6 +228,16 @@ export function TranscriptPanel({
                 >
                   Edit Speakers
                 </Button>
+                <Button 
+                  size="xs" 
+                  variant={showAudioPlayer ? 'filled' : 'outline'}
+                  color="violet"
+                  leftSection={<LuHeadphones size={14} />}
+                  onClick={onToggleAudioPlayer}
+                  disabled={!transcription || transcriptionLoading || recording.transcription_status !== 'completed'}
+                >
+                  {showAudioPlayer ? 'Hide Audio' : 'Play Audio'}
+                </Button>
               </Group>
             </Group>
             
@@ -240,38 +257,12 @@ export function TranscriptPanel({
                 <Center p="md">
                   <Loader size="sm" />
                 </Center>
-              ) : transcription?.diarized_transcript ? (
-                <div
-                  dangerouslySetInnerHTML={{
-                    __html: transcription.diarized_transcript
-                      .split('\n')
-                      .map(line => {
-                        const speakerMatch = line.match(/^([^:]+):\s*(.*)$/);
-                        if (speakerMatch) {
-                          const speakerLabel = speakerMatch[1];
-                          const content = speakerMatch[2];
-                          // Use speaker mapping with new participant format
-                          const speakerData = transcription.speaker_mapping?.[speakerLabel];
-                          const displayName = speakerData?.displayName || speakerData?.name || speakerLabel;
-                          const isVerified = speakerData?.manuallyVerified;
-                          const participantId = speakerData?.participantId;
-                          
-                          // Add visual indicators for participant status
-                          const nameStyle = participantId 
-                            ? `color: var(--mantine-color-blue-6); ${isVerified ? 'font-weight: 600;' : ''}`
-                            : 'color: var(--mantine-color-gray-6);';
-                          
-                          return `<div style="margin-bottom: 1rem;"><strong style="${nameStyle}">${displayName}:</strong><br/>${content}</div>`;
-                        }
-                        return `<div style="margin-bottom: 0.5rem;">${line}</div>`;
-                      })
-                      .join('')
-                  }}
+              ) : transcription ? (
+                <ClickableTranscript 
+                  transcription={transcription}
+                  currentAudioTime={currentAudioTime}
+                  showAudioButton={showAudioPlayer}
                 />
-              ) : transcription?.text ? (
-                <Text size="sm" style={{ whiteSpace: 'pre-wrap' }}>
-                  {transcription.text}
-                </Text>
               ) : (
                 <Text size="sm" c="dimmed" ta="center">
                   No transcript available for this recording

@@ -55,6 +55,77 @@ def get_recording_by_id(recording_id):
         return jsonify(recording.model_dump()), 200
     return jsonify({'error': 'Recording not found'}), 404
 
+# Route to get audio URL for a recording
+@api_bp.route('/recording/<recording_id>/audio-url', methods=['GET'])
+def get_recording_audio_url(recording_id):
+    """Generate a time-limited SAS URL for streaming the recording's audio file."""
+    try:
+        logger.info(f"Audio URL requested for recording {recording_id}")
+        
+        # Get current user for authorization
+        current_user = get_current_user()
+        if not current_user:
+            logger.error(f"No authenticated user for recording {recording_id}")
+            return jsonify({'error': 'User not authenticated'}), 401
+        
+        logger.info(f"User {current_user.id} requesting audio for recording {recording_id}")
+        
+        # Get the recording
+        recording_handler = get_recording_handler()
+        recording = recording_handler.get_recording(recording_id)
+        
+        if not recording:
+            logger.error(f"Recording {recording_id} not found")
+            return jsonify({'error': 'Recording not found'}), 404
+            
+        # Verify the recording belongs to the current user
+        if recording.user_id != current_user.id:
+            logger.error(f"Recording {recording_id} belongs to {recording.user_id}, not {current_user.id}")
+            return jsonify({'error': 'Recording does not belong to current user'}), 403
+        
+        # Check if the recording has been transcoded
+        logger.info(f"Recording {recording_id} transcoding status: {recording.transcoding_status}")
+        
+        # If transcoding_status is None but transcription is completed, assume audio is available
+        # This handles older recordings that don't have transcoding_status set
+        if recording.transcription_status == TranscriptionStatus.completed:
+            logger.info(f"Recording {recording_id} has completed transcription, assuming audio is available")
+        elif recording.transcoding_status != TranscodingStatus.completed:
+            return jsonify({'error': 'Recording audio is not ready yet', 'status': str(recording.transcoding_status)}), 400
+        
+        # Generate SAS URL for the blob
+        from blob_util import generate_recording_sas_url
+        
+        # The transcoded file should be at the blob_name location
+        # Try blob_name first (newer recordings), then fall back to unique_filename
+        blob_name = None
+        
+        if hasattr(recording, 'blob_name') and recording.blob_name:
+            blob_name = recording.blob_name
+            logger.info(f"Recording {recording_id} has blob_name: {blob_name}")
+        elif hasattr(recording, 'unique_filename') and recording.unique_filename:
+            # For recordings, the blob is typically stored as just the unique_filename
+            # in the recordings container
+            blob_name = recording.unique_filename
+            logger.info(f"Recording {recording_id} using unique_filename: {blob_name}")
+        else:
+            logger.error(f"Recording {recording_id} has no blob_name or unique_filename")
+            return jsonify({'error': 'Recording has no associated audio file'}), 400
+        
+        # Generate a read-only SAS URL valid for 24 hours
+        audio_url = generate_recording_sas_url(blob_name, read=True, write=False)
+        
+        logger.info(f"Successfully generated audio URL for recording {recording_id}")
+        return jsonify({
+            'audio_url': audio_url,
+            'expires_in': 86400,  # 24 hours in seconds
+            'content_type': 'audio/mpeg'
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"Error generating audio URL for recording {recording_id}: {str(e)}")
+        return jsonify({'error': 'Failed to generate audio URL'}), 500
+
 # Route to list all recordings
 @api_bp.route('/recordings', methods=['GET'])
 def list_recordings():
