@@ -4,13 +4,14 @@ import { useRecordingStore } from '../../stores/useRecordingStore';
 import { useTagStore } from '../../stores/useTagStore';
 import { fetchTranscription } from '../../api/recordings';
 import { executeAnalysis } from '../../api/analysisTypes';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { TranscriptPanel } from './TranscriptPanel';
 import { AnalysisPanel } from './AnalysisPanel';
 import { ResizableHandle } from './ResizableHandle';
 import { EditSpeakersModal } from './EditSpeakersModal';
 import { AudioPlayer } from './AudioPlayer';
 import { useAnalysisStore } from '../../stores/useAnalysisStore';
+import { useParticipantStore } from '../../stores/participantStore';
 import { notifications } from '@mantine/notifications';
 import type { Recording, Transcription, AnalysisResult } from '../../types';
 
@@ -27,6 +28,9 @@ export function AIWorkspaceModal() {
   const [editSpeakersModalOpen, setEditSpeakersModalOpen] = useState(false);
   const [showAudioPlayer, setShowAudioPlayer] = useState(false);
   const [currentAudioTime, setCurrentAudioTime] = useState(0);
+  const [participantPickerOpen, setParticipantPickerOpen] = useState(false);
+  
+  const { fetchParticipants } = useParticipantStore();
 
   const recording = getRecordingById(aiWorkspace.recordingId || '');
   
@@ -36,10 +40,29 @@ export function AIWorkspaceModal() {
 
   const recordingTags = getTagsByIds(recording.tagIds || []);
 
-  // Fetch transcription when modal opens
+  // Define reloadTranscription first
+  const reloadTranscription = useCallback(async () => {
+    if (!recording?.transcription_id) return;
+    
+    try {
+      const updatedTranscription = await fetchTranscription(recording.transcription_id);
+      setTranscription(updatedTranscription);
+      setAnalysisResults(updatedTranscription.analysisResults || []);
+    } catch (error) {
+      console.error('Failed to reload transcription:', error);
+    }
+  }, [recording?.transcription_id]);
+
+  // Fetch transcription and preload participants when modal opens
   useEffect(() => {
     if (recording?.transcription_id && aiWorkspace.isOpen) {
       setTranscriptionLoading(true);
+      
+      // Preload participants in the background
+      fetchParticipants().catch(error => {
+        console.error('Failed to preload participants:', error);
+      });
+      
       fetchTranscription(recording.transcription_id)
         .then(transcription => {
           setTranscription(transcription);
@@ -57,6 +80,20 @@ export function AIWorkspaceModal() {
       setAnalysisResults([]);
     }
   }, [recording?.transcription_id, aiWorkspace.isOpen]);
+
+  // Listen for transcription updates
+  useEffect(() => {
+    const handleTranscriptionUpdate = (event: CustomEvent) => {
+      if (event.detail.transcriptionId === transcription?.id) {
+        reloadTranscription();
+      }
+    };
+
+    window.addEventListener('transcriptionUpdated', handleTranscriptionUpdate as EventListener);
+    return () => {
+      window.removeEventListener('transcriptionUpdated', handleTranscriptionUpdate as EventListener);
+    };
+  }, [transcription?.id, reloadTranscription]);
 
   const handleRunAnalysis = async (analysisType: AnalysisResult['analysisType']) => {
     if (!transcription?.id) {
@@ -145,17 +182,11 @@ export function AIWorkspaceModal() {
   };
 
   const handleTranscriptReload = async () => {
-    if (recording?.transcription_id) {
-      setTranscriptionLoading(true);
-      try {
-        const updatedTranscription = await fetchTranscription(recording.transcription_id);
-        setTranscription(updatedTranscription);
-        setAnalysisResults(updatedTranscription.analysisResults || []);
-      } catch (error) {
-        console.error('Failed to reload transcription:', error);
-      } finally {
-        setTranscriptionLoading(false);
-      }
+    setTranscriptionLoading(true);
+    try {
+      await reloadTranscription();
+    } finally {
+      setTranscriptionLoading(false);
     }
   };
 
@@ -180,9 +211,17 @@ export function AIWorkspaceModal() {
   return (
     <Modal
       opened={aiWorkspace.isOpen}
-      onClose={closeAIWorkspace}
+      onClose={() => {
+        // Don't close if participant picker is open
+        if (participantPickerOpen) {
+          return;
+        }
+        closeAIWorkspace();
+      }}
       size="xl"
       title=""
+      closeOnEscape={true}
+      trapFocus={false} // Allow focus to move to participant picker
       styles={{
         body: {
           height: '85vh',
@@ -223,6 +262,7 @@ export function AIWorkspaceModal() {
             showAudioPlayer={showAudioPlayer}
             onToggleAudioPlayer={() => setShowAudioPlayer(!showAudioPlayer)}
             currentAudioTime={currentAudioTime}
+            onParticipantPickerStateChange={setParticipantPickerOpen}
           />
         </div>
 

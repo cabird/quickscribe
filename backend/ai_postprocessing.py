@@ -659,8 +659,11 @@ def update_recording_participants_with_participants(recording_id: str, speaker_m
     if not recording:
         return
     
-    # Create RecordingParticipant objects from speaker mapping
-    new_participants = []
+    # Get existing participants and create a map by speaker label
+    existing_participants = recording.participants or []
+    participants_by_label = {p.speakerLabel: p for p in existing_participants if p.speakerLabel}
+    
+    # Update or add participants from speaker mapping
     for speaker_label, participant_data in speaker_mapping.items():
         if isinstance(participant_data, dict):
             participant_id = participant_data.get('participantId')
@@ -674,12 +677,21 @@ def update_recording_participants_with_participants(recording_id: str, speaker_m
                     confidence=1.0,  # High confidence for manually assigned
                     manuallyVerified=True
                 )
-                new_participants.append(recording_participant)
+                # Replace or add this participant
+                participants_by_label[speaker_label] = recording_participant
     
-    if new_participants:
-        recording.participants = new_participants
+    # Convert back to list, maintaining all participants
+    merged_participants = list(participants_by_label.values())
+    
+    # Also keep any participants without speaker labels (e.g., manually added participants)
+    for p in existing_participants:
+        if not p.speakerLabel and p not in merged_participants:
+            merged_participants.append(p)
+    
+    if merged_participants:
+        recording.participants = merged_participants
         recording_handler.update_recording(recording)
-        logger.info(f"Updated recording {recording_id} with {len(new_participants)} participant links")
+        logger.info(f"Updated recording {recording_id} participants: {len(existing_participants)} existing, {len(merged_participants)} after merge")
 
 
 def update_diarized_transcript_with_names(diarized_transcript: str, speaker_mapping: dict) -> str:

@@ -22,6 +22,7 @@ interface TranscriptPanelProps {
   showAudioPlayer?: boolean;
   onToggleAudioPlayer?: () => void;
   currentAudioTime?: number;
+  onParticipantPickerStateChange?: (isOpen: boolean) => void;
 }
 
 export function TranscriptPanel({ 
@@ -36,7 +37,8 @@ export function TranscriptPanel({
   onEditSpeakers,
   showAudioPlayer,
   onToggleAudioPlayer,
-  currentAudioTime
+  currentAudioTime,
+  onParticipantPickerStateChange
 }: TranscriptPanelProps) {
   const [postProcessingLoading, setPostProcessingLoading] = useState(false);
   
@@ -262,6 +264,7 @@ export function TranscriptPanel({
                   transcription={transcription}
                   currentAudioTime={currentAudioTime}
                   showAudioButton={showAudioPlayer}
+                  onParticipantPickerStateChange={onParticipantPickerStateChange}
                 />
               ) : (
                 <Text size="sm" c="dimmed" ta="center">

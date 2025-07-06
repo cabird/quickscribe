@@ -1,7 +1,7 @@
 # api.py
 from flask import Blueprint, request, jsonify, url_for
 from db_handlers.handler_factory import get_user_handler, get_recording_handler, get_transcription_handler
-from user_util import get_current_user
+from user_util import get_current_user, require_auth
 from db_handlers.models import User, Recording, Transcription, TranscodingStatus, TranscriptionStatus, Tag
 from util import get_recording_duration_in_seconds
 from ai_postprocessing import postprocess_recording_full, update_transcription_speaker_data, update_recording_participants, update_transcription_speaker_data_with_participants, update_recording_participants_with_participants
@@ -721,6 +721,116 @@ def update_speakers(recording_id):
         
     except Exception as e:
         logger.error(f"Error in update_speakers for {recording_id}: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+
+@api_bp.route('/transcription/<transcription_id>/speaker', methods=['POST'])
+def update_single_speaker(transcription_id):
+    """
+    Update a single speaker assignment in a transcription.
+    Expects: {
+        "speaker_label": "Speaker 1", 
+        "participant_id": "participant-uuid",
+        "manually_verified": true
+    }
+    """
+    logger.info(f"Update single speaker requested for transcription {transcription_id}")
+    
+    try:
+        current_user = get_current_user()
+        
+        # Validate request data
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
+            
+        speaker_label = data.get('speaker_label')
+        participant_id = data.get('participant_id')
+        manually_verified = data.get('manually_verified', True)
+        
+        if not speaker_label:
+            return jsonify({'error': 'Speaker label is required'}), 400
+        if not participant_id:
+            return jsonify({'error': 'Participant ID is required'}), 400
+        
+        # Get transcription and verify ownership
+        transcription_handler = get_transcription_handler()
+        transcription = transcription_handler.get_transcription(transcription_id)
+        
+        if not transcription:
+            return jsonify({'error': 'Transcription not found'}), 404
+            
+        if transcription.user_id != current_user.id:
+            return jsonify({'error': 'Transcription does not belong to current user'}), 403
+        
+        # Get participant to ensure it exists and belongs to user
+        from db_handlers.handler_factory import get_participant_handler
+        participant_handler = get_participant_handler()
+        
+        participant = participant_handler.get_participant(current_user.id, participant_id)
+        if not participant:
+            return jsonify({'error': 'Participant not found'}), 404
+            
+        # No need to check ownership again since we're using the user_id as partition key
+        
+        # Get existing speaker mapping and merge the update
+        existing_mapping = transcription.speaker_mapping or {}
+        logger.info(f"Existing speaker mapping has {len(existing_mapping)} speakers")
+        
+        # Convert existing mapping to dict format if needed
+        merged_mapping = {}
+        for label, data in existing_mapping.items():
+            if hasattr(data, 'model_dump'):
+                # It's a Pydantic model
+                merged_mapping[label] = data.model_dump()
+            elif isinstance(data, dict):
+                merged_mapping[label] = data.copy()
+            else:
+                logger.warning(f"Unknown speaker data type for {label}: {type(data)}")
+                merged_mapping[label] = {}
+        
+        # Create updated speaker data for this specific speaker
+        speaker_data = {
+            'participantId': participant_id,
+            'displayName': participant.displayName,
+            'name': participant.displayName,  # Keep for backward compatibility
+            'reasoning': 'Manual assignment by user',
+            'confidence': 1.0,
+            'manuallyVerified': manually_verified
+        }
+        
+        # Update the specific speaker
+        merged_mapping[speaker_label] = speaker_data
+        logger.info(f"Updated speaker {speaker_label}, merged mapping now has {len(merged_mapping)} speakers")
+        
+        # Update transcription with the merged speaker mapping
+        update_transcription_speaker_data_with_participants(
+            transcription_id,
+            merged_mapping,
+            reasoning="Manual assignment by user"
+        )
+        
+        # Also update the recording's participants if needed
+        recording_handler = get_recording_handler()
+        recording = recording_handler.get_recording(transcription.recording_id)
+        if recording:
+            # Update just this speaker in the recording's participants
+            single_speaker_update = {speaker_label: speaker_data}
+            update_recording_participants_with_participants(
+                transcription.recording_id,
+                single_speaker_update
+            )
+        
+        return jsonify({
+            'success': True,
+            'message': f'Speaker {speaker_label} assigned to {participant.displayName}',
+            'speaker_data': speaker_data
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"Error updating single speaker for transcription {transcription_id}: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'error': str(e)}), 500
 
 

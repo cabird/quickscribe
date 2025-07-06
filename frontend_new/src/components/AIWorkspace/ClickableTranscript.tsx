@@ -1,6 +1,10 @@
-import { Text, Group, ActionIcon, Tooltip } from '@mantine/core';
-import { LuVolume2 } from 'react-icons/lu';
-import { useMemo, useRef, useEffect } from 'react';
+import { Text, Group, ActionIcon, Box, Tooltip } from '@mantine/core';
+import { LuVolume2, LuPencil } from 'react-icons/lu';
+import { useMemo, useRef, useEffect, useState, useCallback } from 'react';
+import { InlineParticipantPicker } from './InlineParticipantPicker';
+import { AddParticipantModal } from './AddParticipantModal';
+import axios from 'axios';
+import { notifications } from '@mantine/notifications';
 
 interface TranscriptPhrase {
   speaker: number;
@@ -12,6 +16,7 @@ interface TranscriptPhrase {
 
 interface ClickableTranscriptProps {
   transcription: {
+    id: string;
     transcript_json?: string;
     diarized_transcript?: string;
     text?: string;
@@ -29,16 +34,23 @@ interface ClickableTranscriptProps {
   onPhraseClick?: (offsetMs: number) => void;
   currentAudioTime?: number;
   showAudioButton?: boolean;
+  onParticipantPickerStateChange?: (isOpen: boolean) => void;
 }
 
 export function ClickableTranscript({ 
   transcription, 
   onPhraseClick, 
   currentAudioTime = 0,
-  showAudioButton = false 
+  showAudioButton = false,
+  onParticipantPickerStateChange 
 }: ClickableTranscriptProps) {
   const phraseRefs = useRef<{ [key: string]: HTMLElement | null }>({});
   const lastScrolledPhraseRef = useRef<number>(-1);
+  const [hoveredSpeaker, setHoveredSpeaker] = useState<string | null>(null);
+  const [editingSpeaker, setEditingSpeaker] = useState<string | null>(null);
+  const [addParticipantModalOpen, setAddParticipantModalOpen] = useState(false);
+  const [pendingSpeakerForNewParticipant, setPendingSpeakerForNewParticipant] = useState<string | null>(null);
+  const speakerRefs = useRef<{ [key: string]: HTMLElement | null }>({});
   // Parse the transcript JSON to get phrases with timestamps
   const phrases = useMemo(() => {
     if (!transcription.transcript_json) {
@@ -91,7 +103,6 @@ export function ClickableTranscript({
         currentGroup.phrases.push(phrase);
       }
     });
-    
     return groups;
   }, [phrases]);
 
@@ -114,6 +125,53 @@ export function ClickableTranscript({
     const currentMs = currentAudioTime * 1000;
     return currentMs >= startMs && currentMs <= startMs + durationMs;
   };
+
+  const handleParticipantSelect = useCallback(async (speakerLabel: string, participantId: string) => {
+    setEditingSpeaker(null); // Close picker immediately for better UX
+    
+    if (participantId === 'new') {
+      // Open modal to create new participant
+      setPendingSpeakerForNewParticipant(speakerLabel);
+      setAddParticipantModalOpen(true);
+      return;
+    }
+
+    try {
+      // Update the speaker mapping
+      const response = await axios.post(`/api/transcription/${transcription.id}/speaker`, {
+        speaker_label: speakerLabel,
+        participant_id: participantId,
+        manually_verified: true,
+      });
+
+      if (response.data.success) {
+        notifications.show({
+          message: 'Speaker assignment updated',
+          color: 'green',
+        });
+        
+        // Trigger a refresh of the transcription data
+        // This would ideally be handled by a parent component or global state
+        window.dispatchEvent(new CustomEvent('transcriptionUpdated', { 
+          detail: { transcriptionId: transcription.id } 
+        }));
+      }
+    } catch (error) {
+      console.error('Failed to update speaker assignment:', error);
+      notifications.show({
+        message: 'Failed to update speaker assignment',
+        color: 'red',
+      });
+    }
+  }, [transcription.id]);
+
+  const handleNewParticipantCreated = useCallback(async (participantId: string) => {
+    if (pendingSpeakerForNewParticipant) {
+      // Assign the new participant to the speaker
+      await handleParticipantSelect(pendingSpeakerForNewParticipant, participantId);
+      setPendingSpeakerForNewParticipant(null);
+    }
+  }, [pendingSpeakerForNewParticipant, handleParticipantSelect]);
 
   // Auto-scroll to the currently playing phrase
   useEffect(() => {
@@ -180,8 +238,9 @@ export function ClickableTranscript({
   let phraseIndex = 0;
 
   return (
-    <div>
-      {groupedPhrases.map((group, groupIdx) => {
+    <>
+      <div>
+        {groupedPhrases.map((group, groupIdx) => {
         const displayName = getSpeakerDisplayName(group.speaker);
         const speakerData = transcription.speaker_mapping?.[group.speaker];
         const isVerified = speakerData?.manuallyVerified;
@@ -189,15 +248,58 @@ export function ClickableTranscript({
         
         return (
           <div key={groupIdx} style={{ marginBottom: '1.5rem' }}>
-            <Group gap="xs" mb="xs">
-              <Text 
-                fw={600} 
-                c={hasParticipant ? 'blue.6' : 'gray.6'}
-                size="sm"
-                style={{ textDecoration: isVerified ? 'underline' : 'none' }}
+            <Group gap="xs" mb="xs" wrap="nowrap">
+              <Box
+                ref={(el) => { speakerRefs.current[group.speaker] = el; }}
+                onMouseEnter={() => setHoveredSpeaker(group.speaker)}
+                onMouseLeave={() => setHoveredSpeaker(null)}
+                style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}
               >
-                {displayName}:
-              </Text>
+                <Text 
+                  fw={600} 
+                  c={hasParticipant ? 'blue.6' : 'gray.6'}
+                  size="sm"
+                  style={{ 
+                    textDecoration: isVerified ? 'underline' : 'none',
+                    fontStyle: hasParticipant ? 'normal' : 'italic'
+                  }}
+                >
+                  {displayName}:
+                </Text>
+                <ActionIcon
+                  size="xs"
+                  variant="subtle"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    // Store the click position for the dropdown
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    (window as any).lastSpeakerEditClick = {
+                      x: e.clientX,
+                      y: e.clientY,
+                      rect: { 
+                        left: rect.left, 
+                        top: rect.top, 
+                        bottom: rect.bottom,
+                        right: rect.right,
+                        height: rect.height,
+                        width: rect.width
+                      }
+                    };
+                    setEditingSpeaker(group.speaker);
+                    onParticipantPickerStateChange?.(true);
+                  }}
+                  style={{ 
+                    marginLeft: 4,
+                    opacity: hoveredSpeaker === group.speaker ? 1 : 0,
+                    transition: 'opacity 0.15s ease-in-out',
+                    cursor: 'pointer',
+                    pointerEvents: hoveredSpeaker === group.speaker ? 'auto' : 'none'
+                  }}
+                  title="Edit speaker assignment"
+                >
+                  <LuPencil size={12} />
+                </ActionIcon>
+              </Box>
               {showAudioButton && (
                 <Tooltip label="Click to play from this speaker's section">
                   <ActionIcon 
@@ -252,7 +354,36 @@ export function ClickableTranscript({
             </div>
           </div>
         );
-      })}
-    </div>
+        })}
+      </div>
+      
+      {/* Inline participant picker - rendered outside main content */}
+      {editingSpeaker && (
+        <InlineParticipantPicker
+          isOpen={!!editingSpeaker}
+          onClose={() => {
+            setEditingSpeaker(null);
+            onParticipantPickerStateChange?.(false);
+          }}
+          onSelect={(participantId) => {
+            handleParticipantSelect(editingSpeaker, participantId);
+            onParticipantPickerStateChange?.(false);
+          }}
+          anchorRef={{ current: speakerRefs.current[editingSpeaker] }}
+          currentParticipantId={transcription.speaker_mapping?.[editingSpeaker]?.participantId}
+        />
+      )}
+      
+      {/* Add Participant Modal */}
+      <AddParticipantModal
+        opened={addParticipantModalOpen}
+        onClose={() => {
+          setAddParticipantModalOpen(false);
+          setPendingSpeakerForNewParticipant(null);
+        }}
+        onParticipantCreated={handleNewParticipantCreated}
+        initialName={pendingSpeakerForNewParticipant ? getSpeakerDisplayName(pendingSpeakerForNewParticipant) : ''}
+      />
+    </>
   );
 }

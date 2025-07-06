@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { Button, Slider, Text, Group, Paper, ActionIcon } from '@mantine/core';
 import { LuPlay, LuPause, LuSkipBack, LuSkipForward, LuX } from 'react-icons/lu';
 import axios from 'axios';
@@ -114,14 +114,14 @@ export function AudioPlayer({ recordingId, onTimeUpdate, onClose }: AudioPlayerP
     setCurrentTime(time);
   };
 
-  const seekToTimestamp = (milliseconds: number) => {
+  const seekToTimestamp = useCallback((milliseconds: number) => {
     const seconds = milliseconds / 1000;
     seek(seconds);
     if (!isPlaying && audioRef.current) {
       audioRef.current.play();
       setIsPlaying(true);
     }
-  };
+  }, [seek, isPlaying]);
 
   const skip = (seconds: number) => {
     if (!audioRef.current) return;
@@ -139,12 +139,22 @@ export function AudioPlayer({ recordingId, onTimeUpdate, onClose }: AudioPlayerP
   useEffect(() => {
     // Store the seekToTimestamp function on the window for easy access
     // This allows transcript phrases to trigger playback
-    (window as any).audioPlayerSeekTo = seekToTimestamp;
+    (window as any).audioPlayerSeekTo = (ms: number) => {
+      const seconds = ms / 1000;
+      if (audioRef.current) {
+        audioRef.current.currentTime = seconds;
+        setCurrentTime(seconds);
+        if (!isPlaying) {
+          audioRef.current.play();
+          setIsPlaying(true);
+        }
+      }
+    };
     
     return () => {
       delete (window as any).audioPlayerSeekTo;
     };
-  }, [seekToTimestamp]);
+  }, [isPlaying]);
 
   if (error) {
     return (
