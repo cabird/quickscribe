@@ -8,7 +8,7 @@ from flask import Blueprint, request, jsonify
 from typing import Dict, Any
 
 from user_util import require_auth, get_current_user
-from db_handlers.handler_factory import get_participant_handler
+from shared_quickscribe_py.cosmos import get_participant_handler
 from pydantic import ValidationError
 
 logger = logging.getLogger(__name__)

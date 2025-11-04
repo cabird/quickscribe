@@ -113,6 +113,9 @@
                 "title": {
                     "type": "string"
                 },
+                "type": {
+                    "type": "string"
+                },
                 "updatedAt": {
                     "type": "string"
                 },
@@ -122,6 +125,7 @@
             },
             "propertyOrder": [
                 "id",
+                "type",
                 "name",
                 "title",
                 "shortTitle",
@@ -484,6 +488,35 @@
             ],
             "type": "object"
         },
+        "FailureRecord": {
+            "properties": {
+                "attemptNumber": {
+                    "type": "integer"
+                },
+                "error": {
+                    "type": "string"
+                },
+                "step": {
+                    "type": "string"
+                },
+                "timestamp": {
+                    "type": "string"
+                }
+            },
+            "propertyOrder": [
+                "timestamp",
+                "error",
+                "step",
+                "attemptNumber"
+            ],
+            "required": [
+                "attemptNumber",
+                "error",
+                "step",
+                "timestamp"
+            ],
+            "type": "object"
+        },
         "GetAnalysisTypesResponse": {
             "properties": {
                 "count": {
@@ -591,6 +624,280 @@
             "required": [
                 "count",
                 "status"
+            ],
+            "type": "object"
+        },
+        "JobExecution": {
+            "properties": {
+                "endTime": {
+                    "type": "string"
+                },
+                "errorMessage": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "logs": {
+                    "items": {
+                        "$ref": "#/definitions/JobLogEntry"
+                    },
+                    "type": "array"
+                },
+                "partitionKey": {
+                    "type": "string"
+                },
+                "startTime": {
+                    "type": "string"
+                },
+                "stats": {
+                    "$ref": "#/definitions/JobExecutionStats"
+                },
+                "status": {
+                    "enum": [
+                        "completed",
+                        "failed",
+                        "running"
+                    ],
+                    "type": "string"
+                },
+                "testRunId": {
+                    "type": "string"
+                },
+                "triggerSource": {
+                    "enum": [
+                        "manual",
+                        "scheduled"
+                    ],
+                    "type": "string"
+                },
+                "ttl": {
+                    "type": "integer"
+                },
+                "type": {
+                    "type": "string"
+                },
+                "userId": {
+                    "type": "string"
+                },
+                "usersProcessed": {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array"
+                }
+            },
+            "propertyOrder": [
+                "id",
+                "type",
+                "userId",
+                "status",
+                "triggerSource",
+                "startTime",
+                "endTime",
+                "logs",
+                "stats",
+                "errorMessage",
+                "usersProcessed",
+                "ttl",
+                "partitionKey",
+                "testRunId"
+            ],
+            "required": [
+                "id",
+                "logs",
+                "partitionKey",
+                "startTime",
+                "stats",
+                "status",
+                "triggerSource",
+                "ttl"
+            ],
+            "type": "object"
+        },
+        "JobExecutionStats": {
+            "properties": {
+                "chunks_created": {
+                    "type": "integer"
+                },
+                "errors": {
+                    "type": "integer"
+                },
+                "recordings_downloaded": {
+                    "type": "integer"
+                },
+                "recordings_found": {
+                    "type": "integer"
+                },
+                "recordings_skipped": {
+                    "type": "integer"
+                },
+                "recordings_transcoded": {
+                    "type": "integer"
+                },
+                "recordings_uploaded": {
+                    "type": "integer"
+                },
+                "transcriptions_checked": {
+                    "type": "integer"
+                },
+                "transcriptions_completed": {
+                    "type": "integer"
+                },
+                "transcriptions_submitted": {
+                    "type": "integer"
+                }
+            },
+            "propertyOrder": [
+                "transcriptions_checked",
+                "transcriptions_completed",
+                "recordings_found",
+                "recordings_downloaded",
+                "recordings_transcoded",
+                "recordings_uploaded",
+                "recordings_skipped",
+                "transcriptions_submitted",
+                "errors",
+                "chunks_created"
+            ],
+            "required": [
+                "chunks_created",
+                "errors",
+                "recordings_downloaded",
+                "recordings_found",
+                "recordings_skipped",
+                "recordings_transcoded",
+                "recordings_uploaded",
+                "transcriptions_checked",
+                "transcriptions_completed",
+                "transcriptions_submitted"
+            ],
+            "type": "object"
+        },
+        "JobLogEntry": {
+            "properties": {
+                "level": {
+                    "enum": [
+                        "debug",
+                        "error",
+                        "info",
+                        "warning"
+                    ],
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "recordingId": {
+                    "type": "string"
+                },
+                "timestamp": {
+                    "type": "string"
+                }
+            },
+            "propertyOrder": [
+                "timestamp",
+                "level",
+                "message",
+                "recordingId"
+            ],
+            "required": [
+                "level",
+                "message",
+                "timestamp"
+            ],
+            "type": "object"
+        },
+        "ManualReviewItem": {
+            "properties": {
+                "assignedTo": {
+                    "type": "string"
+                },
+                "createdAt": {
+                    "type": "string"
+                },
+                "failureCount": {
+                    "type": "integer"
+                },
+                "failureHistory": {
+                    "items": {
+                        "$ref": "#/definitions/FailureRecord"
+                    },
+                    "type": "array"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "lastError": {
+                    "type": "string"
+                },
+                "partitionKey": {
+                    "type": "string"
+                },
+                "recordingId": {
+                    "type": "string"
+                },
+                "recordingTitle": {
+                    "type": "string"
+                },
+                "resolution": {
+                    "type": "string"
+                },
+                "resolvedAt": {
+                    "type": "string"
+                },
+                "status": {
+                    "enum": [
+                        "dismissed",
+                        "in_progress",
+                        "pending",
+                        "resolved"
+                    ],
+                    "type": "string"
+                },
+                "testRunId": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                },
+                "updatedAt": {
+                    "type": "string"
+                },
+                "userId": {
+                    "type": "string"
+                }
+            },
+            "propertyOrder": [
+                "id",
+                "type",
+                "userId",
+                "recordingId",
+                "recordingTitle",
+                "failureCount",
+                "lastError",
+                "failureHistory",
+                "status",
+                "assignedTo",
+                "resolution",
+                "createdAt",
+                "updatedAt",
+                "resolvedAt",
+                "partitionKey",
+                "testRunId"
+            ],
+            "required": [
+                "createdAt",
+                "failureCount",
+                "failureHistory",
+                "id",
+                "lastError",
+                "partitionKey",
+                "recordingId",
+                "recordingTitle",
+                "status",
+                "updatedAt",
+                "userId"
             ],
             "type": "object"
         },
@@ -708,6 +1015,9 @@
                 "role": {
                     "type": "string"
                 },
+                "type": {
+                    "type": "string"
+                },
                 "updatedAt": {
                     "type": "string"
                 },
@@ -717,6 +1027,7 @@
             },
             "propertyOrder": [
                 "id",
+                "type",
                 "userId",
                 "firstName",
                 "lastName",
@@ -896,6 +1207,9 @@
                 "az_transcription_id": {
                     "type": "string"
                 },
+                "chunkGroupId": {
+                    "type": "string"
+                },
                 "description": {
                     "type": "string"
                 },
@@ -906,6 +1220,15 @@
                     "type": "string"
                 },
                 "is_dummy_recording": {
+                    "type": "boolean"
+                },
+                "last_check_time": {
+                    "type": "string"
+                },
+                "last_failure_message": {
+                    "type": "string"
+                },
+                "needs_manual_review": {
                     "type": "boolean"
                 },
                 "original_filename": {
@@ -933,6 +1256,9 @@
                 "plaudMetadata": {
                     "$ref": "#/definitions/PlaudMetadata"
                 },
+                "processing_failure_count": {
+                    "type": "integer"
+                },
                 "recorded_timestamp": {
                     "type": "string"
                 },
@@ -949,6 +1275,9 @@
                         "type": "string"
                     },
                     "type": "array"
+                },
+                "testRunId": {
+                    "type": "string"
                 },
                 "title": {
                     "type": "string"
@@ -984,6 +1313,19 @@
                 "transcription_id": {
                     "type": "string"
                 },
+                "transcription_job_id": {
+                    "type": "string"
+                },
+                "transcription_job_status": {
+                    "enum": [
+                        "completed",
+                        "failed",
+                        "not_started",
+                        "processing",
+                        "submitted"
+                    ],
+                    "type": "string"
+                },
                 "transcription_status": {
                     "enum": [
                         "completed",
@@ -994,6 +1336,9 @@
                     "type": "string"
                 },
                 "transcription_status_updated_at": {
+                    "type": "string"
+                },
+                "type": {
                     "type": "string"
                 },
                 "unique_filename": {
@@ -1008,6 +1353,7 @@
             },
             "propertyOrder": [
                 "id",
+                "type",
                 "user_id",
                 "original_filename",
                 "unique_filename",
@@ -1021,6 +1367,9 @@
                 "transcription_id",
                 "az_transcription_id",
                 "transcription_error_message",
+                "transcription_job_id",
+                "transcription_job_status",
+                "last_check_time",
                 "transcoding_status",
                 "transcoding_started_at",
                 "transcoding_completed_at",
@@ -1030,9 +1379,14 @@
                 "upload_timestamp",
                 "source",
                 "plaudMetadata",
+                "processing_failure_count",
+                "needs_manual_review",
+                "last_failure_message",
                 "partitionKey",
                 "tagIds",
-                "is_dummy_recording"
+                "is_dummy_recording",
+                "testRunId",
+                "chunkGroupId"
             ],
             "required": [
                 "id",
@@ -1174,12 +1528,16 @@
                 "ttl": {
                     "type": "number"
                 },
+                "type": {
+                    "type": "string"
+                },
                 "userId": {
                     "type": "string"
                 }
             },
             "propertyOrder": [
                 "id",
+                "type",
                 "syncToken",
                 "userId",
                 "status",
@@ -1302,10 +1660,16 @@
                     "propertyOrder": [],
                     "type": "object"
                 },
+                "testRunId": {
+                    "type": "string"
+                },
                 "text": {
                     "type": "string"
                 },
                 "transcript_json": {
+                    "type": "string"
+                },
+                "type": {
                     "type": "string"
                 },
                 "user_id": {
@@ -1314,6 +1678,7 @@
             },
             "propertyOrder": [
                 "id",
+                "type",
                 "user_id",
                 "recording_id",
                 "diarized_transcript",
@@ -1322,6 +1687,7 @@
                 "az_raw_transcription",
                 "az_transcription_id",
                 "partitionKey",
+                "testRunId",
                 "speaker_mapping",
                 "analysisResults"
             ],
@@ -1523,10 +1889,14 @@
                         "$ref": "#/definitions/Tag"
                     },
                     "type": "array"
+                },
+                "type": {
+                    "type": "string"
                 }
             },
             "propertyOrder": [
                 "id",
+                "type",
                 "name",
                 "email",
                 "role",

@@ -1,7 +1,7 @@
 from flask import Blueprint, request, redirect, jsonify, flash, url_for
-from db_handlers.transcription_handler import TranscriptionHandler
-from db_handlers.recording_handler import RecordingHandler
-from db_handlers.models import TranscriptionStatus, Recording
+from shared_quickscribe_py.cosmos import TranscriptionHandler
+from shared_quickscribe_py.cosmos import RecordingHandler
+from shared_quickscribe_py.cosmos import TranscriptionStatus, Recording
 from user_util import get_current_user
 from blob_util import generate_recording_sas_url
 from azure.storage.blob import BlobServiceClient

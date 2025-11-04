@@ -1,8 +1,8 @@
 # local_routes.py
 from flask import Blueprint, request, jsonify
-from db_handlers.handler_factory import get_user_handler, get_recording_handler, get_transcription_handler
+from shared_quickscribe_py.cosmos import get_user_handler, get_recording_handler, get_transcription_handler
 from user_util import get_current_user
-from db_handlers.models import Recording as RecordingModel
+from shared_quickscribe_py.cosmos import Recording as RecordingModel
 from datetime import datetime, UTC
 import uuid
 import os

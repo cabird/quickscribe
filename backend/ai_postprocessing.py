@@ -549,23 +549,9 @@ def postprocess_recording_full(recording_id: str) -> Dict[str, any]:
             logger.error(f"Exception details: {type(e).__name__}: {str(e)}")
             results['errors'].append(error_msg)
         
-        # Run speaker inference only if no speakers are manually verified
-        if transcription_id and transcription:
-            if has_manually_verified_speakers(transcription):
-                logger.info(f"Skipping speaker inference for recording {recording_id}: speakers have been manually verified by user")
-                results['speaker_update'] = {'skipped': 'manually_verified'}
-            else:
-                logger.info(f"Starting speaker inference for recording {recording_id}")
-                try:
-                    speaker_results = update_speaker_names(transcription_id, transcript_text, recording_id, recording, transcription)
-                    results['speaker_update'] = speaker_results
-                    logger.info(f"Speaker inference completed for recording {recording_id}: {speaker_results is not None}")
-                except Exception as e:
-                    error_msg = f"Failed to update speaker names: {e}"
-                    logger.warning(error_msg)
-                    results['errors'].append(error_msg)
-        else:
-            logger.info(f"Skipping speaker inference for recording {recording_id}: no transcription available")
+        # Speaker inference disabled - users will manually assign speakers
+        logger.info(f"Speaker inference disabled for recording {recording_id}")
+        results['speaker_update'] = {'skipped': 'feature_disabled'}
         
         success_count = sum([1 for key in ['title', 'description', 'speaker_update'] if results[key]])
         logger.info(f"AI post-processing completed for recording {recording_id}. "

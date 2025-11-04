@@ -5,8 +5,8 @@ import pytest
 from unittest.mock import Mock, patch, MagicMock
 from datetime import datetime, UTC
 
-from db_handlers.user_handler import UserHandler, User, PlaudSettings
-from db_handlers.models import Tag
+from shared_quickscribe_py.cosmos import UserHandler, User, PlaudSettings
+from shared_quickscribe_py.cosmos import Tag
 
 
 @pytest.mark.unit

@@ -1,8 +1,8 @@
 # api.py
 from flask import Blueprint, request, jsonify, url_for
-from db_handlers.handler_factory import get_user_handler, get_recording_handler, get_transcription_handler
+from shared_quickscribe_py.cosmos import get_user_handler, get_recording_handler, get_transcription_handler
 from user_util import get_current_user, require_auth
-from db_handlers.models import User, Recording, Transcription, TranscodingStatus, TranscriptionStatus, Tag
+from shared_quickscribe_py.cosmos import User, Recording, Transcription, TranscodingStatus, TranscriptionStatus, Tag
 from util import get_recording_duration_in_seconds
 from ai_postprocessing import postprocess_recording_full, update_transcription_speaker_data, update_recording_participants, update_transcription_speaker_data_with_participants, update_recording_participants_with_participants
 import re
@@ -764,7 +764,7 @@ def update_single_speaker(transcription_id):
             return jsonify({'error': 'Transcription does not belong to current user'}), 403
         
         # Get participant to ensure it exists and belongs to user
-        from db_handlers.handler_factory import get_participant_handler
+        from shared_quickscribe_py.cosmos import get_participant_handler
         participant_handler = get_participant_handler()
         
         participant = participant_handler.get_participant(current_user.id, participant_id)

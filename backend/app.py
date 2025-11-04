@@ -6,9 +6,9 @@ from azure.keyvault.secrets import SecretClient
 from dotenv import load_dotenv
 from azure.cosmos import CosmosClient, PartitionKey
 from azure.storage.blob import BlobServiceClient, ContentSettings, generate_blob_sas, BlobSasPermissions
-from db_handlers.user_handler import UserHandler
-from db_handlers.recording_handler import RecordingHandler
-from db_handlers.transcription_handler import TranscriptionHandler
+from shared_quickscribe_py.cosmos import UserHandler
+from shared_quickscribe_py.cosmos import RecordingHandler
+from shared_quickscribe_py.cosmos import TranscriptionHandler
 from datetime import datetime, UTC
 from routes.az_transcription_routes import az_transcription_bp, check_in_progress_transcription
 from routes.api import api_bp

@@ -24,8 +24,8 @@ class TestRecordingWorkflow:
                                     sample_recording_data, temp_file):
         """Test complete file upload and processing workflow."""
         # Setup user
-        from db_handlers.user_handler import User
-        from db_handlers.recording_handler import Recording
+        from shared_quickscribe_py.cosmos import User
+        from shared_quickscribe_py.cosmos import Recording
         
         mock_user = User(**sample_user_data)
         mock_get_user.return_value = mock_user
@@ -71,9 +71,9 @@ class TestRecordingWorkflow:
                                            sample_transcription_data):
         """Test transcoder callback workflow."""
         # Setup
-        from db_handlers.user_handler import User
-        from db_handlers.recording_handler import Recording
-        from db_handlers.transcription_handler import Transcription
+        from shared_quickscribe_py.cosmos import User
+        from shared_quickscribe_py.cosmos import Recording
+        from shared_quickscribe_py.cosmos import Transcription
         
         mock_user = User(**sample_user_data)
         mock_get_user.return_value = mock_user

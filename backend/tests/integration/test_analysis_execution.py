@@ -14,8 +14,8 @@ import uuid
 from unittest.mock import patch, Mock
 from datetime import datetime, UTC
 
-from db_handlers.handler_factory import (
-    create_analysis_type_handler, 
+from shared_quickscribe_py.cosmos import (
+    create_analysis_type_handler,
     create_user_handler,
     create_transcription_handler
 )

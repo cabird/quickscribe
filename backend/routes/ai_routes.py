@@ -1,11 +1,11 @@
 from flask import Blueprint, jsonify, request
-from db_handlers.handler_factory import get_transcription_handler, get_analysis_type_handler
+from shared_quickscribe_py.cosmos import get_transcription_handler, get_analysis_type_handler
 from llms import get_speaker_summaries_via_llm, get_speaker_mapping
 from logging_config import get_logger
 from api_version import API_VERSION
 from user_util import get_current_user, require_auth
 from pydantic import ValidationError
-from db_handlers.models import (
+from shared_quickscribe_py.cosmos import (
     CreateAnalysisTypeRequest,
     ExecuteAnalysisRequest,
     UpdateAnalysisTypeRequest,
@@ -302,7 +302,7 @@ def execute_analysis():
             return jsonify({'error': 'No transcript content available for analysis'}), 400
             
         # Transform transcript to use speaker names if mapping exists
-        from db_handlers.transcription_handler import TranscriptionHandler
+        from shared_quickscribe_py.cosmos import TranscriptionHandler
         transcript_text = TranscriptionHandler.transform_transcript_with_speaker_names(
             transcript_text, 
             transcription.speaker_mapping

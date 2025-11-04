@@ -16,7 +16,7 @@ class TestUserEndpoints:
     def test_get_current_user_success(self, mock_get_user_handler, client, sample_user_data):
         """Test GET /api/user endpoint with authenticated user."""
         # Setup
-        from db_handlers.user_handler import User
+        from shared_quickscribe_py.cosmos import User
         mock_user = User(**sample_user_data)
         mock_handler = Mock()
         mock_handler.get_user.return_value = mock_user
@@ -55,8 +55,8 @@ class TestRecordingEndpoints:
     def test_get_recordings_success(self, mock_get_handler, mock_get_user, client, sample_user_data, sample_recording_data):
         """Test GET /api/recordings endpoint."""
         # Setup
-        from db_handlers.user_handler import User
-        from db_handlers.recording_handler import Recording
+        from shared_quickscribe_py.cosmos import User
+        from shared_quickscribe_py.cosmos import Recording
         
         mock_user = User(**sample_user_data)
         mock_get_user.return_value = mock_user
@@ -83,7 +83,7 @@ class TestRecordingEndpoints:
     def test_upload_file_missing_file(self, mock_get_user, client, sample_user_data):
         """Test POST /api/upload without file."""
         # Setup
-        from db_handlers.user_handler import User
+        from shared_quickscribe_py.cosmos import User
         mock_user = User(**sample_user_data)
         mock_get_user.return_value = mock_user
         

@@ -12,9 +12,9 @@ import json
 from datetime import datetime, UTC
 from flask import Flask
 
-from db_handlers.handler_factory import create_analysis_type_handler, create_user_handler
-from db_handlers.analysis_type_handler import AnalysisTypeHandler
-from db_handlers.user_handler import UserHandler
+from shared_quickscribe_py.cosmos import create_analysis_type_handler, create_user_handler
+from shared_quickscribe_py.cosmos import AnalysisTypeHandler
+from shared_quickscribe_py.cosmos import UserHandler
 
 
 @pytest.mark.integration

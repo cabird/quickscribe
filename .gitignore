@@ -11,4 +11,12 @@ query_result*
 # But don't ignore .gitignore
 !.gitignore
 
+# Virtual environments (at any level in the repo)
 venv/
+.venv/
+
+# Node modules (at any level in the repo)
+node_modules/
+
+# Scratch/temporary work directory
+scratch/

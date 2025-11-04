@@ -39,6 +39,7 @@ export const DEFAULT_TAGS: Tag[] = [
 // Represents a participant in conversations (first-class entity)
 export interface Participant {
     id: string;                    // UUID for participant
+    type?: string;                 // Document type discriminator (always "participant")
     userId: string;                // Owner of this participant profile
     firstName?: string;            // First name
     lastName?: string;             // Last name
@@ -73,6 +74,7 @@ export interface RecordingParticipant {
 // Represents a user in the system
 export interface User {
     id: string; // Unique identifier for the user
+    type?: string; // Document type discriminator (always "user")
     name?: string; // Assumption: Not explicitly mentioned, possibly available from user handling methods
     email?: string; // Assumption: May be included depending on authentication setup
     role?: string; // Admin or user
@@ -87,6 +89,7 @@ export interface User {
 // Represents a recording entity
 export interface Recording {
     id: string; // Unique identifier for the recording
+    type?: string; // Document type discriminator (always "recording")
     user_id: string; // References the user who uploaded the recording
     original_filename: string; // Original filename of the uploaded file
     unique_filename: string; // Unique filename assigned to the uploaded file
@@ -102,6 +105,9 @@ export interface Recording {
     transcription_id?: string; // References the transcription id for this recording if one exists
     az_transcription_id?: string; // Azure transcription ID if in progress or completed
     transcription_error_message?: string; // Error message if transcription fails
+    transcription_job_id?: string; // Azure Speech Services batch job ID for tracking async transcription
+    transcription_job_status?: "not_started" | "submitted" | "processing" | "completed" | "failed"; // Batch transcription job status
+    last_check_time?: string; // ISO timestamp of last status check for pending transcription
     
     // Transcoding related fields
     transcoding_status?: "not_started" | "queued" | "in_progress" | "completed" | "failed"; // Transcoding status with specific values
@@ -114,14 +120,23 @@ export interface Recording {
     upload_timestamp?: string; // DateTime of when the recording was uploaded
     source?: "upload" | "plaud" | "stream"; // Source of the recording
     plaudMetadata?: PlaudMetadata;          // Plaud-specific metadata (only present for Plaud recordings)
+
+    // Processing failure tracking
+    processing_failure_count?: integer; // Number of times processing has failed (default: 0)
+    needs_manual_review?: boolean; // True if processing failed 3+ times and requires manual intervention
+    last_failure_message?: string; // Most recent failure error message
+
     partitionKey: string;
     tagIds?: string[]; // Array of tag IDs assigned to this recording
     is_dummy_recording?: boolean; // Indicates if this is a dummy recording for testing
+    testRunId?: string; // Test run identifier for cleanup purposes (only set during test runs)
+    chunkGroupId?: string; // UUID linking all chunks from the same original recording (only set for chunked recordings)
 }
 
 // Progress tracking for Plaud sync operations
 export interface SyncProgress {
     id: string; // Unique identifier (same as syncToken)
+    type?: string; // Document type discriminator (always "sync_progress")
     syncToken: string; // Token identifying this sync operation
     userId: string; // User who initiated the sync
     status: 'queued' | 'processing' | 'completed' | 'failed'; // Current status
@@ -135,6 +150,74 @@ export interface SyncProgress {
     lastUpdate: string; // ISO timestamp of last progress update
     ttl?: number; // TTL for automatic cleanup (24 hours from start)
     partitionKey: string; // For CosmosDB partitioning
+}
+
+// Failure tracking for recordings that need manual review
+export interface FailureRecord {
+    timestamp: string; // ISO timestamp when the failure occurred
+    error: string; // Error message
+    step: string; // Which step failed (download, transcode, submit_transcription, etc.)
+    attemptNumber: integer; // Which attempt this was (1, 2, 3, etc.)
+}
+
+// Manual review queue for recordings that failed 3+ times
+export interface ManualReviewItem {
+    id: string; // Unique identifier (UUID)
+    type?: string; // Document type discriminator (always "manual_review")
+    userId: string; // Owner of this recording
+    recordingId: string; // References Recording.id
+    recordingTitle: string; // Denormalized for quick display
+    failureCount: integer; // Number of failures (always >= 3)
+    lastError: string; // Most recent error message
+    failureHistory: FailureRecord[]; // Complete failure history
+    status: "pending" | "in_progress" | "resolved" | "dismissed"; // Review status
+    assignedTo?: string; // Admin user handling this review
+    resolution?: string; // Notes about how it was resolved
+    createdAt: string; // ISO timestamp when first added to review queue
+    updatedAt: string; // ISO timestamp of last update
+    resolvedAt?: string; // ISO timestamp when resolved/dismissed
+    partitionKey: string; // userId for efficient user-scoped queries
+    testRunId?: string; // Test run identifier for cleanup purposes (only set during test runs)
+}
+
+// Log entry for job execution tracking
+export interface JobLogEntry {
+    timestamp: string; // ISO timestamp
+    level: "debug" | "info" | "warning" | "error"; // Log level
+    message: string; // Log message
+    recordingId?: string; // Optional recording ID if log relates to specific recording
+}
+
+// Statistics for job execution
+export interface JobExecutionStats {
+    transcriptions_checked: integer; // Number of pending transcriptions checked
+    transcriptions_completed: integer; // Number of transcriptions that completed
+    recordings_found: integer; // New recordings from Plaud
+    recordings_downloaded: integer; // Successfully downloaded
+    recordings_transcoded: integer; // Successfully transcoded
+    recordings_uploaded: integer; // Successfully uploaded to blob storage
+    recordings_skipped: integer; // Skipped (already exist in database)
+    transcriptions_submitted: integer; // Successfully submitted to Azure Speech
+    errors: integer; // Total number of errors encountered
+    chunks_created: integer; // Number of chunks created from large files
+}
+
+// Job execution tracking for Plaud sync service
+export interface JobExecution {
+    id: string; // Unique job identifier (UUID)
+    type?: string; // Document type discriminator (always "job_execution")
+    userId?: string; // User who triggered (null for scheduled jobs that process all users)
+    status: "running" | "completed" | "failed"; // Execution status
+    triggerSource: "scheduled" | "manual"; // How the job was triggered
+    startTime: string; // ISO timestamp when execution began
+    endTime?: string; // ISO timestamp when execution finished
+    logs: JobLogEntry[]; // Array of log entries
+    stats: JobExecutionStats; // Summary statistics
+    errorMessage?: string; // Critical error message if job failed
+    usersProcessed?: string[]; // List of user IDs processed (for scheduled runs)
+    ttl: integer; // Time-to-live in seconds (30 days = 2,592,000)
+    partitionKey: string; // "job_execution" for all job execution records
+    testRunId?: string; // Test run identifier for cleanup purposes (only set during test runs)
 }
 
 // API Response types for Plaud operations
@@ -165,6 +248,7 @@ export interface ActiveSyncCheckResponse {
 // Represents an analysis type that can be applied to transcriptions
 export interface AnalysisType {
     id: string; // Unique identifier (UUID)
+    type?: string; // Document type discriminator (always "analysis_type")
     name: string; // Internal identifier (slug-like: "summary", "custom-meeting-notes")
     title: string; // Display name ("Generate Summary", "Custom Meeting Notes")
     shortTitle: string; // Short title for tabs ("Summary", "Keywords") - max 12 chars
@@ -197,6 +281,7 @@ export interface AnalysisResult {
 // Represents a transcription entity
 export interface Transcription {
     id: string; // Unique identifier for the transcription
+    type?: string; // Document type discriminator (always "transcription")
     user_id: string; // References the user who owns the transcription
     recording_id: string; // References the recording this transcription is associated with
     diarized_transcript?: string; // Transcript text with speaker separation if diarized
@@ -205,6 +290,7 @@ export interface Transcription {
     az_raw_transcription?: string; // Raw Azure transcription result as a JSON string
     az_transcription_id?: string; // Azure transcription id
     partitionKey: string;
+    testRunId?: string; // Test run identifier for cleanup purposes (only set during test runs)
 
      // Detailed speaker mapping with inferred name and reasoning for each speaker
      speaker_mapping?: {

@@ -1,6 +1,6 @@
 # Add these imports to the top of routes/api.py
 from azure.storage.queue import QueueClient
-from db_handlers.handler_factory import create_user_handler, get_sync_progress_handler, get_user_handler
+from shared_quickscribe_py.cosmos import create_user_handler, get_sync_progress_handler, get_user_handler
 from datetime import datetime, UTC
 import uuid
 import json
@@ -9,7 +9,7 @@ from flask import Blueprint, jsonify, request, url_for
 from user_util import get_current_user
 from config import config
 from api_version import API_VERSION
-from db_handlers.handler_factory import get_recording_handler
+from shared_quickscribe_py.cosmos import get_recording_handler
 from blob_util import generate_recording_sas_url
 from logging_config import get_logger
 # Initialize logger
@@ -76,7 +76,7 @@ def update_plaud_settings():
                 return jsonify({'error': 'Invalid timestamp format'}), 400
         
         # Update user record with Pydantic model
-        from db_handlers.user_handler import PlaudSettings
+        from shared_quickscribe_py.cosmos import PlaudSettings
         user.plaudSettings = PlaudSettings(**current_settings)
 
         user_handler = create_user_handler()
@@ -453,7 +453,7 @@ def handle_plaud_recording_registration(data):
         }
         
         # Create recording record
-        from db_handlers.models import Source
+        from shared_quickscribe_py.cosmos import Source
         recording = recording_handler.create_recording(
             user_id=user_id,
             original_filename=original_filename,
@@ -464,7 +464,7 @@ def handle_plaud_recording_registration(data):
         )
         
         # Update recording with Plaud metadata and duration
-        from db_handlers.models import PlaudMetadata
+        from shared_quickscribe_py.cosmos import PlaudMetadata
         recording.plaudMetadata = PlaudMetadata(**plaud_metadata)
         recording.duration = duration
         recording.upload_timestamp = datetime.now(UTC).isoformat()
