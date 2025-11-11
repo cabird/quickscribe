@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify, g, send_from_directory    
+from flask import Flask, render_template, request, jsonify, g, send_from_directory
 import os
 import requests
 from azure.identity import DefaultAzureCredential
@@ -9,6 +9,7 @@ from azure.storage.blob import BlobServiceClient, ContentSettings, generate_blob
 from shared_quickscribe_py.cosmos import UserHandler
 from shared_quickscribe_py.cosmos import RecordingHandler
 from shared_quickscribe_py.cosmos import TranscriptionHandler
+from shared_quickscribe_py.config import get_settings
 from datetime import datetime, UTC
 from routes.az_transcription_routes import az_transcription_bp, check_in_progress_transcription
 from routes.api import api_bp
@@ -19,7 +20,6 @@ from routes.admin import admin_bp
 from routes.participant_routes import participant_bp
 from api_version import API_VERSION
 from user_util import get_current_user
-from config import config
 import auth
 import logging
 
@@ -27,7 +27,11 @@ import time
 # Import our custom logging configuration
 from logging_config import get_logger
 
+# Load environment variables (for local development)
 load_dotenv()
+
+# Load and validate configuration at module level
+settings = get_settings()
 
 # Module-level variables for shared resources
 blob_service_client = None
@@ -47,7 +51,7 @@ def create_app(test_config=None):
     # Load configuration
     if test_config is None:
         # Load production/development config
-        app.secret_key = config.SECRET_KEY
+        app.secret_key = settings.flask.secret_key
         app.config['PREFERRED_URL_SCHEME'] = 'https'
     else:
         # Load test configuration
@@ -80,12 +84,19 @@ def create_app(test_config=None):
     if not app.config.get('TESTING'):
         try:
             # Initialize the BlobServiceClient
-            blob_service_client = BlobServiceClient.from_connection_string(config.AZURE_STORAGE_CONNECTION_STRING)
-            
+            if settings.blob_storage_enabled and settings.blob_storage:
+                blob_service_client = BlobServiceClient.from_connection_string(
+                    settings.blob_storage.connection_string
+                )
+
             # Initialize Cosmos DB client
-            cosmos_client = CosmosClient(config.COSMOS_URL, credential=config.COSMOS_KEY)
-            cosmos_database = cosmos_client.get_database_client(config.COSMOS_DB_NAME)
-            cosmos_container = cosmos_database.get_container_client(config.COSMOS_CONTAINER_NAME)
+            if settings.cosmos_enabled and settings.cosmos:
+                cosmos_client = CosmosClient(
+                    settings.cosmos.endpoint,
+                    credential=settings.cosmos.key
+                )
+                cosmos_database = cosmos_client.get_database_client(settings.cosmos.database_name)
+                cosmos_container = cosmos_database.get_container_client(settings.cosmos.container_name)
         except Exception as e:
             app_logger.error(f"Failed to initialize Azure services: {e}")
     

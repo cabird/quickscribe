@@ -269,6 +269,25 @@ npm install -g azure-functions-core-tools@4
 - Service includes 5-second delay between downloads
 - If still seeing rate limits, increase delay in plaud_processor.py
 
+**6. Lock acquisition failure: "Lock already exists, cannot acquire"**
+This error occurs when a distributed lock from a previous sync job hasn't been released. Common causes:
+- Previous job crashed or was killed without releasing lock
+- Stale lock from TTL not yet cleaned up by Cosmos DB
+
+Diagnosis and fix:
+```bash
+# Check lock status
+python manage_locks.py status
+
+# Force release if lock is stale
+python manage_locks.py force-release
+
+# Run diagnostic to verify locking works
+python diagnose_lock_issue.py
+```
+
+The lock has a 30-minute TTL and should auto-expire, but Cosmos DB's TTL cleanup can be delayed. Force-releasing a stale lock is safe if you're certain no other sync job is actually running.
+
 ### Debug Logging
 
 Set `LOG_LEVEL=DEBUG` in local.settings.json for verbose logging.

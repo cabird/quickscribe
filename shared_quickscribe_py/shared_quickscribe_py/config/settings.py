@@ -8,6 +8,7 @@ from pydantic import Field, field_validator, ValidationError
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Optional
 import sys
+import os
 
 
 # =============================================================================
@@ -47,11 +48,27 @@ class CosmosDBSettings(BaseSettings):
         default="quickscribe",
         description="Database name"
     )
+    container_name: str = Field(
+        default="recordings",
+        description="Default container name"
+    )
 
     model_config = SettingsConfigDict(
         env_prefix="AZURE_COSMOS_",
         case_sensitive=False
     )
+
+    def __init__(self, **data):
+        # Backward compatibility: check for legacy variable names
+        if 'endpoint' not in data and os.getenv('COSMOS_URL'):
+            data['endpoint'] = os.getenv('COSMOS_URL')
+        if 'key' not in data and os.getenv('COSMOS_KEY'):
+            data['key'] = os.getenv('COSMOS_KEY')
+        if 'database_name' not in data and os.getenv('COSMOS_DB_NAME'):
+            data['database_name'] = os.getenv('COSMOS_DB_NAME')
+        if 'container_name' not in data and os.getenv('COSMOS_CONTAINER_NAME'):
+            data['container_name'] = os.getenv('COSMOS_CONTAINER_NAME')
+        super().__init__(**data)
 
 
 class BlobStorageSettings(BaseSettings):
@@ -75,6 +92,14 @@ class BlobStorageSettings(BaseSettings):
         case_sensitive=False
     )
 
+    def __init__(self, **data):
+        # Backward compatibility: check for legacy variable names
+        if 'audio_container_name' not in data and os.getenv('AZURE_RECORDING_BLOB_CONTAINER'):
+            data['audio_container_name'] = os.getenv('AZURE_RECORDING_BLOB_CONTAINER')
+        if 'queue_name' not in data and os.getenv('TRANSCODING_QUEUE_NAME'):
+            data['queue_name'] = os.getenv('TRANSCODING_QUEUE_NAME')
+        super().__init__(**data)
+
 
 class SpeechServicesSettings(BaseSettings):
     """Azure Speech Services configuration for transcription."""
@@ -87,6 +112,14 @@ class SpeechServicesSettings(BaseSettings):
         case_sensitive=False
     )
 
+    def __init__(self, **data):
+        # Backward compatibility: check for legacy variable names
+        if 'subscription_key' not in data and os.getenv('AZURE_SPEECH_SERVICES_KEY'):
+            data['subscription_key'] = os.getenv('AZURE_SPEECH_SERVICES_KEY')
+        if 'region' not in data and os.getenv('AZURE_SPEECH_SERVICES_REGION'):
+            data['region'] = os.getenv('AZURE_SPEECH_SERVICES_REGION')
+        super().__init__(**data)
+
 
 class PlaudAPISettings(BaseSettings):
     """Plaud API configuration for device integration."""
@@ -98,6 +131,48 @@ class PlaudAPISettings(BaseSettings):
 
     model_config = SettingsConfigDict(
         env_prefix="PLAUD_API_",
+        case_sensitive=False
+    )
+
+
+class AzureADAuthSettings(BaseSettings):
+    """Azure AD authentication configuration for backend API."""
+
+    client_id: str = Field(..., description="Azure AD application client ID")
+    client_secret: str = Field(..., description="Azure AD client secret")
+    tenant_id: str = Field(..., description="Azure AD tenant ID")
+
+    model_config = SettingsConfigDict(
+        env_prefix="AZ_AUTH_",
+        case_sensitive=False
+    )
+
+
+class AssemblyAISettings(BaseSettings):
+    """AssemblyAI transcription service configuration (optional alternative)."""
+
+    api_key: str = Field(..., description="AssemblyAI API key")
+    speech_model: str = Field(
+        default="best",
+        description="Speech model to use"
+    )
+
+    model_config = SettingsConfigDict(
+        env_prefix="ASSEMBLYAI_",
+        case_sensitive=False
+    )
+
+
+class FlaskSettings(BaseSettings):
+    """Flask application-specific settings."""
+
+    secret_key: str = Field(
+        default="supersecretkey",
+        description="Flask secret key for sessions"
+    )
+
+    model_config = SettingsConfigDict(
+        env_prefix="FLASK_",
         case_sensitive=False
     )
 
@@ -168,6 +243,14 @@ class QuickScribeSettings(BaseSettings):
         default=False,
         description="Enable Plaud device integration"
     )
+    azure_ad_auth_enabled: bool = Field(
+        default=False,
+        description="Enable Azure AD authentication for backend"
+    )
+    assemblyai_enabled: bool = Field(
+        default=False,
+        description="Enable AssemblyAI as alternative transcription service"
+    )
 
     # =========================================================================
     # Service-Specific Settings (Conditionally Required)
@@ -178,6 +261,9 @@ class QuickScribeSettings(BaseSettings):
     blob_storage: Optional[BlobStorageSettings] = None
     speech_services: Optional[SpeechServicesSettings] = None
     plaud_api: Optional[PlaudAPISettings] = None
+    azure_ad_auth: Optional[AzureADAuthSettings] = None
+    assemblyai: Optional[AssemblyAISettings] = None
+    flask: Optional[FlaskSettings] = None
 
     # =========================================================================
     # Pydantic Configuration
@@ -261,6 +347,57 @@ class QuickScribeSettings(BaseSettings):
                     f"but validation failed: {e}"
                 )
         return None
+
+    @field_validator('azure_ad_auth', mode='before')
+    @classmethod
+    def validate_azure_ad_auth(cls, v, info):
+        """Require Azure AD auth settings if azure_ad_auth_enabled is True."""
+        if info.data.get('azure_ad_auth_enabled'):
+            try:
+                return AzureADAuthSettings()
+            except ValidationError as e:
+                raise ValueError(
+                    f"Azure AD auth configuration required (azure_ad_auth_enabled=True) "
+                    f"but validation failed: {e}"
+                )
+        return None
+
+    @field_validator('assemblyai', mode='before')
+    @classmethod
+    def validate_assemblyai(cls, v, info):
+        """Require AssemblyAI settings if assemblyai_enabled is True."""
+        if info.data.get('assemblyai_enabled'):
+            try:
+                return AssemblyAISettings()
+            except ValidationError as e:
+                raise ValueError(
+                    f"AssemblyAI configuration required (assemblyai_enabled=True) "
+                    f"but validation failed: {e}"
+                )
+        return None
+
+    @field_validator('flask', mode='before')
+    @classmethod
+    def validate_flask(cls, v, info):
+        """Always load Flask settings with defaults."""
+        try:
+            return FlaskSettings()
+        except ValidationError as e:
+            raise ValueError(f"Flask configuration validation failed: {e}")
+
+    # =========================================================================
+    # Computed Properties
+    # =========================================================================
+
+    @property
+    def running_in_azure(self) -> bool:
+        """Detect if running in Azure App Service."""
+        return bool(os.getenv('WEBSITE_INSTANCE_ID'))
+
+    @property
+    def is_local_development(self) -> bool:
+        """Detect if running in local development environment."""
+        return not self.running_in_azure
 
 
 # =============================================================================

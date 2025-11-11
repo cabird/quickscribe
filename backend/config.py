@@ -1,7 +1,13 @@
-import os
-from dotenv import load_dotenv
+"""
+Backward-compatible config module that wraps shared_quickscribe_py.config.
 
-# Load appropriate .env file based on environment
+This module provides the old config.X interface while using the new shared settings
+system under the hood. This allows gradual migration of code to use shared settings.
+"""
+from dotenv import load_dotenv
+import os
+
+# Load .env files based on environment (for backward compatibility)
 if os.getenv('WEBSITE_INSTANCE_ID'):  # Running in Azure
     if os.path.exists('.env.production'):
         load_dotenv('.env.production')
@@ -18,41 +24,117 @@ else:  # Local development
     else:
         print("WARNING: No .env file found for local development")
 
+# Import shared settings
+from shared_quickscribe_py.config import get_settings
+
+# Load settings
+_settings = get_settings()
+
+
 class Config:
+    """
+    Backward-compatible configuration class that wraps shared settings.
+
+    This provides the old config.X interface while using shared_quickscribe_py.config
+    under the hood. Allows gradual migration to the new settings system.
+    """
+
     # Environment detection - single source of truth
-    RUNNING_IN_AZURE = bool(os.getenv('WEBSITE_INSTANCE_ID'))
-    IS_LOCAL_DEVELOPMENT = not RUNNING_IN_AZURE
-    
-    SECRET_KEY = os.getenv('SECRET_KEY', 'supersecretkey')
-    AZURE_STORAGE_CONNECTION_STRING = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
-    AZURE_RECORDING_BLOB_CONTAINER = os.getenv("AZURE_RECORDING_BLOB_CONTAINER")
-    COSMOS_URL = os.getenv('COSMOS_URL')
-    COSMOS_KEY = os.getenv('COSMOS_KEY')
-    COSMOS_DB_NAME = os.getenv("COSMOS_DB_NAME")
-    COSMOS_CONTAINER_NAME = os.getenv("COSMOS_CONTAINER_NAME")
+    RUNNING_IN_AZURE = _settings.running_in_azure
+    IS_LOCAL_DEVELOPMENT = _settings.is_local_development
+
+    # Flask settings
+    SECRET_KEY = _settings.flask.secret_key if _settings.flask else os.getenv('SECRET_KEY', 'supersecretkey')
+
+    # CosmosDB settings
+    @property
+    def COSMOS_URL(self):
+        return _settings.cosmos.endpoint if _settings.cosmos else None
+
+    @property
+    def COSMOS_KEY(self):
+        return _settings.cosmos.key if _settings.cosmos else None
+
+    @property
+    def COSMOS_DB_NAME(self):
+        return _settings.cosmos.database_name if _settings.cosmos else None
+
+    @property
+    def COSMOS_CONTAINER_NAME(self):
+        return _settings.cosmos.container_name if _settings.cosmos else None
+
+    # Blob Storage settings
+    @property
+    def AZURE_STORAGE_CONNECTION_STRING(self):
+        return _settings.blob_storage.connection_string if _settings.blob_storage else None
+
+    @property
+    def AZURE_RECORDING_BLOB_CONTAINER(self):
+        return _settings.blob_storage.audio_container_name if _settings.blob_storage else None
+
+    @property
+    def TRANSCODING_QUEUE_NAME(self):
+        return _settings.blob_storage.queue_name if _settings.blob_storage else None
+
+    # Azure OpenAI settings
+    @property
+    def AZURE_OPENAI_API_KEY(self):
+        return _settings.azure_openai.api_key if _settings.azure_openai else None
+
+    @property
+    def AZURE_OPENAI_API_ENDPOINT(self):
+        return _settings.azure_openai.api_endpoint if _settings.azure_openai else None
+
+    @property
+    def AZURE_OPENAI_API_VERSION(self):
+        return _settings.azure_openai.api_version if _settings.azure_openai else None
+
+    @property
+    def AZURE_OPENAI_DEPLOYMENT_NAME(self):
+        return _settings.azure_openai.deployment_name if _settings.azure_openai else None
+
+    # Azure Speech Services settings
+    @property
+    def AZURE_SPEECH_SERVICES_KEY(self):
+        return _settings.speech_services.subscription_key if _settings.speech_services else None
+
+    @property
+    def AZURE_SPEECH_SERVICES_REGION(self):
+        return _settings.speech_services.region if _settings.speech_services else None
+
+    @property
+    def AZURE_SPEECH_SERVICES_ENDPOINT(self):
+        """Construct endpoint from region."""
+        if _settings.speech_services:
+            return f"https://{_settings.speech_services.region}.api.cognitive.microsoft.com"
+        return None
+
+    # Azure AD Auth settings
+    @property
+    def AZ_AUTH_CLIENT_ID(self):
+        return _settings.azure_ad_auth.client_id if _settings.azure_ad_auth else None
+
+    @property
+    def AZ_AUTH_CLIENT_SECRET(self):
+        return _settings.azure_ad_auth.client_secret if _settings.azure_ad_auth else None
+
+    @property
+    def AZ_AUTH_TENANT_ID(self):
+        return _settings.azure_ad_auth.tenant_id if _settings.azure_ad_auth else None
+
+    # AssemblyAI settings (optional)
+    @property
+    def ASSEMBLYAI_API_KEY(self):
+        return _settings.assemblyai.api_key if _settings.assemblyai else None
+
+    @property
+    def ASSEMBLYAI_SPEECH_MODEL(self):
+        return _settings.assemblyai.speech_model if _settings.assemblyai else None
+
+    # Legacy/optional settings (not in shared config)
     KEY_VAULT_NAME = os.getenv("KEY_VAULT_NAME")
     AZURE_STORAGE_ACCOUNT_KEY = os.getenv("AZURE_STORAGE_ACCOUNT_KEY")
 
-    TRANSCODING_QUEUE_NAME = os.getenv("TRANSCODING_QUEUE_NAME")
-    
-    #Azure Authentication
-    AZ_AUTH_CLIENT_ID = os.getenv("AZ_AUTH_CLIENT_ID")
-    AZ_AUTH_CLIENT_SECRET = os.getenv("AZ_AUTH_CLIENT_SECRET")
-    AZ_AUTH_TENANT_ID = os.getenv("AZ_AUTH_TENANT_ID")
 
-    #Azure OpenAI
-    AZURE_OPENAI_API_KEY = os.getenv("AZURE_OPENAI_API_KEY")
-    AZURE_OPENAI_API_ENDPOINT = os.getenv("AZURE_OPENAI_API_ENDPOINT")
-    AZURE_OPENAI_API_VERSION = os.getenv("AZURE_OPENAI_API_VERSION")
-    AZURE_OPENAI_DEPLOYMENT_NAME = os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME")
-
-    #AssemblyAI
-    ASSEMBLYAI_SPEECH_MODEL = os.getenv("ASSEMBLYAI_SPEECH_MODEL")
-    ASSEMBLYAI_API_KEY = os.getenv("ASSEMBLYAI_API_KEY")
-
-    #Azure Speech Services
-    AZURE_SPEECH_SERVICES_ENDPOINT = os.getenv("AZURE_SPEECH_SERVICES_ENDPOINT")
-    AZURE_SPEECH_SERVICES_REGION = os.getenv("AZURE_SPEECH_SERVICES_REGION")
-    AZURE_SPEECH_SERVICES_KEY = os.getenv("AZURE_SPEECH_SERVICES_KEY")
-
+# Create singleton instance
 config = Config()

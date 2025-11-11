@@ -1,4 +1,4 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: quickscribe-shared
 Version: 0.1.0
 Summary: Shared Python library for QuickScribe services
@@ -14,3 +14,6 @@ Requires-Dist: httpx>=0.27.0
 Requires-Dist: requests>=2.32.0
 Requires-Dist: python-dotenv>=1.0.0
 Requires-Dist: mutagen>=1.47.0
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary

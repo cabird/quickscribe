@@ -201,6 +201,7 @@ class JobExecutor:
             logger.error(f"Critical error in job execution: {str(e)}")
             import traceback
             logger.error(f"Stack trace: {traceback.format_exc()}")
+            stats.errors += 1
             self._fail_job_execution(job_id, str(e), stats, users_processed, logger)
         finally:
             # Always release the lock if we acquired it
@@ -270,10 +271,11 @@ class JobExecutor:
             try:
                 query = """
                 SELECT * FROM c
-                WHERE c.type = 'user'
+                WHERE (c.type = 'user' OR NOT IS_DEFINED(c.type))
                 AND IS_DEFINED(c.plaudSettings.bearerToken)
                 AND c.plaudSettings.bearerToken != null
                 AND c.plaudSettings.bearerToken != ''
+                AND c.plaudSettings.enableSync = true
                 """
                 items = list(self.user_handler.container.query_items(
                     query=query,

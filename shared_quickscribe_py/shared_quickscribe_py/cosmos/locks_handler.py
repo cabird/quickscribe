@@ -47,8 +47,63 @@ class LocksHandler:
             logger.info(f"Acquired lock '{lock_id}' for owner '{owner_id}'")
             return True
         except CosmosResourceExistsError:
-            logger.warning(f"Lock '{lock_id}' already exists, cannot acquire")
-            return False
+            # Lock document exists - check if it's expired
+            try:
+                existing_lock = self.container.read_item(item=lock_id, partition_key="locks")
+                acquired_at_str = existing_lock.get("acquiredAt")
+                lock_ttl = existing_lock.get("ttl", ttl_seconds)
+                existing_owner = existing_lock.get("ownerId")
+
+                if acquired_at_str:
+                    from dateutil import parser as date_parser
+                    from datetime import timedelta
+
+                    acquired_at = date_parser.parse(acquired_at_str)
+                    expiry_time = acquired_at + timedelta(seconds=lock_ttl)
+                    now = datetime.now(UTC)
+
+                    if now > expiry_time:
+                        # Lock has expired - force release and retry
+                        logger.warning(
+                            f"Lock '{lock_id}' held by '{existing_owner}' has expired "
+                            f"(acquired: {acquired_at_str}, TTL: {lock_ttl}s). Force releasing..."
+                        )
+                        try:
+                            self.container.delete_item(item=lock_id, partition_key="locks")
+                            logger.info(f"Deleted expired lock '{lock_id}'")
+
+                            # Retry acquisition after deleting stale lock
+                            self.container.create_item(body=lock_document)
+                            logger.info(f"Acquired lock '{lock_id}' for owner '{owner_id}' after removing stale lock")
+                            return True
+                        except Exception as delete_error:
+                            logger.error(f"Error deleting expired lock '{lock_id}': {str(delete_error)}")
+                            return False
+                    else:
+                        # Lock is still valid
+                        time_remaining = (expiry_time - now).total_seconds()
+                        logger.warning(
+                            f"Lock '{lock_id}' already held by '{existing_owner}' "
+                            f"(expires in {time_remaining / 60:.1f} minutes)"
+                        )
+                        return False
+                else:
+                    logger.warning(f"Lock '{lock_id}' exists but missing acquiredAt timestamp")
+                    return False
+
+            except CosmosResourceNotFoundError:
+                # Lock was deleted between our attempts - retry once
+                logger.info(f"Lock '{lock_id}' was deleted, retrying acquisition...")
+                try:
+                    self.container.create_item(body=lock_document)
+                    logger.info(f"Acquired lock '{lock_id}' for owner '{owner_id}' on retry")
+                    return True
+                except Exception as retry_error:
+                    logger.error(f"Error acquiring lock '{lock_id}' on retry: {str(retry_error)}")
+                    return False
+            except Exception as read_error:
+                logger.error(f"Error reading existing lock '{lock_id}': {str(read_error)}")
+                return False
         except Exception as e:
             logger.error(f"Error acquiring lock '{lock_id}': {str(e)}")
             return False

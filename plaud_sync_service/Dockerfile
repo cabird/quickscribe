@@ -10,18 +10,19 @@ RUN apt-get update && apt-get install -y \
     ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy function app files
-COPY . /home/site/wwwroot
+# Copy shared library first
+COPY shared_quickscribe_py /tmp/shared_quickscribe_py
 
 # Install shared_quickscribe_py library
-WORKDIR /home/site/wwwroot
-RUN if [ -d "../shared_quickscribe_py" ]; then \
-        pip install -e ../shared_quickscribe_py; \
-    else \
-        echo "Warning: shared_quickscribe_py not found, will need to be installed separately"; \
-    fi
+RUN pip install -e /tmp/shared_quickscribe_py
+
+# Copy and install Azure Speech Services swagger client
+COPY backend/azure_speech/python-client /tmp/azure_speech_client
+RUN pip install -e /tmp/azure_speech_client
+
+# Copy function app files
+COPY plaud_sync_service /home/site/wwwroot
 
 # Install Python dependencies
-RUN pip install --no-cache-dir -r /home/site/wwwroot/requirements.txt
-
 WORKDIR /home/site/wwwroot
+RUN pip install --no-cache-dir -r requirements.txt

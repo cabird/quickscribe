@@ -10,6 +10,11 @@ import sys
 
 from shared_quickscribe_py.config import get_settings
 from job_executor import JobExecutor
+from service_version import SERVICE_VERSION
+
+# Configure logging - suppress verbose Azure SDK HTTP logs
+logging.getLogger('azure.core.pipeline.policies.http_logging_policy').setLevel(logging.WARNING)
+logging.getLogger('azure').setLevel(logging.WARNING)
 
 # Load and validate configuration at startup
 try:
@@ -40,11 +45,24 @@ def scheduled_sync(timer: func.TimerRequest) -> None:
         if test_run_id:
             logging.info(f'Running in test mode with TEST_RUN_ID: {test_run_id}')
 
+        # Read MAX_RECORDINGS from environment (for testing/limiting)
+        max_recordings = os.getenv('MAX_RECORDINGS')
+        if max_recordings:
+            try:
+                max_recordings = int(max_recordings)
+                logging.info(f'MAX_RECORDINGS limit set to: {max_recordings}')
+            except ValueError:
+                logging.warning(f'Invalid MAX_RECORDINGS value: {max_recordings}, ignoring')
+                max_recordings = None
+        else:
+            max_recordings = None
+
         executor = JobExecutor(settings)
         job_id = executor.execute_sync_job(
             trigger_source="scheduled",
             user_id=None,
-            test_run_id=test_run_id
+            test_run_id=test_run_id,
+            max_recordings=max_recordings
         )
         logging.info(f'Job execution started: {job_id}')
 
@@ -54,7 +72,7 @@ def scheduled_sync(timer: func.TimerRequest) -> None:
         logging.error(f'Stack trace: {traceback.format_exc()}')
 
 
-@app.route(route="sync/trigger", methods=["POST"], auth_level=func.AuthLevel.FUNCTION)
+@app.route(route="sync/trigger", methods=["POST"], auth_level=func.AuthLevel.ANONYMOUS)
 def manual_sync(req: func.HttpRequest) -> func.HttpResponse:
     """
     HTTP trigger for manual job execution.
@@ -77,12 +95,25 @@ def manual_sync(req: func.HttpRequest) -> func.HttpResponse:
             except:
                 pass  # No JSON body provided
 
+        # Read MAX_RECORDINGS from environment (for testing/limiting)
+        max_recordings = os.getenv('MAX_RECORDINGS')
+        if max_recordings:
+            try:
+                max_recordings = int(max_recordings)
+                logging.info(f'MAX_RECORDINGS limit set to: {max_recordings}')
+            except ValueError:
+                logging.warning(f'Invalid MAX_RECORDINGS value: {max_recordings}, ignoring')
+                max_recordings = None
+        else:
+            max_recordings = None
+
         # Execute sync job
         executor = JobExecutor(settings)
         job_id = executor.execute_sync_job(
             trigger_source="manual",
             user_id=user_id,
-            test_run_id=test_run_id
+            test_run_id=test_run_id,
+            max_recordings=max_recordings
         )
 
         return func.HttpResponse(
@@ -106,8 +137,13 @@ def manual_sync(req: func.HttpRequest) -> func.HttpResponse:
 @app.route(route="health", methods=["GET"], auth_level=func.AuthLevel.ANONYMOUS)
 def health_check(req: func.HttpRequest) -> func.HttpResponse:
     """Health check endpoint."""
+    response_data = {
+        "status": "healthy",
+        "service": "plaud_sync_service",
+        "version": SERVICE_VERSION
+    }
     return func.HttpResponse(
-        body='{"status": "healthy", "service": "plaud_sync_service"}',
+        body=json.dumps(response_data),
         status_code=200,
         mimetype="application/json"
     )
