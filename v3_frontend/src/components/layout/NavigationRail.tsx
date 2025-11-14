@@ -26,7 +26,6 @@ const useStyles = makeStyles({
   },
   navButtonActive: {
     backgroundColor: 'rgba(255,255,255,0.2)',
-    borderLeft: `3px solid ${APP_COLORS.selectionBorder}`,
     ':hover': {
       backgroundColor: 'rgba(255,255,255,0.25)',
     },

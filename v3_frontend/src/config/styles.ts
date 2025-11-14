@@ -5,7 +5,7 @@ export const APP_COLORS = {
   info: '#3B82F6',
   transcriptSpeaker: '#2563EB',
   selectionBorder: '#4CAF50',
-  navRailBg: '#2c3e50',
+  navRailBg: '#0078D4',
 } as const;
 
 export const SPACING = {

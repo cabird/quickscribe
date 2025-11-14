@@ -1,8 +1,9 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { makeStyles } from '@fluentui/react-components';
 import { TopActionBar } from '../layout/TopActionBar';
 import { RecordingsList } from './RecordingsList';
 import { TranscriptViewer } from './TranscriptViewer';
+import { ResizableSplitter } from '../layout/ResizableSplitter';
 import { useRecordings } from '../../hooks/useRecordings';
 import { useTranscription } from '../../hooks/useTranscription';
 import { exportTranscriptToFile } from '../../utils/exportTranscript';
@@ -29,6 +30,7 @@ export function TranscriptsView() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchType, setSearchType] = useState<'basic' | 'fulltext'>('basic');
   const [dateRange, setDateRange] = useState<'all' | 'week' | 'month' | 'quarter'>('all');
+  const [listPanelWidth, setListPanelWidth] = useState(35); // percentage
 
   const { recordings, loading: recordingsLoading, refetch } = useRecordings();
   const selectedRecording = recordings.find(r => r.id === selectedRecordingId);
@@ -92,6 +94,17 @@ export function TranscriptsView() {
     }
   };
 
+  const handleResize = useCallback((delta: number) => {
+    setListPanelWidth(prev => {
+      // Get the container width to calculate percentage
+      const containerWidth = window.innerWidth - 68; // Subtract nav rail width
+      const deltaPercent = (delta / containerWidth) * 100;
+      const newWidth = prev + deltaPercent;
+      // Constrain between 20% and 60%
+      return Math.max(20, Math.min(60, newWidth));
+    });
+  }, []);
+
   return (
     <div className={styles.container}>
       <TopActionBar
@@ -110,7 +123,9 @@ export function TranscriptsView() {
           selectedRecordingId={selectedRecordingId}
           onRecordingSelect={setSelectedRecordingId}
           loading={recordingsLoading}
+          width={listPanelWidth}
         />
+        <ResizableSplitter onResize={handleResize} />
         <TranscriptViewer
           transcription={transcription}
           recording={selectedRecording || null}

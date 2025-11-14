@@ -1,8 +1,10 @@
-import { makeStyles, Text, Spinner, Divider, tokens } from '@fluentui/react-components';
+import { makeStyles, Text, Spinner, Divider, tokens, Button, Tooltip } from '@fluentui/react-components';
+import { Copy24Regular } from '@fluentui/react-icons';
 import type { Recording, Transcription } from '../../types';
 import { TranscriptEntry } from './TranscriptEntry';
 import { formatDate, formatTime, formatDuration } from '../../utils/dateUtils';
 import { formatSpeakersList } from '../../utils/formatters';
+import { showToast } from '../../utils/toast';
 
 const useStyles = makeStyles({
   container: {
@@ -17,16 +19,27 @@ const useStyles = makeStyles({
     padding: '24px',
     flexShrink: 0,
   },
+  headerTop: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: '12px',
+  },
   title: {
     fontSize: tokens.fontSizeBase500,
     fontWeight: tokens.fontWeightSemibold,
-    marginBottom: '12px',
   },
   meta: {
     display: 'flex',
     gap: '16px',
     fontSize: tokens.fontSizeBase200,
     color: tokens.colorNeutralForeground3,
+    marginBottom: '8px',
+  },
+  description: {
+    fontSize: tokens.fontSizeBase300,
+    color: tokens.colorNeutralForeground2,
+    marginTop: '8px',
   },
   divider: {
     flexShrink: 0,
@@ -66,6 +79,21 @@ interface TranscriptViewerProps {
 export function TranscriptViewer({ transcription, recording, loading }: TranscriptViewerProps) {
   const styles = useStyles();
 
+  const handleCopyTranscript = async () => {
+    if (!transcription?.diarized_transcript && !transcription?.text) {
+      showToast.warning('No transcript text to copy');
+      return;
+    }
+
+    try {
+      const textToCopy = transcription.diarized_transcript || transcription.text || '';
+      await navigator.clipboard.writeText(textToCopy);
+      showToast.success('Transcript copied to clipboard');
+    } catch (error) {
+      showToast.error('Failed to copy transcript');
+    }
+  };
+
   if (loading) {
     return (
       <div className={styles.container}>
@@ -97,8 +125,16 @@ export function TranscriptViewer({ transcription, recording, loading }: Transcri
       // Each paragraph should be "Speaker X: text"
       const match = paragraph.match(/^(.+?):\s*(.+)$/s); // 's' flag allows . to match newlines
       if (match) {
+        const speakerLabel = match[1].trim();
+
+        // Map speaker label to actual name if speaker_mapping exists
+        let displayName = speakerLabel;
+        if (transcription.speaker_mapping && transcription.speaker_mapping[speakerLabel]) {
+          displayName = transcription.speaker_mapping[speakerLabel].displayName || speakerLabel;
+        }
+
         transcriptEntries.push({
-          speaker: match[1].trim(),
+          speaker: displayName,
           text: match[2].trim(),
         });
       }
@@ -120,7 +156,16 @@ export function TranscriptViewer({ transcription, recording, loading }: Transcri
   return (
     <div className={styles.container}>
       <div className={styles.header}>
-        <Text className={styles.title}>{recording.title || recording.original_filename}</Text>
+        <div className={styles.headerTop}>
+          <Text className={styles.title}>{recording.title || recording.original_filename}</Text>
+          <Tooltip content="Copy transcript to clipboard" relationship="label">
+            <Button
+              appearance="subtle"
+              icon={<Copy24Regular />}
+              onClick={handleCopyTranscript}
+            />
+          </Tooltip>
+        </div>
         <div className={styles.meta}>
           {recording.recorded_timestamp && (
             <Text>
@@ -132,6 +177,11 @@ export function TranscriptViewer({ transcription, recording, loading }: Transcri
             <Text>• {formatSpeakersList(recording.participants)}</Text>
           )}
         </div>
+        {recording.description && (
+          <div className={styles.description}>
+            <Text>{recording.description}</Text>
+          </div>
+        )}
       </div>
 
       <Divider className={styles.divider} />

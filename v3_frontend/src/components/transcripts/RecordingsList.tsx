@@ -4,10 +4,9 @@ import { RecordingCard } from './RecordingCard';
 
 const useStyles = makeStyles({
   container: {
-    width: '35%',
     minHeight: 0,
     overflowY: 'auto',
-    borderRight: '1px solid #e0e0e0',
+    flexShrink: 0,
   },
   loadingContainer: {
     display: 'flex',
@@ -30,6 +29,7 @@ interface RecordingsListProps {
   selectedRecordingId: string | null;
   onRecordingSelect: (recordingId: string) => void;
   loading: boolean;
+  width: number;
 }
 
 export function RecordingsList({
@@ -37,12 +37,13 @@ export function RecordingsList({
   selectedRecordingId,
   onRecordingSelect,
   loading,
+  width,
 }: RecordingsListProps) {
   const styles = useStyles();
 
   if (loading) {
     return (
-      <div className={styles.container}>
+      <div className={styles.container} style={{ width: `${width}%` }}>
         <div className={styles.loadingContainer}>
           <Spinner label="Loading recordings..." />
         </div>
@@ -52,7 +53,7 @@ export function RecordingsList({
 
   if (recordings.length === 0) {
     return (
-      <div className={styles.container}>
+      <div className={styles.container} style={{ width: `${width}%` }}>
         <div className={styles.emptyState}>
           <Text>No recordings found</Text>
         </div>
@@ -61,7 +62,7 @@ export function RecordingsList({
   }
 
   return (
-    <div className={styles.container}>
+    <div className={styles.container} style={{ width: `${width}%` }}>
       {recordings.map((recording) => (
         <RecordingCard
           key={recording.id}
