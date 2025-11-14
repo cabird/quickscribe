@@ -1,10 +1,9 @@
-# Azure Functions
-azure-functions==1.18.0
+# Azure Container Apps Jobs - No HTTP server needed!
 
 # Shared QuickScribe library (installed via editable install)
 # Install with: pip install -e ../shared_quickscribe_py
 
-# Azure SDK components (may already be in shared library, but listed for clarity)
+# Azure SDK components
 azure-cosmos>=4.5.0
 azure-storage-blob>=12.19.0
 azure-storage-queue>=12.8.0
@@ -13,7 +12,7 @@ azure-identity>=1.15.0
 # Audio processing
 ffmpeg-python>=0.2.0
 
-# HTTP requests
+# HTTP requests (for API calls, not serving)
 requests>=2.31.0
 aiohttp>=3.9.0
 

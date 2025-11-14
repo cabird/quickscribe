@@ -4,9 +4,8 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     ports:
-      - "5000:8000"
+      - "5050:5050"
     environment:
-      - PORT=8000
       - PYTHONUNBUFFERED=1
       - FLASK_DEBUG=1
       - FLASK_ENV=development

@@ -113,12 +113,12 @@ class RecordingHandler:
         return recordings
 
     def get_all_recordings(self, user_id: str = None) -> List[Recording]:
-        """Get all recordings and return as Recording models."""
+        """Get all recordings and return as Recording models, ordered by most recent first."""
         if user_id:
-            query = "SELECT * FROM c WHERE c.partitionKey = 'recording' AND c.user_id = @user_id"
+            query = "SELECT * FROM c WHERE c.partitionKey = 'recording' AND c.user_id = @user_id ORDER BY c.recorded_timestamp DESC"
             parameters = [{"name": "@user_id", "value": user_id}]
         else:
-            query = "SELECT * FROM c WHERE c.partitionKey = 'recording'"
+            query = "SELECT * FROM c WHERE c.partitionKey = 'recording' ORDER BY c.recorded_timestamp DESC"
             parameters = []
         recordings = self.container.query_items(query=query, parameters=parameters, partition_key="recording")
         logger.info("Querying all recordings")

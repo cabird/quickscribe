@@ -22,6 +22,7 @@ from api_version import API_VERSION
 from user_util import get_current_user
 import auth
 import logging
+from flask_cors import CORS
 
 import time
 # Import our custom logging configuration
@@ -47,7 +48,17 @@ def create_app(test_config=None):
     global blob_service_client, cosmos_client, cosmos_database, cosmos_container, app_logger
     
     app = Flask(__name__, static_folder='frontend-dist', static_url_path=None)
-    
+
+    # Enable CORS for development
+    if os.getenv('FLASK_ENV') == 'development' or os.getenv('FLASK_DEBUG') == '1':
+        # Allow requests from frontend dev server
+        CORS(app, origins=['http://localhost:3000'], supports_credentials=True)
+        app_logger = get_logger('app', API_VERSION) if app_logger is None else app_logger
+        app_logger.info("CORS enabled for development (allowing localhost:3000)")
+    else:
+        # Production CORS settings - you may want to configure specific origins
+        CORS(app, supports_credentials=True)
+
     # Load configuration
     if test_config is None:
         # Load production/development config

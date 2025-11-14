@@ -20,7 +20,7 @@ fi
 if [ -z "$WEBSITE_INSTANCE_ID" ]; then
     echo "Starting the Flask app in local development mode"
     echo "Environment variables will be loaded from .env.local by config.py"
-    PORT=${PORT:-8000}
+    PORT=${PORT:-5050}
     echo "Using port: $PORT"
     export FLASK_APP=app.py
     export FLASK_DEBUG=1

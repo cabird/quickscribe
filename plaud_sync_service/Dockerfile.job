@@ -1,0 +1,32 @@
+# Dockerfile for Azure Container Apps Jobs
+FROM python:3.11-slim
+
+# Install system dependencies including FFmpeg
+RUN apt-get update && apt-get install -y \
+    ffmpeg \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create app directory
+WORKDIR /app
+
+# Copy shared library first
+COPY shared_quickscribe_py /tmp/shared_quickscribe_py
+
+# Install shared_quickscribe_py library
+RUN pip install --no-cache-dir -e /tmp/shared_quickscribe_py
+
+# Copy and install Azure Speech Services swagger client
+COPY backend/azure_speech/python-client /tmp/azure_speech_client
+RUN pip install --no-cache-dir -e /tmp/azure_speech_client
+
+# Copy application files
+COPY plaud_sync_service/ /app/
+
+# Install Python dependencies (Jobs version - no Flask/gunicorn)
+RUN pip install --no-cache-dir -r requirements.job.txt
+
+# Set environment variables
+ENV PYTHONUNBUFFERED=1
+
+# Run the job directly (no HTTP server needed!)
+CMD ["python", "run_job.py"]

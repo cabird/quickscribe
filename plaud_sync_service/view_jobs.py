@@ -5,6 +5,7 @@ Queries CosmosDB and displays job execution logs interactively.
 """
 import os
 import sys
+import argparse
 from datetime import datetime
 from dotenv import load_dotenv
 from azure.cosmos import CosmosClient
@@ -63,8 +64,13 @@ def format_datetime(iso_string):
     return seattle_dt.strftime('%Y-%m-%d %I:%M:%S %p %Z')
 
 
-def get_job_executions(container):
-    """Query all job executions, then filter for activity or duration > 30s, sorted by start time (oldest first)."""
+def get_job_executions(container, show_all=False):
+    """Query all job executions, then filter for activity or duration > 30s, sorted by start time (oldest first).
+
+    Args:
+        container: CosmosDB container client
+        show_all: If True, return all jobs without filtering
+    """
     query = """
         SELECT * FROM c
         WHERE c.type = 'job_execution'
@@ -75,6 +81,10 @@ def get_job_executions(container):
         query=query,
         enable_cross_partition_query=True
     ))
+
+    # If show_all is True, return all items without filtering
+    if show_all:
+        return items
 
     # Filter: include jobs with activity OR duration > 30 seconds
     filtered_items = []
@@ -217,14 +227,26 @@ def display_job_logs(job):
 
 def main():
     """Main interactive loop."""
+    # Parse command-line arguments
+    parser = argparse.ArgumentParser(
+        description='View Plaud sync job executions from CosmosDB'
+    )
+    parser.add_argument(
+        '-a', '--all',
+        action='store_true',
+        help='Show all jobs without filtering (default: only show jobs with activity or duration > 30s)'
+    )
+    args = parser.parse_args()
+
     try:
         # Connect to CosmosDB
         print("Connecting to CosmosDB...")
         container = get_cosmos_client()
 
         # Fetch job executions
-        print("Fetching job executions...")
-        jobs = get_job_executions(container)
+        filter_msg = "all jobs" if args.all else "filtered jobs (activity or duration > 30s)"
+        print(f"Fetching job executions ({filter_msg})...")
+        jobs = get_job_executions(container, show_all=args.all)
 
         while True:
             # Display list
