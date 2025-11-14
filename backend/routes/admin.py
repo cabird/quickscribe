@@ -11,7 +11,8 @@ from shared_quickscribe_py.cosmos import (
     get_recording_handler,
     get_transcription_handler,
     get_analysis_type_handler,
-    get_sync_progress_handler
+    get_sync_progress_handler,
+    get_job_execution_handler
 )
 from shared_quickscribe_py.cosmos import User, Recording, Transcription, Tag, AnalysisType, SyncProgress
 
@@ -1061,4 +1062,151 @@ def search():
         
     except Exception as e:
         logger.error(f"Error searching: {e}")
+        return jsonify({'status': 'error', 'error': str(e)}), 500
+
+
+# ============================================================================
+# Job Execution Endpoints
+# ============================================================================
+
+@admin_bp.route('/jobs', methods=['GET'])
+@require_admin
+def get_jobs():
+    """
+    Get paginated list of job executions with filtering and sorting.
+
+    Query Parameters:
+        limit (int): Items per page (default: 50, max: 100)
+        offset (int): Items to skip (default: 0)
+        min_duration (int): Minimum duration in seconds
+        has_activity (bool): Filter for jobs with activity
+        status (str): Comma-separated status values (completed,failed,running)
+        trigger_source (str): Filter by trigger source (scheduled,manual)
+        user_id (str): Filter by specific user ID
+        start_date (str): ISO timestamp - jobs started after this date
+        end_date (str): ISO timestamp - jobs started before this date
+        sort_by (str): Field to sort by (startTime, endTime, duration, errors)
+        sort_order (str): Sort order (asc, desc)
+    """
+    try:
+        # Get query parameters
+        limit = request.args.get('limit', type=int, default=50)
+        offset = request.args.get('offset', type=int, default=0)
+        min_duration = request.args.get('min_duration', type=int)
+        has_activity_str = request.args.get('has_activity', type=str)
+        status_str = request.args.get('status', type=str)
+        trigger_source = request.args.get('trigger_source', type=str)
+        user_id = request.args.get('user_id', type=str)
+        start_date = request.args.get('start_date', type=str)
+        end_date = request.args.get('end_date', type=str)
+        sort_by = request.args.get('sort_by', type=str, default='startTime')
+        sort_order = request.args.get('sort_order', type=str, default='desc')
+
+        # Parse has_activity boolean
+        has_activity = None
+        if has_activity_str is not None:
+            has_activity = has_activity_str.lower() in ('true', '1', 'yes')
+
+        # Parse status list
+        status_list = None
+        if status_str:
+            status_list = [s.strip() for s in status_str.split(',') if s.strip()]
+
+        # Get handler and query jobs
+        handler = get_job_execution_handler()
+        jobs, total_count = handler.query_jobs(
+            limit=limit,
+            offset=offset,
+            min_duration=min_duration,
+            has_activity=has_activity,
+            status=status_list,
+            trigger_source=trigger_source,
+            user_id=user_id,
+            start_date=start_date,
+            end_date=end_date,
+            sort_by=sort_by,
+            sort_order=sort_order
+        )
+
+        # Remove logs from list response (metadata only)
+        jobs_metadata = []
+        for job in jobs:
+            job_meta = {k: v for k, v in job.items() if k != 'logs'}
+            jobs_metadata.append(job_meta)
+
+        # Calculate pagination info
+        has_more = (offset + limit) < total_count
+        next_offset = offset + limit if has_more else None
+
+        return jsonify({
+            'status': 'success',
+            'data': jobs_metadata,
+            'pagination': {
+                'total': total_count,
+                'count': len(jobs_metadata),
+                'limit': limit,
+                'offset': offset,
+                'hasMore': has_more,
+                'nextOffset': next_offset
+            }
+        })
+
+    except Exception as e:
+        logger.error(f"Error getting jobs: {e}")
+        return jsonify({'status': 'error', 'error': str(e)}), 500
+
+
+@admin_bp.route('/jobs/<job_id>', methods=['GET'])
+@require_admin
+def get_job_details(job_id: str):
+    """
+    Get complete job execution details including full logs.
+
+    Args:
+        job_id: Job execution ID
+    """
+    try:
+        handler = get_job_execution_handler()
+        job = handler.get_job_execution(job_id)
+
+        if not job:
+            return jsonify({
+                'status': 'error',
+                'error': 'Job execution not found'
+            }), 404
+
+        # Convert to dict and add computed duration
+        job_dict = job.model_dump()
+
+        start_time = job_dict.get('startTime')
+        end_time = job_dict.get('endTime')
+        if start_time and end_time:
+            try:
+                from datetime import datetime
+                start = datetime.fromisoformat(start_time.replace('Z', '+00:00'))
+                end = datetime.fromisoformat(end_time.replace('Z', '+00:00'))
+                duration_seconds = int((end - start).total_seconds())
+                job_dict['duration'] = duration_seconds
+
+                # Add formatted duration
+                minutes = duration_seconds // 60
+                seconds = duration_seconds % 60
+                if minutes > 0:
+                    job_dict['durationFormatted'] = f"{minutes}m {seconds}s"
+                else:
+                    job_dict['durationFormatted'] = f"{seconds}s"
+            except:
+                job_dict['duration'] = None
+                job_dict['durationFormatted'] = None
+        else:
+            job_dict['duration'] = None
+            job_dict['durationFormatted'] = None
+
+        return jsonify({
+            'status': 'success',
+            'data': job_dict
+        })
+
+    except Exception as e:
+        logger.error(f"Error getting job details for {job_id}: {e}")
         return jsonify({'status': 'error', 'error': str(e)}), 500

@@ -4,7 +4,7 @@ Manages job execution tracking for Plaud sync service.
 """
 from azure.cosmos import CosmosClient
 from azure.cosmos.exceptions import CosmosResourceNotFoundError
-from typing import Optional, List
+from typing import Optional, List, Dict, Any, Tuple
 from datetime import datetime, UTC
 
 from ..logging.config import get_logger
@@ -164,4 +164,175 @@ class JobExecutionHandler:
             logger.warning(f"Job execution not found for deletion: {job_id}")
         except Exception as e:
             logger.error(f"Error deleting job execution {job_id}: {str(e)}")
+            raise
+
+    def query_jobs(
+        self,
+        limit: int = 50,
+        offset: int = 0,
+        min_duration: Optional[int] = None,
+        has_activity: Optional[bool] = None,
+        status: Optional[List[str]] = None,
+        trigger_source: Optional[str] = None,
+        user_id: Optional[str] = None,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None,
+        sort_by: str = "startTime",
+        sort_order: str = "desc"
+    ) -> Tuple[List[Dict[str, Any]], int]:
+        """
+        Query job executions with advanced filtering, pagination, and sorting.
+
+        Args:
+            limit: Maximum number of items per page (max 100)
+            offset: Number of items to skip
+            min_duration: Minimum duration in seconds
+            has_activity: Filter for jobs with activity (recordings/transcriptions/errors > 0)
+            status: List of statuses to filter by
+            trigger_source: Filter by trigger source ('scheduled' or 'manual')
+            user_id: Filter by specific user ID
+            start_date: ISO timestamp - jobs started after this date
+            end_date: ISO timestamp - jobs started before this date
+            sort_by: Field to sort by (startTime, endTime, duration, errors)
+            sort_order: Sort order ('asc' or 'desc')
+
+        Returns:
+            Tuple of (list of job dicts with computed fields, total count)
+        """
+        try:
+            # Enforce max limit
+            limit = min(limit, 100)
+
+            # Build WHERE clause conditions
+            where_conditions = ["c.type = 'job_execution'"]
+            parameters = []
+
+            if status:
+                status_placeholders = []
+                for idx, s in enumerate(status):
+                    param_name = f"@status{idx}"
+                    status_placeholders.append(param_name)
+                    parameters.append({"name": param_name, "value": s})
+                where_conditions.append(f"c.status IN ({', '.join(status_placeholders)})")
+
+            if trigger_source:
+                where_conditions.append("c.triggerSource = @trigger_source")
+                parameters.append({"name": "@trigger_source", "value": trigger_source})
+
+            if user_id:
+                where_conditions.append("c.userId = @user_id")
+                parameters.append({"name": "@user_id", "value": user_id})
+
+            if start_date:
+                where_conditions.append("c.startTime >= @start_date")
+                parameters.append({"name": "@start_date", "value": start_date})
+
+            if end_date:
+                where_conditions.append("c.startTime <= @end_date")
+                parameters.append({"name": "@end_date", "value": end_date})
+
+            where_clause = " AND ".join(where_conditions)
+
+            # Build ORDER BY clause
+            sort_field_map = {
+                "startTime": "c.startTime",
+                "endTime": "c.endTime",
+                "errors": "c.stats.errors"
+            }
+            sort_field = sort_field_map.get(sort_by, "c.startTime")
+            sort_direction = "DESC" if sort_order.lower() == "desc" else "ASC"
+
+            # Query for all matching items (we'll filter client-side for complex conditions)
+            query = f"""
+            SELECT * FROM c
+            WHERE {where_clause}
+            ORDER BY {sort_field} {sort_direction}
+            """
+
+            items = list(self.container.query_items(
+                query=query,
+                parameters=parameters,
+                partition_key="job_execution"
+            ))
+
+            # Client-side filtering for complex conditions
+            filtered_items = []
+            for item in items:
+                stats = item.get('stats', {})
+
+                # Filter by has_activity
+                if has_activity is not None:
+                    recordings = stats.get('recordings_uploaded', 0)
+                    transcriptions = stats.get('transcriptions_completed', 0)
+                    errors = stats.get('errors', 0)
+                    activity = recordings > 0 or transcriptions > 0 or errors > 0
+
+                    if has_activity and not activity:
+                        continue
+                    if not has_activity and activity:
+                        continue
+
+                # Filter by min_duration
+                if min_duration is not None:
+                    start_time = item.get('startTime')
+                    end_time = item.get('endTime')
+
+                    if start_time and end_time:
+                        try:
+                            start = datetime.fromisoformat(start_time.replace('Z', '+00:00'))
+                            end = datetime.fromisoformat(end_time.replace('Z', '+00:00'))
+                            duration = (end - start).total_seconds()
+
+                            if duration < min_duration:
+                                continue
+                        except:
+                            # Skip items with invalid dates
+                            continue
+                    else:
+                        # Skip items without both timestamps
+                        continue
+
+                # Add computed duration field
+                start_time = item.get('startTime')
+                end_time = item.get('endTime')
+                if start_time and end_time:
+                    try:
+                        start = datetime.fromisoformat(start_time.replace('Z', '+00:00'))
+                        end = datetime.fromisoformat(end_time.replace('Z', '+00:00'))
+                        duration_seconds = int((end - start).total_seconds())
+                        item['duration'] = duration_seconds
+
+                        # Add formatted duration
+                        minutes = duration_seconds // 60
+                        seconds = duration_seconds % 60
+                        if minutes > 0:
+                            item['durationFormatted'] = f"{minutes}m {seconds}s"
+                        else:
+                            item['durationFormatted'] = f"{seconds}s"
+                    except:
+                        item['duration'] = None
+                        item['durationFormatted'] = None
+                else:
+                    item['duration'] = None
+                    item['durationFormatted'] = None
+
+                filtered_items.append(item)
+
+            # Sort by duration if requested (needs to be done after computing)
+            if sort_by == "duration":
+                filtered_items.sort(
+                    key=lambda x: x.get('duration') or 0,
+                    reverse=(sort_order.lower() == "desc")
+                )
+
+            # Get total count
+            total_count = len(filtered_items)
+
+            # Apply pagination
+            paginated_items = filtered_items[offset:offset + limit]
+
+            return paginated_items, total_count
+
+        except Exception as e:
+            logger.error(f"Error querying jobs: {str(e)}")
             raise

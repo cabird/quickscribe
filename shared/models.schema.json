@@ -629,6 +629,12 @@
         },
         "JobExecution": {
             "properties": {
+                "duration": {
+                    "type": "integer"
+                },
+                "durationFormatted": {
+                    "type": "string"
+                },
                 "endTime": {
                     "type": "string"
                 },
@@ -701,11 +707,12 @@
                 "usersProcessed",
                 "ttl",
                 "partitionKey",
-                "testRunId"
+                "testRunId",
+                "duration",
+                "durationFormatted"
             ],
             "required": [
                 "id",
-                "logs",
                 "partitionKey",
                 "startTime",
                 "stats",

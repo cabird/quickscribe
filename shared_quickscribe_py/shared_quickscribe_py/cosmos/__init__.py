@@ -21,12 +21,14 @@ try:
         get_analysis_type_handler,
         get_participant_handler,
         get_sync_progress_handler,
+        get_job_execution_handler,
         create_user_handler,
         create_recording_handler,
         create_transcription_handler,
         create_analysis_type_handler,
         create_participant_handler,
         create_sync_progress_handler,
+        create_job_execution_handler,
     )
     _has_factory = True
 except ImportError:
@@ -105,10 +107,12 @@ if _has_factory:
         "get_analysis_type_handler",
         "get_participant_handler",
         "get_sync_progress_handler",
+        "get_job_execution_handler",
         "create_user_handler",
         "create_recording_handler",
         "create_transcription_handler",
         "create_analysis_type_handler",
         "create_participant_handler",
         "create_sync_progress_handler",
+        "create_job_execution_handler",
     ])

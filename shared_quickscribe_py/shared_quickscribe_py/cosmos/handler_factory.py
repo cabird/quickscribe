@@ -4,6 +4,7 @@ from .user_handler import UserHandler
 from .sync_progress_handler import SyncProgressHandler
 from .analysis_type_handler import AnalysisTypeHandler
 from .participant_handler import ParticipantHandler
+from .job_execution_handler import JobExecutionHandler
 from config import config
 
 from flask import g
@@ -38,6 +39,11 @@ def get_participant_handler():
         g.participant_handler = create_participant_handler()
     return g.participant_handler
 
+def get_job_execution_handler():
+    if not hasattr(g, 'job_execution_handler'):
+        g.job_execution_handler = create_job_execution_handler()
+    return g.job_execution_handler
+
 def create_recording_handler():
     return RecordingHandler(config.COSMOS_URL, config.COSMOS_KEY, config.COSMOS_DB_NAME, config.COSMOS_CONTAINER_NAME)
 
@@ -57,3 +63,6 @@ def create_analysis_type_handler():
 
 def create_participant_handler():
     return ParticipantHandler(config.COSMOS_URL, config.COSMOS_KEY, config.COSMOS_DB_NAME, config.COSMOS_CONTAINER_NAME)
+
+def create_job_execution_handler():
+    return JobExecutionHandler(config.COSMOS_URL, config.COSMOS_KEY, config.COSMOS_DB_NAME, config.COSMOS_CONTAINER_NAME)
