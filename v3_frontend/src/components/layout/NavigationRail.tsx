@@ -1,5 +1,5 @@
 import { makeStyles, mergeClasses, Button, Tooltip, tokens } from '@fluentui/react-components';
-import { DocumentText24Regular, ChartMultiple24Regular, Search24Regular } from '@fluentui/react-icons';
+import { DocumentText24Regular, TaskListLtr24Regular, Search24Regular } from '@fluentui/react-icons';
 import { APP_COLORS } from '../../config/styles';
 
 const useStyles = makeStyles({
@@ -51,10 +51,10 @@ export function NavigationRail({ activeView, onViewChange }: NavigationRailProps
         />
       </Tooltip>
 
-      <Tooltip content="Logs" relationship="label">
+      <Tooltip content="Job Logs" relationship="label">
         <Button
           appearance="transparent"
-          icon={<ChartMultiple24Regular />}
+          icon={<TaskListLtr24Regular />}
           className={mergeClasses(styles.navButton, activeView === 'logs' && styles.navButtonActive)}
           onClick={() => onViewChange('logs')}
         />

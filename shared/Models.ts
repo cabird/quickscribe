@@ -211,13 +211,17 @@ export interface JobExecution {
     triggerSource: "scheduled" | "manual"; // How the job was triggered
     startTime: string; // ISO timestamp when execution began
     endTime?: string; // ISO timestamp when execution finished
-    logs: JobLogEntry[]; // Array of log entries
+    logs?: JobLogEntry[]; // Array of log entries (included in detail view, excluded from list view)
     stats: JobExecutionStats; // Summary statistics
     errorMessage?: string; // Critical error message if job failed
     usersProcessed?: string[]; // List of user IDs processed (for scheduled runs)
     ttl: integer; // Time-to-live in seconds (30 days = 2,592,000)
     partitionKey: string; // "job_execution" for all job execution records
     testRunId?: string; // Test run identifier for cleanup purposes (only set during test runs)
+
+    // Computed fields (added by API, not stored in database)
+    duration?: integer; // Duration in seconds (computed from startTime and endTime)
+    durationFormatted?: string; // Human-readable duration (e.g., "5m 30s")
 }
 
 // API Response types for Plaud operations

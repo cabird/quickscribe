@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { makeStyles } from '@fluentui/react-components';
 import { NavigationRail } from './NavigationRail';
 import { TranscriptsView } from '../transcripts/TranscriptsView';
-import { LogsPlaceholder } from '../logs/LogsPlaceholder';
+import { JobsView } from '../jobs/JobsView';
 import { SearchPlaceholder } from '../search/SearchPlaceholder';
 
 const useStyles = makeStyles({
@@ -30,7 +30,7 @@ export function MainLayout() {
       <NavigationRail activeView={activeView} onViewChange={setActiveView} />
       <div className={styles.mainContent}>
         {activeView === 'transcripts' && <TranscriptsView />}
-        {activeView === 'logs' && <LogsPlaceholder />}
+        {activeView === 'logs' && <JobsView />}
         {activeView === 'search' && <SearchPlaceholder />}
       </div>
     </div>
