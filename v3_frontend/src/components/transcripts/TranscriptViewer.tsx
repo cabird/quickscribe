@@ -1,12 +1,20 @@
+import { useState } from 'react';
 import { makeStyles, Text, Spinner, Divider, tokens, Button, Tooltip } from '@fluentui/react-components';
-import { Copy24Regular } from '@fluentui/react-icons';
+import { Copy24Regular, Chat24Regular } from '@fluentui/react-icons';
 import type { Recording, Transcription } from '../../types';
 import { TranscriptEntry } from './TranscriptEntry';
+import { ChatDrawer } from './ChatDrawer';
+import type { ChatMessage } from '../../services/chatService';
 import { formatDate, formatTime, formatDuration } from '../../utils/dateUtils';
 import { formatSpeakersList } from '../../utils/formatters';
 import { showToast } from '../../utils/toast';
 
 const useStyles = makeStyles({
+  viewContainer: {
+    flex: 1,
+    display: 'flex',
+    overflow: 'hidden',
+  },
   container: {
     flex: 1,
     height: '100%',
@@ -14,6 +22,13 @@ const useStyles = makeStyles({
     flexDirection: 'column',
     backgroundColor: tokens.colorNeutralBackground1,
     overflow: 'hidden',
+  },
+  chatDrawerContainer: {
+    flexShrink: 0,
+  },
+  headerButtons: {
+    display: 'flex',
+    gap: '8px',
   },
   header: {
     padding: '24px',
@@ -78,6 +93,9 @@ interface TranscriptViewerProps {
 
 export function TranscriptViewer({ transcription, recording, loading }: TranscriptViewerProps) {
   const styles = useStyles();
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  const [chatDrawerWidth, setChatDrawerWidth] = useState(40); // percentage
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]); // Persist chat messages across re-renders
 
   const handleCopyTranscript = async () => {
     if (!transcription?.diarized_transcript && !transcription?.text) {
@@ -153,50 +171,93 @@ export function TranscriptViewer({ transcription, recording, loading }: Transcri
     });
   }
 
+  const handleRefClick = (transcriptIndex: number) => {
+    // Scroll to the transcript entry - use data attribute instead of CSS class
+    const transcriptArea = document.querySelector('[data-transcript-area]');
+    if (transcriptArea) {
+      const entries = transcriptArea.querySelectorAll('[data-transcript-entry]');
+      const targetEntry = entries[transcriptIndex] as HTMLElement;
+      if (targetEntry) {
+        targetEntry.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        // Highlight temporarily
+        targetEntry.style.backgroundColor = '#fff3cd';
+        setTimeout(() => {
+          targetEntry.style.backgroundColor = '';
+        }, 2000);
+      }
+    }
+  };
+
   return (
-    <div className={styles.container}>
-      <div className={styles.header}>
-        <div className={styles.headerTop}>
-          <Text className={styles.title}>{recording.title || recording.original_filename}</Text>
-          <Tooltip content="Copy transcript to clipboard" relationship="label">
-            <Button
-              appearance="subtle"
-              icon={<Copy24Regular />}
-              onClick={handleCopyTranscript}
-            />
-          </Tooltip>
-        </div>
-        <div className={styles.meta}>
-          {recording.recorded_timestamp && (
-            <Text>
-              {formatDate(recording.recorded_timestamp)} • {formatTime(recording.recorded_timestamp)}
-            </Text>
-          )}
-          {recording.duration && <Text>• {formatDuration(recording.duration)}</Text>}
-          {recording.participants && recording.participants.length > 0 && (
-            <Text>• {formatSpeakersList(recording.participants)}</Text>
-          )}
-        </div>
-        {recording.description && (
-          <div className={styles.description}>
-            <Text>{recording.description}</Text>
+    <div className={styles.viewContainer}>
+      <div className={styles.container}>
+        <div className={styles.header}>
+          <div className={styles.headerTop}>
+            <Text className={styles.title}>{recording.title || recording.original_filename}</Text>
+            <div className={styles.headerButtons}>
+              <Tooltip content="Chat with transcript" relationship="label">
+                <Button
+                  appearance="subtle"
+                  icon={<Chat24Regular />}
+                  onClick={() => setIsChatOpen(!isChatOpen)}
+                />
+              </Tooltip>
+              <Tooltip content="Copy transcript to clipboard" relationship="label">
+                <Button
+                  appearance="subtle"
+                  icon={<Copy24Regular />}
+                  onClick={handleCopyTranscript}
+                />
+              </Tooltip>
+            </div>
           </div>
-        )}
+          <div className={styles.meta}>
+            {recording.recorded_timestamp && (
+              <Text>
+                {formatDate(recording.recorded_timestamp)} • {formatTime(recording.recorded_timestamp)}
+              </Text>
+            )}
+            {recording.duration && <Text>• {formatDuration(recording.duration)}</Text>}
+            {recording.participants && recording.participants.length > 0 && (
+              <Text>• {formatSpeakersList(recording.participants)}</Text>
+            )}
+          </div>
+          {recording.description && (
+            <div className={styles.description}>
+              <Text>{recording.description}</Text>
+            </div>
+          )}
+        </div>
+
+        <Divider className={styles.divider} />
+
+        <div className={styles.transcriptArea} data-transcript-area>
+          {transcriptEntries.length > 0 ? (
+            transcriptEntries.map((entry, index) => (
+              <div key={index} data-transcript-entry>
+                <TranscriptEntry speaker={entry.speaker} text={entry.text} />
+              </div>
+            ))
+          ) : (
+            <div className={styles.emptyState}>
+              <Text>No transcript available</Text>
+            </div>
+          )}
+        </div>
       </div>
 
-      <Divider className={styles.divider} />
-
-      <div className={styles.transcriptArea}>
-        {transcriptEntries.length > 0 ? (
-          transcriptEntries.map((entry, index) => (
-            <TranscriptEntry key={index} speaker={entry.speaker} text={entry.text} />
-          ))
-        ) : (
-          <div className={styles.emptyState}>
-            <Text>No transcript available</Text>
-          </div>
-        )}
-      </div>
+      {isChatOpen && (
+        <div className={styles.chatDrawerContainer} style={{ width: `${chatDrawerWidth}%` }}>
+          <ChatDrawer
+            transcriptEntries={transcriptEntries}
+            messages={chatMessages}
+            onMessagesChange={setChatMessages}
+            onClose={() => setIsChatOpen(false)}
+            onMinimize={() => setIsChatOpen(false)}
+            onRefClick={handleRefClick}
+          />
+        </div>
+      )}
     </div>
   );
 }
