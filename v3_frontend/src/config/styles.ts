@@ -4,7 +4,7 @@ export const APP_COLORS = {
   danger: '#EF4444',
   info: '#3B82F6',
   transcriptSpeaker: '#2563EB',
-  selectionBorder: '#4CAF50',
+  selectionBorder: '#4FC3F7',
   navRailBg: '#0078D4',
 } as const;
 
