@@ -12,12 +12,14 @@ const useStyles = makeStyles({
   container: {
     display: 'flex',
     flexDirection: 'column',
-    height: '100%',
+    flex: 1,
+    minHeight: 0,
   },
   viewContainer: {
     display: 'flex',
     flex: 1,
     overflow: 'hidden',
+    minHeight: 0,
   },
 });
 

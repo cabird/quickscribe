@@ -7,7 +7,7 @@ import 'react-toastify/dist/ReactToastify.css';
 
 function App() {
   return (
-    <FluentProvider theme={lightTheme}>
+    <FluentProvider theme={lightTheme} style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       <MainLayout />
       <ToastContainer
         position="top-right"

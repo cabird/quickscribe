@@ -8,7 +8,7 @@ import { SearchPlaceholder } from '../search/SearchPlaceholder';
 const useStyles = makeStyles({
   container: {
     display: 'flex',
-    height: '100%',
+    flex: 1,
     width: '100%',
     overflow: 'hidden',
   },
@@ -17,6 +17,7 @@ const useStyles = makeStyles({
     display: 'flex',
     flexDirection: 'column',
     overflow: 'hidden',
+    minHeight: 0,
   },
 });
 

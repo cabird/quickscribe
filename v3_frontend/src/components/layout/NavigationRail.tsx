@@ -5,6 +5,7 @@ import { APP_COLORS } from '../../config/styles';
 const useStyles = makeStyles({
   navRail: {
     width: '68px',
+    flexShrink: 0,
     backgroundColor: APP_COLORS.navRailBg,
     display: 'flex',
     flexDirection: 'column',
