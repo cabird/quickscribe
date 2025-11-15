@@ -46,3 +46,6 @@ Thumbs.db
 # Temporary files
 *.tmp
 *.log
+
+# Build tracking
+.last-build
