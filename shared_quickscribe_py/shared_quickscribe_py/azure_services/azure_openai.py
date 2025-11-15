@@ -155,6 +155,59 @@ class AzureOpenAIClient:
             self.logger.error(f"LLM request failed after {llm_response_time_ms}ms: {e}")
             raise Exception(f"LLM request failed after {llm_response_time_ms}ms: {e}")
 
+    def send_messages_with_timing(
+        self,
+        messages: List[Dict]
+    ) -> Dict:
+        """
+        Send a raw messages array to the LLM with timing and token usage metrics.
+
+        This method accepts a pre-formatted messages array (as from a chat interface)
+        and sends it directly to the LLM without modification.
+
+        Args:
+            messages: List of message dicts, each with 'role' and 'content' keys
+                     Example: [
+                         {"role": "system", "content": "You are a helpful assistant"},
+                         {"role": "user", "content": "Hello!"}
+                     ]
+
+        Returns:
+            Dict with keys: content, llmResponseTimeMs, promptTokens, responseTokens
+
+        Raises:
+            Exception: If the request fails
+        """
+        payload = {"messages": messages}
+        start_time = time.time()
+
+        try:
+            response = requests.post(
+                self.completion_url,
+                headers=self.headers,
+                json=payload
+            )
+            response.raise_for_status()
+
+            end_time = time.time()
+            llm_response_time_ms = int((end_time - start_time) * 1000)
+
+            response_data = response.json()
+            content = response_data["choices"][0]["message"]["content"]
+            usage = response_data.get("usage", {})
+
+            return {
+                "content": content,
+                "llmResponseTimeMs": llm_response_time_ms,
+                "promptTokens": usage.get("prompt_tokens"),
+                "responseTokens": usage.get("completion_tokens")
+            }
+        except requests.RequestException as e:
+            end_time = time.time()
+            llm_response_time_ms = int((end_time - start_time) * 1000)
+            self.logger.error(f"LLM request failed after {llm_response_time_ms}ms: {e}")
+            raise Exception(f"LLM request failed after {llm_response_time_ms}ms: {e}")
+
     async def send_prompt_async(
         self,
         prompt: str,

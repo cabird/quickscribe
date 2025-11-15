@@ -10,12 +10,29 @@ import logging
 from datetime import datetime
 from api_version import API_VERSION
 
-#load environment variables from .env file
-from dotenv import load_dotenv
-load_dotenv()
-
 # Define the application namespace for logging
 APP_NAMESPACE_BASE = "quickscribe.backend"
+
+
+def setup_logging():
+    """
+    Configures application and third-party logging.
+    This should be called once at application startup, before any Azure clients are created.
+    """
+    # Set the application's default log level
+    log_level = os.environ.get("LOG_LEVEL", "INFO").upper()
+    logging.basicConfig(
+        level=log_level,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    )
+
+    # Suppress verbose third-party logs.
+    # We set them to WARNING, so only important messages from these libraries are shown.
+    logging.getLogger('azure.core.pipeline.policies.http_logging_policy').setLevel(logging.WARNING)
+    logging.getLogger('azure.cosmos._cosmos_http_logging_policy').setLevel(logging.WARNING)
+    logging.getLogger('azure').setLevel(logging.WARNING)
+
+    logging.info("Logging configured with root level %s", log_level)
 
 # Import Azure Monitor OpenTelemetry integration
 try:

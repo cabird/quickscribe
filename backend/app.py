@@ -1,3 +1,10 @@
+# STEP 1: Configure logging IMMEDIATELY.
+# This must be the first import and call to ensure all subsequent
+# code observes the correct logging configuration.
+import logging_config
+logging_config.setup_logging()
+
+# STEP 2: Now load other modules
 from flask import Flask, render_template, request, jsonify, g, send_from_directory
 import os
 import requests
@@ -8,12 +15,9 @@ from azure.cosmos import CosmosClient, PartitionKey
 from azure.storage.blob import BlobServiceClient, ContentSettings, generate_blob_sas, BlobSasPermissions
 from shared_quickscribe_py.cosmos import UserHandler
 from shared_quickscribe_py.cosmos import RecordingHandler
-from shared_quickscribe_py.cosmos import TranscriptionHandler
 from shared_quickscribe_py.config import get_settings
 from datetime import datetime, UTC
-from routes.az_transcription_routes import az_transcription_bp, check_in_progress_transcription
 from routes.api import api_bp
-from routes.plaud import plaud_bp
 from routes.ai_routes import ai_bp
 from routes.local_routes import local_bp
 from routes.admin import admin_bp
@@ -72,20 +76,13 @@ def create_app(test_config=None):
     @app.context_processor
     def inject_api_version():
         return dict(api_version=API_VERSION)
-    
-    # Configure basic logging for compatibility
-    logging.basicConfig(level=logging.INFO)
-    # Set logging level for Azure SDK components to suppress headers
-    logging.getLogger('azure.core.pipeline.policies.http_logging_policy').setLevel(logging.WARNING)
-    
+
     # Initialize our application logger with Azure Application Insights
     app_logger = get_logger('app', API_VERSION)
     app_logger.info(f"Starting QuickScribe backend ({API_VERSION})")
     
     # Register blueprints
-    app.register_blueprint(az_transcription_bp, url_prefix='/az_transcription')
     app.register_blueprint(api_bp, url_prefix='/api')
-    app.register_blueprint(plaud_bp, url_prefix='/plaud')
     app.register_blueprint(ai_bp, url_prefix='/api/ai')
     app.register_blueprint(local_bp, url_prefix='/api/local')
     app.register_blueprint(admin_bp, url_prefix='/api/admin')
@@ -133,7 +130,7 @@ def register_routes(app):
     @app.route("/<path:path>", endpoint='catch_all')
     def serve_static(path):
         logging.info(f"received request for: {path}")
-        if path.startswith( ("auth/", "api/", "az_transcription/", "plaud/") ):
+        if path.startswith( ("auth/", "api/") ):
             logging.info(f"API route detected, returning 404")
             return jsonify({"error": "Not found"}), 404  # Optional: Provide a custom error or redirect
     

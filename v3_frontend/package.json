@@ -8,7 +8,9 @@
     "preview": "vite preview",
     "lint": "eslint . --ext .ts,.tsx",
     "format": "prettier --write 'src/**/*.{ts,tsx,css}'",
-    "sync-models": "node scripts/sync-models.js"
+    "sync-models": "node scripts/sync-models.js",
+    "deploy:copy": "rm -rf ../backend/frontend-dist/* && cp -r dist/* ../backend/frontend-dist/",
+    "deploy:build-and-copy": "npm run build && npm run deploy:copy"
   },
   "dependencies": {
     "@fluentui/react-components": "^9.72.7",

@@ -11,6 +11,7 @@ from shared_quickscribe_py.cosmos import (
     UpdateAnalysisTypeRequest,
     AnalysisResult
 )
+from shared_quickscribe_py.azure_services.azure_openai import get_openai_client
 from datetime import datetime, UTC
 import uuid
 
@@ -379,3 +380,119 @@ def execute_analysis():
     except Exception as e:
         logger.error(f"Error executing analysis: {e}")
         return jsonify({'error': 'Failed to execute analysis'}), 500
+
+
+@ai_bp.route('/chat', methods=['POST'])
+@require_auth
+def chat():
+    """
+    AI chat endpoint for analyzing transcripts.
+
+    Accepts a conversation history (including system message with tagged transcript)
+    and returns AI responses with inline reference tags.
+
+    Request Body:
+        {
+            "transcription_id": "transcript-uuid",
+            "messages": [
+                {"role": "system", "content": "You are analyzing... [[ref_AA00]] Speaker 1: ..."},
+                {"role": "user", "content": "What did Speaker 1 say?"},
+                {"role": "assistant", "content": "Speaker 1 mentioned [[ref_AB05]]..."},
+                {"role": "user", "content": "Did anyone agree?"}
+            ]
+        }
+
+    Response:
+        {
+            "message": "Yes, Speaker 2 agreed in [[ref_AB08]]...",
+            "usage": {
+                "promptTokens": 1250,
+                "completionTokens": 45,
+                "totalTokens": 1295
+            },
+            "responseTimeMs": 1450
+        }
+    """
+    try:
+        current_user = get_current_user()
+        if not current_user:
+            return jsonify({'error': 'User not authenticated'}), 401
+
+        # Get request data
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'Request body is required'}), 400
+
+        transcription_id = data.get('transcription_id')
+        messages = data.get('messages')
+
+        # Validate required fields
+        if not transcription_id:
+            return jsonify({'error': 'transcription_id is required'}), 400
+
+        if not messages or not isinstance(messages, list) or len(messages) == 0:
+            return jsonify({'error': 'messages array is required and must not be empty'}), 400
+
+        # Validate message format
+        for msg in messages:
+            if not isinstance(msg, dict):
+                return jsonify({'error': 'Each message must be an object'}), 400
+            if 'role' not in msg or 'content' not in msg:
+                return jsonify({'error': 'Each message must have role and content'}), 400
+            if msg['role'] not in ['system', 'user', 'assistant']:
+                return jsonify({'error': 'Message role must be system, user, or assistant'}), 400
+
+        # Verify user has access to this transcription
+        transcription_handler = get_transcription_handler()
+        transcription = transcription_handler.get_transcription(transcription_id)
+
+        if not transcription:
+            return jsonify({'error': 'Transcription not found'}), 404
+
+        if transcription.user_id != current_user.id:
+            return jsonify({'error': 'Access denied'}), 403
+
+        # Get OpenAI client and send messages
+        try:
+            openai_client = get_openai_client("normal")
+            result = openai_client.send_messages_with_timing(messages)
+
+            # Log token usage for tracking
+            logger.info(
+                f"Chat request completed - transcription_id={transcription_id}, "
+                f"user_id={current_user.id}, "
+                f"prompt_tokens={result['promptTokens']}, "
+                f"completion_tokens={result['responseTokens']}, "
+                f"total_tokens={result['promptTokens'] + result['responseTokens']}, "
+                f"response_time_ms={result['llmResponseTimeMs']}"
+            )
+
+            # Return response with usage metadata
+            return jsonify({
+                'message': result['content'],
+                'usage': {
+                    'promptTokens': result['promptTokens'],
+                    'completionTokens': result['responseTokens'],
+                    'totalTokens': result['promptTokens'] + result['responseTokens']
+                },
+                'responseTimeMs': result['llmResponseTimeMs']
+            }), 200
+
+        except Exception as llm_error:
+            logger.error(f"LLM request failed for chat: {llm_error}")
+
+            # Check for specific error types
+            error_message = str(llm_error)
+
+            if 'rate limit' in error_message.lower():
+                return jsonify({'error': 'Rate limit exceeded, please try again later'}), 429
+            elif 'content filter' in error_message.lower() or 'content policy' in error_message.lower():
+                return jsonify({'error': 'Content filtered by safety policies'}), 422
+            elif 'token' in error_message.lower() and 'limit' in error_message.lower():
+                return jsonify({'error': 'Message history too long, please start a new conversation'}), 413
+            else:
+                return jsonify({'error': 'AI service temporarily unavailable'}), 503
+
+    except Exception as e:
+        logger.error(f"Error in chat endpoint: {e}")
+        return jsonify({'error': 'Internal server error'}), 500

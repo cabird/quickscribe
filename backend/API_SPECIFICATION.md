@@ -17,8 +17,6 @@
   - [AI Analysis](#ai-analysis)
   - [Participants](#participants)
   - [Tags](#tags)
-  - [Plaud Integration](#plaud-integration)
-  - [Azure Transcription](#azure-transcription)
   - [Admin](#admin)
   - [Job Executions](#job-executions)
   - [Local Development](#local-development)
@@ -103,6 +101,23 @@ Endpoints marked with `🔒` require authentication.
 ## API Endpoints
 
 ## System
+
+### Health Check
+
+**Endpoint:** `GET /api/health`
+**Authentication:** None required
+
+Health check endpoint that returns system status and version information.
+
+**Response:**
+```json
+{
+  "status": "healthy",
+  "version": "0.1.62",
+  "timestamp": "2025-11-14T16:30:00.000000Z",
+  "service": "quickscribe-backend"
+}
+```
 
 ### Get API Version
 
@@ -957,6 +972,121 @@ Deletes a custom analysis type. Users can only delete their own types.
 }
 ```
 
+### Chat with Transcript
+
+**Endpoint:** `POST /api/ai/chat`
+**Authentication:** 🔒 Required
+
+Provides a stateless AI chat interface for analyzing transcripts with inline reference tracking.
+
+**Request Body:**
+```json
+{
+  "transcription_id": "transcription-uuid",
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are analyzing a transcript. Each paragraph is tagged with a reference like [[ref_AB01]]...\n\nTranscript:\n[[ref_AA00]] Speaker 1: Hello...\n[[ref_AA01]] Speaker 2: Hi there..."
+    },
+    {
+      "role": "user",
+      "content": "What did Speaker 1 say about the project timeline?"
+    },
+    {
+      "role": "assistant",
+      "content": "Speaker 1 mentioned [[ref_AB05]] that the project would be completed in 3 weeks."
+    },
+    {
+      "role": "user",
+      "content": "Did anyone agree with that estimate?"
+    }
+  ]
+}
+```
+
+**Required Fields:**
+- `transcription_id` (string) - UUID of the transcription being discussed (for access control and logging)
+- `messages` (array) - Conversation history with role and content for each message
+
+**Message Format:**
+- `role` (string) - Must be "system", "user", or "assistant"
+- `content` (string) - The message text
+
+**Behavior:**
+- **Stateless**: Each request contains full conversation history
+- **Pass-through**: Messages sent directly to LLM without modification
+- **Access Control**: Verifies user owns the transcription
+- **Token Tracking**: Logs usage for cost monitoring
+- **Reference Preservation**: LLM includes [[ref_XX##]] tags when citing transcript
+
+**Response (Success):**
+```json
+{
+  "message": "Yes, Speaker 2 agreed with the timeline in [[ref_AB08]] and added that they could start immediately.",
+  "usage": {
+    "promptTokens": 1250,
+    "completionTokens": 45,
+    "totalTokens": 1295
+  },
+  "responseTimeMs": 1450
+}
+```
+
+**Response Fields:**
+- `message` (string) - AI response with inline [[ref_XX##]] reference tags
+- `usage` (object) - Token usage for cost tracking
+  - `promptTokens` (integer) - Input tokens
+  - `completionTokens` (integer) - Generated tokens
+  - `totalTokens` (integer) - Sum of prompt and completion tokens
+- `responseTimeMs` (integer) - LLM response time in milliseconds
+
+**Error Responses:**
+```json
+// 400 - Invalid request
+{"error": "messages array is required and must not be empty"}
+{"error": "Each message must have role and content"}
+{"error": "Message role must be system, user, or assistant"}
+
+// 401 - Not authenticated
+{"error": "User not authenticated"}
+
+// 403 - Access denied
+{"error": "Access denied"}
+
+// 404 - Not found
+{"error": "Transcription not found"}
+
+// 413 - Payload too large
+{"error": "Message history too long, please start a new conversation"}
+
+// 422 - Content filtered
+{"error": "Content filtered by safety policies"}
+
+// 429 - Rate limited
+{"error": "Rate limit exceeded, please try again later"}
+
+// 503 - Service unavailable
+{"error": "AI service temporarily unavailable"}
+```
+
+**Usage Notes:**
+- Frontend includes full tagged transcript in system message
+- Backend does not fetch or modify transcript
+- Each request is independent (no session state)
+- Token usage logged for monitoring (not stored in database)
+- No rate limiting or quotas (relying on Azure OpenAI limits)
+
+**Example Flow:**
+1. Frontend tags transcript with [[ref_XX##]] IDs
+2. Frontend creates system message with tagged transcript
+3. User asks question
+4. Frontend sends full conversation history to `/api/ai/chat`
+5. Backend validates access and passes messages to LLM
+6. LLM responds with inline reference tags
+7. Frontend highlights referenced sections in UI
+
+---
+
 ### Execute Analysis
 
 **Endpoint:** `POST /api/ai/execute-analysis`
@@ -1310,301 +1440,6 @@ Removes a tag from a recording.
   ...
 }
 ```
-
----
-
-## Plaud Integration
-
-### Get Plaud Settings
-
-**Endpoint:** `GET /plaud/user/plaud_settings`
-**Authentication:** 🔒 Required
-
-Returns Plaud settings for the current user (without exposing bearer token).
-
-**Response:**
-```json
-{
-  "hasToken": true,
-  "lastSyncTimestamp": "2025-01-14T09:00:00Z",
-  "enableSync": true
-}
-```
-
-### Update Plaud Settings
-
-**Endpoint:** `PUT /plaud/user/plaud_settings`
-**Authentication:** 🔒 Required
-
-Updates Plaud integration settings.
-
-**Request Body:**
-```json
-{
-  "bearerToken": "plaud-api-token",
-  "enableSync": true,
-  "lastSyncTimestamp": "2025-01-14T09:00:00Z"
-}
-```
-
-**Response:**
-```json
-{
-  "message": "Plaud settings updated successfully"
-}
-```
-
-### Start Plaud Sync
-
-**Endpoint:** `POST /plaud/sync/start`
-**Authentication:** 🔒 Required
-
-Triggers a Plaud device sync operation.
-
-**Request Body:**
-```json
-{
-  "dry_run": false
-}
-```
-
-**Process:**
-1. Validates Plaud settings and bearer token
-2. Checks for active sync (returns error if already running)
-3. Generates sync token
-4. Queues sync job to transcoding queue
-5. Creates progress tracking record
-6. Updates user's `activeSyncToken` and `activeSyncStarted`
-
-**Response:**
-```json
-{
-  "message": "Plaud sync operation started",
-  "sync_token": "sync-token-uuid",
-  "dry_run": false
-}
-```
-
-**Errors:**
-- `400` - Plaud settings not configured or sync disabled
-- `409` - Sync already in progress
-
-### Get Sync Progress
-
-**Endpoint:** `GET /plaud/sync/progress/<sync_token>`
-**Authentication:** 🔒 Required
-
-Retrieves detailed sync progress for a specific sync operation.
-
-**URL Parameters:**
-- `sync_token` (string) - Sync token from start sync response
-
-**Response:**
-```json
-{
-  "id": "sync-token-uuid",
-  "syncToken": "sync-token-uuid",
-  "userId": "user-uuid",
-  "status": "processing",
-  "totalRecordings": 15,
-  "processedRecordings": 8,
-  "failedRecordings": 1,
-  "currentStep": "Processing recordings (8/15)",
-  "errors": [
-    "recording1.mp3: Download failed - network timeout"
-  ],
-  "startTime": "2025-01-14T10:00:00Z",
-  "lastUpdate": "2025-01-14T10:05:30Z",
-  "progressPercentage": 60.0,
-  "partitionKey": "user-uuid"
-}
-```
-
-**Status Values:**
-- `queued` - Sync request queued, waiting for processing
-- `processing` - Actively syncing recordings
-- `completed` - Sync finished successfully
-- `failed` - Sync failed with errors
-
-### Check Active Sync
-
-**Endpoint:** `GET /plaud/sync/check_active`
-**Authentication:** 🔒 Required
-
-Checks if current user has an active sync and returns its status. Used on app load for multi-device recovery.
-
-**Response (Active Sync):**
-```json
-{
-  "has_active_sync": true,
-  "sync_token": "sync-token-uuid",
-  "progress": {
-    "status": "processing",
-    "processedRecordings": 5,
-    "totalRecordings": 10,
-    ...
-  }
-}
-```
-
-**Response (No Active Sync):**
-```json
-{
-  "has_active_sync": false
-}
-```
-
-**Side Effects:**
-- Clears completed/failed sync tokens automatically
-- Clears orphaned sync tokens (no progress record)
-
-### Get Plaud Sync Status
-
-**Endpoint:** `GET /plaud/plaud_sync/status/<user_id>`
-**Authentication:** 🔒 Required
-
-Returns Plaud sync status for a user.
-
-**URL Parameters:**
-- `user_id` (string) - User UUID (must match authenticated user)
-
-**Response:**
-```json
-{
-  "hasSettings": true,
-  "syncEnabled": true,
-  "lastSyncTimestamp": "2025-01-14T09:00:00Z",
-  "currentSyncActive": true,
-  "activeSyncToken": "sync-token-uuid"
-}
-```
-
-### Plaud Callback
-
-**Endpoint:** `POST /plaud/plaud_callback`
-**Authentication:** None (uses callback token)
-
-Receives callbacks from the transcoding container for Plaud operations. **Internal use only.**
-
-**Callback Actions:**
-
-#### Register Plaud Recording
-```json
-{
-  "action": "register_plaud_recording",
-  "callback_token": "sync-token-uuid",
-  "user_id": "user-uuid",
-  "plaud_id": "plaud-recording-id",
-  "original_filename": "recording.opus",
-  "original_timestamp": "2025-01-14T08:00:00Z",
-  "duration": 1800,
-  "filesize": 5242880,
-  "filetype": "opus",
-  "dry_run": false
-}
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "recording_id": "recording-uuid",
-  "sas_url": "https://storage.blob.core.windows.net/..."
-}
-```
-
-#### Plaud Sync Status Update
-```json
-{
-  "action": "plaud_sync",
-  "callback_token": "sync-token-uuid",
-  "user_id": "user-uuid",
-  "status": "in_progress|recording_processed|recording_failed|completed|failed",
-  "message": "Sync in progress",
-  "total_recordings_found": 15,
-  "plaud_id": "recording-id",
-  "recording_id": "recording-uuid",
-  "error_message": "Error details"
-}
-```
-
-### Cleanup Stale Syncs
-
-**Endpoint:** `POST /plaud/admin/cleanup_stale_syncs`
-**Authentication:** 🔒 Required (Admin)
-
-Cleans up sync operations that have been queued for more than 2 hours.
-
-**Response:**
-```json
-{
-  "message": "Cleaned up 3 stale sync operations",
-  "stale_syncs_failed": 3,
-  "user_tokens_cleared": 3
-}
-```
-
----
-
-## Azure Transcription
-
-### Start Transcription
-
-**Endpoint:** `POST /az_transcription/start_transcription/<recording_id>`
-**Authentication:** 🔒 Required
-
-Initiates Azure Speech Services transcription for a recording.
-
-**URL Parameters:**
-- `recording_id` (string) - Recording UUID
-
-**Process:**
-1. Validates recording belongs to user
-2. Checks if transcription already in progress
-3. Generates SAS URL for audio blob
-4. Submits to Azure Speech Services
-5. Updates recording with Azure transcription ID
-
-**Response:**
-```json
-{
-  "message": "Transcription started"
-}
-```
-
-**Errors:**
-- `400` - Transcription already exists or in progress
-- `404` - Recording not found or doesn't belong to user
-
-### Check Transcription Status
-
-**Endpoint:** `GET /az_transcription/check_transcription_status/<recording_id>`
-**Authentication:** 🔒 Required
-
-Checks the status of an Azure Speech Services transcription.
-
-**URL Parameters:**
-- `recording_id` (string) - Recording UUID
-
-**Response:**
-```json
-{
-  "status": "completed",
-  "error": ""
-}
-```
-
-**Status Values:**
-- `not_started` - No transcription initiated
-- `in_progress` - Transcription running
-- `completed` - Transcription finished (transcript available)
-- `failed` - Transcription failed
-
-**Process (on Completion):**
-1. Retrieves transcript from Azure
-2. Generates diarized transcript with speaker labels
-3. Updates transcription in database
-4. Updates recording status to `completed`
 
 ---
 

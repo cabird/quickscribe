@@ -6,7 +6,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="quickscribe-shared",
-    version="0.1.0",
+    version="0.1.1",
     description="Shared Python library for QuickScribe services",
     packages=find_packages(),
     install_requires=[

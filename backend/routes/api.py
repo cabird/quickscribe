@@ -30,6 +30,16 @@ def validate_hex_color(color: str) -> bool:
 def get_api_version():
     return jsonify({'version': API_VERSION}), 200
 
+@api_bp.route('/health', methods=['GET'])
+def health():
+    """Health check endpoint with version and system status."""
+    return jsonify({
+        'status': 'healthy',
+        'version': API_VERSION,
+        'timestamp': datetime.now(UTC).isoformat(),
+        'service': 'quickscribe-backend'
+    }), 200
+
 # Route to get a user by ID
 @api_bp.route('/user/<user_id>', methods=['GET'])
 def get_user_by_id(user_id):
