@@ -87,7 +87,14 @@ export function ChatDrawer({ transcriptionId, transcriptEntries, messages, onMes
       onMessagesChange([
         {
           role: 'system',
-          content: `You are analyzing a transcript. Each paragraph is tagged with a reference like [[ref_AB01]]. When you reference specific parts of the conversation, include these tags inline in your response.
+          content: `You are analyzing a transcript. Each paragraph is tagged with a unique reference ID in the format [[ref_AB01]].
+
+IMPORTANT: When citing multiple parts of the transcript, you MUST write each reference tag separately with its own double brackets. For example:
+- CORRECT: "This was discussed in [[ref_AB01]] and [[ref_AB05]]"
+- WRONG: "This was discussed in [[ref_AB01], [ref_AB05]]"
+- WRONG: "This was discussed in [[ref_AB01, ref_AB05]]"
+
+Always include the full [[ref_XX##]] format for each reference, even when citing multiple passages.
 
 Transcript:
 ${taggedTranscript}`,
