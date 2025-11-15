@@ -11,7 +11,7 @@ SHARED_QUICKSCRIBE_PY = ../shared_quickscribe_py
 LOCAL_CONTAINER_NAME = quickscribe-local
 
 # Get version from api_version.py
-VERSION := $(shell python -c "from api_version import API_VERSION; print(API_VERSION)")
+VERSION := $(shell python -c "import sys; sys.path.insert(0, 'src'); from api_version import API_VERSION; print(API_VERSION)")
 
 .PHONY: bump_version clean build build_container deploy_azure deploy_local setup_container_infrastructure docker_stop local_run compose_up compose_down compose_logs deploy
 
@@ -20,20 +20,20 @@ default: build
 repo2file:
 	repo2file . repo.txt repo2file.exclusion .py .ts Makefile
 
-build: db_handlers/models.py
+build: src/db_handlers/models.py
 
-db_handlers/models.py: $(SHARED_DIR)/Models.ts
+src/db_handlers/models.py: $(SHARED_DIR)/Models.ts
 	typescript-json-schema $(SHARED_DIR)/Models.ts "*" --propOrder --required --out $(SHARED_DIR)/models.schema.json
-	datamodel-codegen --input $(SHARED_DIR)/models.schema.json --input-file-type jsonschema  --output-model-type pydantic_v2.BaseModel --use-subclass-enum --output db_handlers/models.py
+	datamodel-codegen --input $(SHARED_DIR)/models.schema.json --input-file-type jsonschema  --output-model-type pydantic_v2.BaseModel --use-subclass-enum --output src/db_handlers/models.py
 
 bump_version:
 	bump2version --allow-dirty patch
-	@cat api_version.py
+	@cat src/api_version.py
 
 # Local development targets
 local_run: build
 	@echo "Starting local development server..."
-	python app.py
+	python src/app.py
 
 # Build Docker container image
 build_container: build

@@ -19,6 +19,9 @@ RUN pip install -e /tmp/shared_quickscribe_py
 # Copy project files
 COPY . .
 
+# Set Python path to include src directory
+ENV PYTHONPATH=/app/src:$PYTHONPATH
+
 # Azure expects the app to listen on 0.0.0.0 and $PORT
 ENV PORT=8000
 
