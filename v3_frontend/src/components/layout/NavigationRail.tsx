@@ -1,6 +1,8 @@
-import { makeStyles, mergeClasses, Button, Tooltip, tokens } from '@fluentui/react-components';
+import { useState, useEffect } from 'react';
+import { makeStyles, mergeClasses, Button, Tooltip, Text, tokens } from '@fluentui/react-components';
 import { DocumentText24Regular, TaskListLtr24Regular, Search24Regular } from '@fluentui/react-icons';
 import { APP_COLORS } from '../../config/styles';
+import { versionService } from '../../services/versionService';
 
 const useStyles = makeStyles({
   navRail: {
@@ -30,6 +32,16 @@ const useStyles = makeStyles({
       backgroundColor: 'rgba(255,255,255,0.25)',
     },
   },
+  spacer: {
+    flexGrow: 1,
+  },
+  version: {
+    fontSize: tokens.fontSizeBase200,
+    color: 'rgba(255,255,255,0.6)',
+    paddingBottom: '16px',
+    textAlign: 'center',
+    userSelect: 'text',
+  },
 });
 
 interface NavigationRailProps {
@@ -39,6 +51,11 @@ interface NavigationRailProps {
 
 export function NavigationRail({ activeView, onViewChange }: NavigationRailProps) {
   const styles = useStyles();
+  const [version, setVersion] = useState<string>('...');
+
+  useEffect(() => {
+    versionService.getVersion().then(setVersion);
+  }, []);
 
   return (
     <div className={styles.navRail}>
@@ -67,6 +84,12 @@ export function NavigationRail({ activeView, onViewChange }: NavigationRailProps
           className={mergeClasses(styles.navButton, activeView === 'search' && styles.navButtonActive)}
           onClick={() => onViewChange('search')}
         />
+      </Tooltip>
+
+      <div className={styles.spacer} />
+
+      <Tooltip content={`API Version: ${version}`} relationship="label">
+        <Text className={styles.version}>v{version}</Text>
       </Tooltip>
     </div>
   );

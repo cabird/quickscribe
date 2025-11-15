@@ -16,28 +16,29 @@ export interface ChatResponse {
 }
 
 // Mock service for now - returns with random refs from transcript
-const mockChatService = {
-  async chat(_transcriptionId: string, _messages: ChatMessage[], availableRefs: string[]): Promise<ChatResponse> {
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 1000));
+// Keeping for potential future use
+// const mockChatService = {
+//   async chat(_transcriptionId: string, _messages: ChatMessage[], availableRefs: string[]): Promise<ChatResponse> {
+//     // Simulate API delay
+//     await new Promise(resolve => setTimeout(resolve, 1000));
 
-    // Ensure we have at least 2 refs
-    if (availableRefs.length < 2) {
-      return {
-        message: `Here's the answer to your query.`
-      };
-    }
+//     // Ensure we have at least 2 refs
+//     if (availableRefs.length < 2) {
+//       return {
+//         message: `Here's the answer to your query.`
+//       };
+//     }
 
-    // Pick 2 random refs from available refs
-    const shuffled = [...availableRefs].sort(() => Math.random() - 0.5);
-    const ref1 = shuffled[0];
-    const ref2 = shuffled[1];
+//     // Pick 2 random refs from available refs
+//     const shuffled = [...availableRefs].sort(() => Math.random() - 0.5);
+//     const ref1 = shuffled[0];
+//     const ref2 = shuffled[1];
 
-    return {
-      message: `Here's the answer to your query. This relates to [[${ref1}]] and also [[${ref2}]].`
-    };
-  }
-};
+//     return {
+//       message: `Here's the answer to your query. This relates to [[${ref1}]] and also [[${ref2}]].`
+//     };
+//   }
+// };
 
 // Real service (not implemented yet)
 const realChatService = {
@@ -52,6 +53,6 @@ const realChatService = {
 
 // Export real service - backend is ready
 export const chatService = {
-  chat: (transcriptionId: string, messages: ChatMessage[], availableRefs?: string[]) =>
+  chat: (transcriptionId: string, messages: ChatMessage[], _availableRefs?: string[]) =>
     realChatService.chat(transcriptionId, messages)
 };

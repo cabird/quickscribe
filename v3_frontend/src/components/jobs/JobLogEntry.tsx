@@ -1,6 +1,5 @@
 import { makeStyles, Text, tokens } from '@fluentui/react-components';
 import type { JobLogEntry as JobLogEntryType } from '../../types';
-import { formatTime } from '../../utils/dateUtils';
 
 const useStyles = makeStyles({
   entry: {
@@ -22,13 +21,13 @@ const useStyles = makeStyles({
     fontWeight: tokens.fontWeightSemibold,
   },
   levelDebug: {
-    color: tokens.colorPaletteBlueForeground1,
+    color: tokens.colorPaletteBlueForeground2,
   },
   levelInfo: {
     color: tokens.colorNeutralForeground2,
   },
   levelWarning: {
-    color: tokens.colorPaletteOrangeForeground1,
+    color: tokens.colorPaletteDarkOrangeForeground1,
   },
   levelError: {
     color: tokens.colorPaletteRedForeground1,

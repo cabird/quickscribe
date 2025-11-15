@@ -58,18 +58,6 @@ class CosmosDBSettings(BaseSettings):
         case_sensitive=False
     )
 
-    def __init__(self, **data):
-        # Backward compatibility: check for legacy variable names
-        if 'endpoint' not in data and os.getenv('COSMOS_URL'):
-            data['endpoint'] = os.getenv('COSMOS_URL')
-        if 'key' not in data and os.getenv('COSMOS_KEY'):
-            data['key'] = os.getenv('COSMOS_KEY')
-        if 'database_name' not in data and os.getenv('COSMOS_DB_NAME'):
-            data['database_name'] = os.getenv('COSMOS_DB_NAME')
-        if 'container_name' not in data and os.getenv('COSMOS_CONTAINER_NAME'):
-            data['container_name'] = os.getenv('COSMOS_CONTAINER_NAME')
-        super().__init__(**data)
-
 
 class BlobStorageSettings(BaseSettings):
     """Azure Blob Storage configuration."""
@@ -92,14 +80,6 @@ class BlobStorageSettings(BaseSettings):
         case_sensitive=False
     )
 
-    def __init__(self, **data):
-        # Backward compatibility: check for legacy variable names
-        if 'audio_container_name' not in data and os.getenv('AZURE_RECORDING_BLOB_CONTAINER'):
-            data['audio_container_name'] = os.getenv('AZURE_RECORDING_BLOB_CONTAINER')
-        if 'queue_name' not in data and os.getenv('TRANSCODING_QUEUE_NAME'):
-            data['queue_name'] = os.getenv('TRANSCODING_QUEUE_NAME')
-        super().__init__(**data)
-
 
 class SpeechServicesSettings(BaseSettings):
     """Azure Speech Services configuration for transcription."""
@@ -111,14 +91,6 @@ class SpeechServicesSettings(BaseSettings):
         env_prefix="AZURE_SPEECH_",
         case_sensitive=False
     )
-
-    def __init__(self, **data):
-        # Backward compatibility: check for legacy variable names
-        if 'subscription_key' not in data and os.getenv('AZURE_SPEECH_SERVICES_KEY'):
-            data['subscription_key'] = os.getenv('AZURE_SPEECH_SERVICES_KEY')
-        if 'region' not in data and os.getenv('AZURE_SPEECH_SERVICES_REGION'):
-            data['region'] = os.getenv('AZURE_SPEECH_SERVICES_REGION')
-        super().__init__(**data)
 
 
 class PlaudAPISettings(BaseSettings):

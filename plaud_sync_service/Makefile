@@ -21,25 +21,26 @@ YELLOW = \033[33m
 BLUE = \033[34m
 RESET = \033[0m
 
-.PHONY: help bump_version bump-deploy job-build job-push job-create job-config job-deploy job-run job-history job-logs job-status job-delete job-test-local
+.PHONY: help bump_version bump-deploy build-swagger-client job-build job-push job-create job-config job-deploy job-run job-history job-logs job-status job-delete job-test-local
 
 # Default target
 help:
 	@echo "$(BLUE)Plaud Sync Service Makefile (Azure Container Apps Jobs)$(RESET)"
 	@echo ""
 	@echo "Available targets:"
-	@echo "  $(GREEN)job-build$(RESET)        - Build Container Apps Job image"
-	@echo "  $(GREEN)job-push$(RESET)         - Push job image to Azure Container Registry"
-	@echo "  $(GREEN)job-create$(RESET)       - Create Container Apps Job with cron schedule"
-	@echo "  $(GREEN)job-config$(RESET)       - Configure job environment variables from .env"
-	@echo "  $(GREEN)job-deploy$(RESET)       - Build, push, and update job image"
-	@echo "  $(GREEN)job-run$(RESET)          - Manually trigger job execution"
-	@echo "  $(GREEN)job-history$(RESET)      - View job execution history"
-	@echo "  $(GREEN)job-logs$(RESET)         - View logs for latest execution"
-	@echo "  $(GREEN)job-status$(RESET)       - Show job status"
-	@echo "  $(GREEN)job-delete$(RESET)       - Delete the Container Apps Job"
-	@echo "  $(GREEN)job-test-local$(RESET)   - Test job locally with Docker"
-	@echo "  $(GREEN)bump_version$(RESET)     - Bump version using bump2version"
+	@echo "  $(GREEN)build-swagger-client$(RESET) - Build Azure Speech Services swagger client wheel"
+	@echo "  $(GREEN)job-build$(RESET)            - Build Container Apps Job image"
+	@echo "  $(GREEN)job-push$(RESET)             - Push job image to Azure Container Registry"
+	@echo "  $(GREEN)job-create$(RESET)           - Create Container Apps Job with cron schedule"
+	@echo "  $(GREEN)job-config$(RESET)           - Configure job environment variables from .env"
+	@echo "  $(GREEN)job-deploy$(RESET)           - Build, push, and update job image"
+	@echo "  $(GREEN)job-run$(RESET)              - Manually trigger job execution"
+	@echo "  $(GREEN)job-history$(RESET)          - View job execution history"
+	@echo "  $(GREEN)job-logs$(RESET)             - View logs for latest execution"
+	@echo "  $(GREEN)job-status$(RESET)           - Show job status"
+	@echo "  $(GREEN)job-delete$(RESET)           - Delete the Container Apps Job"
+	@echo "  $(GREEN)job-test-local$(RESET)       - Test job locally with Docker"
+	@echo "  $(GREEN)bump_version$(RESET)         - Bump version using bump2version"
 	@echo ""
 
 # Bump version and deploy in a single command
@@ -62,6 +63,16 @@ bump_version:
 	fi
 	@cat service_version.py
 
+
+# ============================================================================
+# Build Targets
+# ============================================================================
+
+# Build Azure Speech Services swagger client wheel
+build-swagger-client:
+	@echo "$(YELLOW)Building Azure Speech Services swagger client...$(RESET)"
+	cd azure_speech/python-client && make build
+	@echo "$(GREEN)Swagger client wheel built successfully!$(RESET)"
 
 # ============================================================================
 # Azure Container Apps Jobs Targets (scheduled batch jobs)

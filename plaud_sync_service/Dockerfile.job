@@ -16,7 +16,7 @@ COPY shared_quickscribe_py /tmp/shared_quickscribe_py
 RUN pip install --no-cache-dir -e /tmp/shared_quickscribe_py
 
 # Copy and install Azure Speech Services swagger client
-COPY backend/azure_speech/python-client /tmp/azure_speech_client
+COPY plaud_sync_service/azure_speech/python-client /tmp/azure_speech_client
 RUN pip install --no-cache-dir -e /tmp/azure_speech_client
 
 # Copy application files

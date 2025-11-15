@@ -49,7 +49,7 @@ export function formatMessageWithRefs(
   let displayText = message;
   const refPattern = /\[\[(ref_[A-Z]{2}\d{2})\]\]/g;
 
-  displayText = displayText.replace(refPattern, (match, refId) => {
+  displayText = displayText.replace(refPattern, (_match, refId) => {
     const num = refToNum.get(refId);
     if (num !== undefined) {
       return `[${num}]`;

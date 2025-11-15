@@ -1,5 +1,5 @@
 import { useState, KeyboardEvent } from 'react';
-import { makeStyles, Textarea, Button, tokens } from '@fluentui/react-components';
+import { makeStyles, Textarea, Button } from '@fluentui/react-components';
 import { Send24Regular } from '@fluentui/react-icons';
 
 const useStyles = makeStyles({

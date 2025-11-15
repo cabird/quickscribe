@@ -1,6 +1,8 @@
 import axios, { AxiosInstance } from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5050';
+// In production (served by Flask), use relative URLs (empty baseURL)
+// In development, use VITE_API_URL from .env
+const API_BASE_URL = import.meta.env.VITE_API_URL || '';
 
 class ApiClient {
   private client: AxiosInstance;

@@ -14,7 +14,6 @@ setup(
         "azure-cosmos>=4.7.0",
         "azure-storage-blob>=12.23.0",
         "azure-storage-queue>=12.12.0",
-        "azure-cognitiveservices-speech>=1.41.0",
         "azure-identity>=1.19.0",
 
         # Data validation and models

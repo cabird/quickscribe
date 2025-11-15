@@ -6,23 +6,15 @@ system under the hood. This allows gradual migration of code to use shared setti
 """
 from dotenv import load_dotenv
 import os
+import sys
 
-# Load .env files based on environment (for backward compatibility)
-if os.getenv('WEBSITE_INSTANCE_ID'):  # Running in Azure
-    if os.path.exists('.env.production'):
-        load_dotenv('.env.production')
-        print("Loaded environment from .env.production (Azure)")
-    else:
-        print("WARNING: .env.production not found in Azure environment")
-else:  # Local development
-    if os.path.exists('.env.local'):
-        load_dotenv('.env.local')
-        print("Loaded environment from .env.local (Local)")
-    elif os.path.exists('.env'):
-        load_dotenv('.env')
-        print("Loaded environment from .env (Local fallback)")
-    else:
-        print("WARNING: No .env file found for local development")
+# Load environment from .env file (startup.sh copies the appropriate file to .env)
+if os.path.exists('.env'):
+    load_dotenv('.env')
+    print("Loaded environment from .env")
+else:
+    print("ERROR: .env file not found - startup.sh should have created it")
+    sys.exit(1)
 
 # Import shared settings
 from shared_quickscribe_py.config import get_settings

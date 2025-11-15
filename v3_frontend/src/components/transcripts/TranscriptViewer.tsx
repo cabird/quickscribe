@@ -104,7 +104,7 @@ interface TranscriptViewerProps {
 export function TranscriptViewer({ transcription, recording, loading }: TranscriptViewerProps) {
   const styles = useStyles();
   const [isChatOpen, setIsChatOpen] = useState(false);
-  const [chatDrawerWidth, setChatDrawerWidth] = useState(40); // percentage
+  const [chatDrawerWidth] = useState(40); // percentage
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]); // Persist chat messages across re-renders
 
   // Reset chat messages when transcription changes

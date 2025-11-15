@@ -12,8 +12,8 @@ WORKDIR /app
 COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy and install shared_quickscribe_py library
-COPY ../shared_quickscribe_py /tmp/shared_quickscribe_py
+# Copy and install shared_quickscribe_py library (copied into temp dir by Makefile)
+COPY shared_quickscribe_py /tmp/shared_quickscribe_py
 RUN pip install -e /tmp/shared_quickscribe_py
 
 # Copy project files
