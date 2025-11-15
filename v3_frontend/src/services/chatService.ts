@@ -50,8 +50,8 @@ const realChatService = {
   }
 };
 
-// Export mock for now - switch to real when backend is ready
+// Export real service - backend is ready
 export const chatService = {
   chat: (transcriptionId: string, messages: ChatMessage[], availableRefs?: string[]) =>
-    mockChatService.chat(transcriptionId, messages, availableRefs || [])
+    realChatService.chat(transcriptionId, messages)
 };

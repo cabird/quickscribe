@@ -40,9 +40,19 @@ const useStyles = makeStyles({
     alignItems: 'flex-start',
     marginBottom: '12px',
   },
+  titleContainer: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '4px',
+  },
   title: {
     fontSize: tokens.fontSizeBase500,
     fontWeight: tokens.fontWeightSemibold,
+  },
+  guid: {
+    fontSize: tokens.fontSizeBase100,
+    color: tokens.colorNeutralForeground3,
+    fontFamily: 'monospace',
   },
   meta: {
     display: 'flex',
@@ -193,7 +203,12 @@ export function TranscriptViewer({ transcription, recording, loading }: Transcri
       <div className={styles.container}>
         <div className={styles.header}>
           <div className={styles.headerTop}>
-            <Text className={styles.title}>{recording.title || recording.original_filename}</Text>
+            <div className={styles.titleContainer}>
+              <Text className={styles.title}>{recording.title || recording.original_filename}</Text>
+              {transcription && (
+                <Text className={styles.guid}>{transcription.id}</Text>
+              )}
+            </div>
             <div className={styles.headerButtons}>
               <Tooltip content="Chat with transcript" relationship="label">
                 <Button
