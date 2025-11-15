@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { makeStyles, Text, Spinner, Divider, tokens, Button, Tooltip } from '@fluentui/react-components';
 import { Copy24Regular, Chat24Regular } from '@fluentui/react-icons';
 import type { Recording, Transcription } from '../../types';
@@ -106,6 +106,11 @@ export function TranscriptViewer({ transcription, recording, loading }: Transcri
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [chatDrawerWidth, setChatDrawerWidth] = useState(40); // percentage
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]); // Persist chat messages across re-renders
+
+  // Reset chat messages when transcription changes
+  useEffect(() => {
+    setChatMessages([]);
+  }, [transcription?.id]);
 
   const handleCopyTranscript = async () => {
     if (!transcription?.diarized_transcript && !transcription?.text) {
