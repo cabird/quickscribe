@@ -7,11 +7,17 @@ export interface ChatMessage {
 
 export interface ChatResponse {
   message: string;
+  usage?: {
+    promptTokens: number;
+    completionTokens: number;
+    totalTokens: number;
+  };
+  responseTimeMs?: number;
 }
 
 // Mock service for now - returns with random refs from transcript
 const mockChatService = {
-  async chat(messages: ChatMessage[], availableRefs: string[]): Promise<ChatResponse> {
+  async chat(_transcriptionId: string, _messages: ChatMessage[], availableRefs: string[]): Promise<ChatResponse> {
     // Simulate API delay
     await new Promise(resolve => setTimeout(resolve, 1000));
 
@@ -35,14 +41,17 @@ const mockChatService = {
 
 // Real service (not implemented yet)
 const realChatService = {
-  async chat(messages: ChatMessage[]): Promise<ChatResponse> {
-    const response = await apiClient.post('/api/ai/chat', { messages });
+  async chat(transcriptionId: string, messages: ChatMessage[]): Promise<ChatResponse> {
+    const response = await apiClient.post('/api/ai/chat', {
+      transcription_id: transcriptionId,
+      messages
+    });
     return response.data;
   }
 };
 
 // Export mock for now - switch to real when backend is ready
 export const chatService = {
-  chat: (messages: ChatMessage[], availableRefs?: string[]) =>
-    mockChatService.chat(messages, availableRefs || [])
+  chat: (transcriptionId: string, messages: ChatMessage[], availableRefs?: string[]) =>
+    mockChatService.chat(transcriptionId, messages, availableRefs || [])
 };

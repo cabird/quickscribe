@@ -4,7 +4,7 @@ import { Dismiss24Regular, Delete24Regular, Subtract24Regular } from '@fluentui/
 import { ChatMessage as ChatMessageComponent } from './ChatMessage';
 import { ChatInput } from './ChatInput';
 import { chatService, type ChatMessage } from '../../services/chatService';
-import { generateRefId, extractRefs } from '../../utils/chatUtils';
+import { generateRefId } from '../../utils/chatUtils';
 import { showToast } from '../../utils/toast';
 
 const useStyles = makeStyles({
@@ -48,6 +48,7 @@ const useStyles = makeStyles({
 });
 
 interface ChatDrawerProps {
+  transcriptionId: string;
   transcriptEntries: Array<{ speaker: string; text: string }>;
   messages: ChatMessage[];
   onMessagesChange: (messages: ChatMessage[]) => void;
@@ -56,7 +57,7 @@ interface ChatDrawerProps {
   onRefClick: (transcriptIndex: number) => void;
 }
 
-export function ChatDrawer({ transcriptEntries, messages, onMessagesChange, onClose, onMinimize, onRefClick }: ChatDrawerProps) {
+export function ChatDrawer({ transcriptionId, transcriptEntries, messages, onMessagesChange, onClose, onMinimize, onRefClick }: ChatDrawerProps) {
   const styles = useStyles();
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -67,7 +68,7 @@ export function ChatDrawer({ transcriptEntries, messages, onMessagesChange, onCl
 
   useEffect(() => {
     // Build ref mapping: refId -> transcript index
-    transcriptEntries.forEach((entry, index) => {
+    transcriptEntries.forEach((_entry, index) => {
       const refId = generateRefId(index);
       refMapping.current.set(refId, index);
       availableRefs.current.push(refId);
@@ -113,7 +114,7 @@ ${taggedTranscript}`,
 
     try {
       // Call chat service (mock for now)
-      const response = await chatService.chat(newMessages, availableRefs.current);
+      const response = await chatService.chat(transcriptionId, newMessages, availableRefs.current);
 
       // Add assistant response
       onMessagesChange([
