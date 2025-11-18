@@ -1,3 +1,6 @@
+# System Description
+**Git commit:** 798b46476c2d52dc8c006a9bbfdf98d8c1623415
+
 # Plaud Sync Service - System Description
 
 ## Purpose
@@ -53,11 +56,33 @@ The Plaud Sync Service is an Azure Functions-based microservice that automatical
                 └──────────────────────┘
 ```
 
+## 1. Repository Structure
+
+```
+plaud_sync_service/
+├── src/                          # Main source code (moved in commit 798b464)
+│   ├── job_executor.py          # Job orchestration engine
+│   ├── transcription_poller.py  # Transcription status checker
+│   ├── plaud_processor.py       # Plaud recording processor
+│   ├── logging_handler.py       # Dual-destination logger
+│   ├── main.py                  # Entry point
+│   ├── service_version.py       # Version tracking
+│   ├── prompts.yaml             # AI prompt templates
+│   └── view_jobs.py             # Job execution viewer utility
+├── azure_speech/                # Azure Speech Services client library
+│   └── python-client/           # Auto-generated API client
+├── tests/                       # Test scripts
+├── requirements.txt             # Python dependencies
+├── Makefile                     # Build and deployment commands
+├── README.md                    # Setup and usage instructions
+└── SYSTEM_DESCRIPTION.md        # This file
+```
+
 ## Core Components
 
-### 1. Function App (`function_app.py`)
+### 1. Main Entry Point (`src/main.py`)
 
-The Azure Functions entry point with three HTTP triggers:
+The entry point that initializes and runs the sync service:
 
 - **Scheduled Trigger**: Runs every 15 minutes (cron: `0 */15 * * * *`)
 - **HTTP Trigger**: Manual invocation from frontend or API
@@ -68,7 +93,7 @@ Responsibilities:
 - Dispatch execution to JobExecutor
 - Handle trigger-specific parameters (user filtering, test mode)
 
-### 2. Job Executor (`job_executor.py`)
+### 2. Job Executor (`src/job_executor.py`)
 
 The main orchestration engine that coordinates the entire sync workflow.
 
@@ -76,9 +101,27 @@ The main orchestration engine that coordinates the entire sync workflow.
 - **Concurrent Job Prevention**: Uses CosmosDB locks to prevent overlapping sync jobs
 - **User Iteration**: Processes all users with `plaudSettings.enableSync = true`
 - **Job Execution Tracking**: Creates JobExecution documents with full logs and statistics
+- **Deleted Items Blocking**: Prevents re-syncing of recordings that users have deleted (uncommitted change)
 - **Dual-Phase Processing**:
   1. **Phase 1**: Check pending transcriptions and update completed ones
   2. **Phase 2**: Fetch and process new Plaud recordings
+
+**Deleted Items Handler Integration (Uncommitted):**
+The JobExecutor now integrates with DeletedItemsHandler to prevent re-syncing deleted recordings:
+
+```python
+# Load existing Plaud IDs for deduplication
+existing_plaud_ids = self.recording_handler.get_user_plaud_ids(user.id)
+
+# Also fetch deleted Plaud IDs to prevent re-syncing
+deleted_plaud_ids = self.deleted_items_handler.get_deleted_plaud_ids(user.id)
+
+# Combine both lists for deduplication
+all_blocked_ids = existing_plaud_ids + deleted_plaud_ids
+processor.set_existing_plaud_ids(all_blocked_ids)
+```
+
+This ensures that when a user deletes a Plaud recording, it won't be re-downloaded on the next sync.
 
 **Execution Flow:**
 ```python
@@ -102,7 +145,7 @@ The main orchestration engine that coordinates the entire sync workflow.
 7. Release lock
 ```
 
-### 3. Transcription Poller (`transcription_poller.py`)
+### 3. Transcription Poller (`src/transcription_poller.py`)
 
 Checks the status of pending transcriptions and processes completed ones.
 
@@ -130,7 +173,7 @@ Step 8: AI Post-Processing (in _handle_completed_transcription)
 - Duration format: ISO 8601 (e.g., `PT45M17S` = 45 minutes 17 seconds)
 - Results downloaded from `results.url`
 
-### 4. Plaud Processor (`plaud_processor.py`)
+### 4. Plaud Processor (`src/plaud_processor.py`)
 
 Handles the download, transcoding, and submission of Plaud recordings.
 
@@ -196,7 +239,7 @@ Chunking strategy:
 - **Splitting**: FFmpeg `-ss` (start) and `-t` (duration) for chunk extraction
 - **Upload**: Azure Blob Storage with SAS URL generation
 
-### 5. Logging Handler (`logging_handler.py`)
+### 5. Logging Handler (`src/logging_handler.py`)
 
 Dual-destination logging system.
 
@@ -282,25 +325,38 @@ interface ManualReviewItem {
 
 ## Key Features
 
-### 1. Deduplication
+### 1. Deduplication and Deleted Items Prevention
 
-**Problem Solved**: Previous implementation downloaded and processed all Plaud recordings on every sync, creating duplicates.
+**Problem Solved**: Previous implementation downloaded and processed all Plaud recordings on every sync, creating duplicates. Additionally, deleted recordings were being re-synced.
 
 **Solution**:
 - Query existing `plaudMetadata.plaudId` values before processing
-- Skip recordings that already exist in database
+- Query deleted Plaud IDs from DeletedItemsHandler (uncommitted change)
+- Skip recordings that already exist OR have been deleted
 - Track skipped count separately from processed count
 
 **Implementation**:
 ```python
-# job_executor.py
+# src/job_executor.py
 existing_plaud_ids = self.recording_handler.get_user_plaud_ids(user.id)
-processor.set_existing_plaud_ids(existing_plaud_ids)
 
-# plaud_processor.py
+# NEW: Fetch deleted Plaud IDs to prevent re-syncing
+deleted_plaud_ids = self.deleted_items_handler.get_deleted_plaud_ids(user.id)
+
+# Combine both lists for deduplication
+all_blocked_ids = existing_plaud_ids + deleted_plaud_ids
+processor.set_existing_plaud_ids(all_blocked_ids)
+
+# src/plaud_processor.py
 if plaud_recording.id in self._existing_plaud_ids:
-    return {"skipped": 1}
+    return {"skipped": 1}  # Skips both existing and deleted recordings
 ```
+
+**Benefits**:
+- Prevents duplicate recordings in database
+- Prevents re-downloading deleted recordings
+- Saves bandwidth, storage, transcription API calls, and costs
+- Respects user's deletion actions
 
 ### 2. Automatic Chunking
 
@@ -590,6 +646,27 @@ python cleanup_test_run.py <test_run_id> --dry-run  # Preview
 - Parallel chunk processing (currently sequential)
 - Batch blob uploads (currently one-by-one)
 - CosmosDB bulk operations (currently individual inserts)
+
+## Recent Changes
+
+### Commit 798b464: Source Code Reorganization
+- **What Changed**: All source files moved from root to `src/` directory
+- **Files Moved**:
+  - `job_executor.py` → `src/job_executor.py`
+  - `transcription_poller.py` → `src/transcription_poller.py`
+  - `plaud_processor.py` → `src/plaud_processor.py`
+  - `logging_handler.py` → `src/logging_handler.py`
+  - `main.py` → `src/main.py`
+  - `service_version.py` → `src/service_version.py`
+  - `prompts.yaml` → `src/prompts.yaml`
+  - `view_jobs.py` → `src/view_jobs.py`
+- **Benefit**: Cleaner repository structure, separates source from config/docs
+
+### Uncommitted: DeletedItemsHandler Integration
+- **What Changed**: JobExecutor now queries DeletedItemsHandler to prevent re-syncing deleted recordings
+- **Impact**: Recordings deleted by users won't be re-downloaded on next sync
+- **Files Modified**: `src/job_executor.py`
+- **Status**: Working in local branch, pending commit
 
 ## Related Documentation
 

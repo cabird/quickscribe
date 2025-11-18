@@ -413,6 +413,81 @@
             ],
             "type": "object"
         },
+        "DeletedItems": {
+            "properties": {
+                "createdAt": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "items": {
+                    "properties": {
+                        "manual_upload": {
+                            "items": {
+                                "type": "string"
+                            },
+                            "type": "array"
+                        },
+                        "participant": {
+                            "items": {
+                                "type": "string"
+                            },
+                            "type": "array"
+                        },
+                        "plaud_recording": {
+                            "items": {
+                                "type": "string"
+                            },
+                            "type": "array"
+                        },
+                        "transcription": {
+                            "items": {
+                                "type": "string"
+                            },
+                            "type": "array"
+                        }
+                    },
+                    "propertyOrder": [
+                        "plaud_recording",
+                        "manual_upload",
+                        "transcription",
+                        "participant"
+                    ],
+                    "type": "object"
+                },
+                "partitionKey": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                },
+                "updatedAt": {
+                    "type": "string"
+                },
+                "userId": {
+                    "type": "string"
+                }
+            },
+            "propertyOrder": [
+                "id",
+                "type",
+                "userId",
+                "items",
+                "partitionKey",
+                "createdAt",
+                "updatedAt"
+            ],
+            "required": [
+                "createdAt",
+                "id",
+                "items",
+                "partitionKey",
+                "updatedAt",
+                "userId"
+            ],
+            "type": "object"
+        },
         "ErrorResponse": {
             "properties": {
                 "details": {

@@ -1,6 +1,6 @@
 # api.py
 from flask import Blueprint, request, jsonify, url_for
-from shared_quickscribe_py.cosmos import get_user_handler, get_recording_handler, get_transcription_handler
+from shared_quickscribe_py.cosmos import get_user_handler, get_recording_handler, get_transcription_handler, get_deleted_items_handler
 from user_util import get_current_user, require_auth
 from shared_quickscribe_py.cosmos import User, Recording, Transcription, TranscodingStatus, TranscriptionStatus, Tag
 from util import get_recording_duration_in_seconds
@@ -206,6 +206,19 @@ def delete_user(user_id):
 @api_bp.route('/delete_recording/<recording_id>', methods=['GET'])
 def delete_recording(recording_id):
     recording_handler = get_recording_handler()
+    deleted_items_handler = get_deleted_items_handler()
+
+    # Get the recording before deleting to check if it's from Plaud
+    recording = recording_handler.get_recording(recording_id)
+
+    # If it's a Plaud recording, add to deleted items to prevent re-sync
+    if recording and recording.plaudMetadata and recording.plaudMetadata.plaudId:
+        plaud_id = recording.plaudMetadata.plaudId
+        user_id = recording.user_id
+        logger.info(f"Adding Plaud ID {plaud_id} to deleted items for user {user_id}")
+        deleted_items_handler.add_deleted_plaud_id(user_id, plaud_id)
+
+    # Delete the recording
     recording_handler.delete_recording(recording_id)
     return jsonify({'message': 'Recording deleted successfully'}), 200
 

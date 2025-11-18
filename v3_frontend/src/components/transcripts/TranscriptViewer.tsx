@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { makeStyles, Text, Spinner, Divider, tokens, Button, Tooltip } from '@fluentui/react-components';
-import { Copy24Regular, Chat24Regular } from '@fluentui/react-icons';
+import { Copy24Regular, Chat24Regular, Delete24Regular } from '@fluentui/react-icons';
 import type { Recording, Transcription } from '../../types';
 import { TranscriptEntry } from './TranscriptEntry';
 import { ChatDrawer } from './ChatDrawer';
@@ -8,6 +8,7 @@ import type { ChatMessage } from '../../services/chatService';
 import { formatDate, formatTime, formatDuration } from '../../utils/dateUtils';
 import { formatSpeakersList } from '../../utils/formatters';
 import { showToast } from '../../utils/toast';
+import { recordingsService } from '../../services/recordingsService';
 
 const useStyles = makeStyles({
   viewContainer: {
@@ -127,6 +128,27 @@ export function TranscriptViewer({ transcription, recording, loading }: Transcri
     }
   };
 
+  const handleDeleteRecording = async () => {
+    if (!recording) return;
+
+    if (!confirm(`Are you sure you want to delete "${recording.title || recording.original_filename}"? This cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      await recordingsService.deleteRecording(recording.id);
+      showToast.success('Recording deleted successfully');
+
+      // Dispatch a custom event to notify the parent to refresh the list
+      window.dispatchEvent(new CustomEvent('recordingDeleted', {
+        detail: { recordingId: recording.id }
+      }));
+    } catch (error) {
+      console.error('Failed to delete recording:', error);
+      showToast.error('Failed to delete recording');
+    }
+  };
+
   if (loading) {
     return (
       <div className={styles.container}>
@@ -227,6 +249,13 @@ export function TranscriptViewer({ transcription, recording, loading }: Transcri
                   appearance="subtle"
                   icon={<Copy24Regular />}
                   onClick={handleCopyTranscript}
+                />
+              </Tooltip>
+              <Tooltip content="Delete recording" relationship="label">
+                <Button
+                  appearance="subtle"
+                  icon={<Delete24Regular />}
+                  onClick={handleDeleteRecording}
                 />
               </Tooltip>
             </div>

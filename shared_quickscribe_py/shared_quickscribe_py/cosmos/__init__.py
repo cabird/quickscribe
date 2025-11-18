@@ -11,6 +11,7 @@ from .sync_progress_handler import SyncProgressHandler
 from .locks_handler import LocksHandler
 from .job_execution_handler import JobExecutionHandler
 from .manual_review_handler import ManualReviewItemHandler
+from .deleted_items_handler import DeletedItems, DeletedItemsHandler
 
 # Handler factory functions (only available in backend with config module)
 try:
@@ -22,6 +23,7 @@ try:
         get_participant_handler,
         get_sync_progress_handler,
         get_job_execution_handler,
+        get_deleted_items_handler,
         create_user_handler,
         create_recording_handler,
         create_transcription_handler,
@@ -29,6 +31,7 @@ try:
         create_participant_handler,
         create_sync_progress_handler,
         create_job_execution_handler,
+        create_deleted_items_handler,
     )
     _has_factory = True
 except ImportError:
@@ -75,6 +78,8 @@ __all__ = [
     "LocksHandler",
     "JobExecutionHandler",
     "ManualReviewItemHandler",
+    "DeletedItems",
+    "DeletedItemsHandler",
     # Models and enums
     "TranscriptionStatus",
     "TranscodingStatus",
@@ -108,6 +113,7 @@ if _has_factory:
         "get_participant_handler",
         "get_sync_progress_handler",
         "get_job_execution_handler",
+        "get_deleted_items_handler",
         "create_user_handler",
         "create_recording_handler",
         "create_transcription_handler",
@@ -115,4 +121,5 @@ if _has_factory:
         "create_participant_handler",
         "create_sync_progress_handler",
         "create_job_execution_handler",
+        "create_deleted_items_handler",
     ])

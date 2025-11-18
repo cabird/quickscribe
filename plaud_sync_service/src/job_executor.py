@@ -10,7 +10,7 @@ from typing import List, Optional, Dict, Any
 from shared_quickscribe_py.config import QuickScribeSettings
 from shared_quickscribe_py.cosmos import (
     RecordingHandler, UserHandler, TranscriptionHandler, LocksHandler,
-    JobExecutionHandler, ManualReviewItemHandler,
+    JobExecutionHandler, ManualReviewItemHandler, DeletedItemsHandler,
     Recording, User, JobExecution, JobExecutionStats, ManualReviewItem
 )
 from shared_quickscribe_py.cosmos.models import Status10 as JobStatus
@@ -60,6 +60,9 @@ class JobExecutor:
             cosmos_url, cosmos_key, cosmos_db, cosmos_container
         )
         self.manual_review_handler = ManualReviewItemHandler(
+            cosmos_url, cosmos_key, cosmos_db, cosmos_container
+        )
+        self.deleted_items_handler = DeletedItemsHandler(
             cosmos_url, cosmos_key, cosmos_db, cosmos_container
         )
 
@@ -397,7 +400,15 @@ class JobExecutor:
             # Load existing Plaud IDs for deduplication
             logger.info("Fetching existing Plaud IDs from database...")
             existing_plaud_ids = self.recording_handler.get_user_plaud_ids(user.id)
-            processor.set_existing_plaud_ids(existing_plaud_ids)
+
+            # Also fetch deleted Plaud IDs to prevent re-syncing deleted recordings
+            deleted_plaud_ids = self.deleted_items_handler.get_deleted_plaud_ids(user.id)
+            logger.info(f"Found {len(deleted_plaud_ids)} deleted Plaud IDs to block")
+
+            # Combine both lists for deduplication
+            all_blocked_ids = existing_plaud_ids + deleted_plaud_ids
+            logger.info(f"Total blocked IDs: {len(all_blocked_ids)} ({len(existing_plaud_ids)} existing + {len(deleted_plaud_ids)} deleted)")
+            processor.set_existing_plaud_ids(all_blocked_ids)
 
             # Fetch recordings from Plaud
             logger.info("Fetching recordings from Plaud...")
@@ -412,14 +423,14 @@ class JobExecutor:
 
             stats["found"] = len(all_recordings)
 
-            # Filter out duplicates BEFORE applying max_recordings limit
+            # Filter out duplicates AND deleted items BEFORE applying max_recordings limit
             # This ensures --max-recordings gets you N NEW recordings, not N random ones
-            new_recordings = [r for r in all_recordings if r.id not in existing_plaud_ids]
+            new_recordings = [r for r in all_recordings if r.id not in all_blocked_ids]
             duplicate_count = len(all_recordings) - len(new_recordings)
 
             logger.info(
                 f"Found {len(all_recordings)} recordings from Plaud: "
-                f"{len(new_recordings)} new, {duplicate_count} duplicates"
+                f"{len(new_recordings)} new, {duplicate_count} blocked (existing or deleted)"
             )
 
             # Limit NEW recordings if max_recordings is set (for testing)
@@ -446,12 +457,12 @@ class JobExecutor:
                     logger.error(f"Error processing Plaud recording {plaud_recording.filename}: {str(e)}")
                     stats["errors"] += 1
 
-            # Set skipped count to the number of duplicates we filtered out
+            # Set skipped count to the number of blocked items we filtered out
             stats["skipped"] = duplicate_count
 
             logger.info(
                 f"Processing complete: {stats['submitted']} submitted, "
-                f"{stats['skipped']} skipped (duplicates), {stats['errors']} errors"
+                f"{stats['skipped']} skipped (existing or deleted), {stats['errors']} errors"
             )
 
         except Exception as e:

@@ -5,6 +5,7 @@ from .sync_progress_handler import SyncProgressHandler
 from .analysis_type_handler import AnalysisTypeHandler
 from .participant_handler import ParticipantHandler
 from .job_execution_handler import JobExecutionHandler
+from .deleted_items_handler import DeletedItemsHandler
 from config import config
 
 from flask import g
@@ -44,6 +45,11 @@ def get_job_execution_handler():
         g.job_execution_handler = create_job_execution_handler()
     return g.job_execution_handler
 
+def get_deleted_items_handler():
+    if not hasattr(g, 'deleted_items_handler'):
+        g.deleted_items_handler = create_deleted_items_handler()
+    return g.deleted_items_handler
+
 def create_recording_handler():
     return RecordingHandler(config.COSMOS_URL, config.COSMOS_KEY, config.COSMOS_DB_NAME, config.COSMOS_CONTAINER_NAME)
 
@@ -66,3 +72,6 @@ def create_participant_handler():
 
 def create_job_execution_handler():
     return JobExecutionHandler(config.COSMOS_URL, config.COSMOS_KEY, config.COSMOS_DB_NAME, config.COSMOS_CONTAINER_NAME)
+
+def create_deleted_items_handler():
+    return DeletedItemsHandler(config.COSMOS_URL, config.COSMOS_KEY, config.COSMOS_DB_NAME, config.COSMOS_CONTAINER_NAME)

@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { makeStyles } from '@fluentui/react-components';
 import { TopActionBar } from '../layout/TopActionBar';
 import { RecordingsList } from './RecordingsList';
@@ -104,6 +104,24 @@ export function TranscriptsView() {
       return Math.max(20, Math.min(60, newWidth));
     });
   }, []);
+
+  // Listen for recording deleted event
+  useEffect(() => {
+    const handleRecordingDeleted = (event: CustomEvent) => {
+      const { recordingId } = event.detail;
+      // If the deleted recording was selected, clear selection
+      if (recordingId === selectedRecordingId) {
+        setSelectedRecordingId(null);
+      }
+      // Refetch recordings to update the list
+      refetch();
+    };
+
+    window.addEventListener('recordingDeleted', handleRecordingDeleted as EventListener);
+    return () => {
+      window.removeEventListener('recordingDeleted', handleRecordingDeleted as EventListener);
+    };
+  }, [selectedRecordingId, refetch]);
 
   return (
     <div className={styles.container}>

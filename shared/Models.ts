@@ -152,6 +152,22 @@ export interface SyncProgress {
     partitionKey: string; // For CosmosDB partitioning
 }
 
+// Tracks deleted items to prevent re-syncing from external sources (e.g., Plaud cloud)
+export interface DeletedItems {
+    id: string; // Format: "deleted_items_{userId}"
+    type?: string; // Document type discriminator (always "deleted_items")
+    userId: string; // Owner of these deleted items
+    items: {
+        plaud_recording?: string[]; // Array of deleted Plaud IDs
+        manual_upload?: string[]; // Array of deleted manual upload IDs (future use)
+        transcription?: string[]; // Array of deleted transcription IDs (future use)
+        participant?: string[]; // Array of deleted participant IDs (future use)
+    };
+    partitionKey: string; // Always "deleted_items"
+    createdAt: string; // ISO timestamp when document was created
+    updatedAt: string; // ISO timestamp of last modification
+}
+
 // Failure tracking for recordings that need manual review
 export interface FailureRecord {
     timestamp: string; // ISO timestamp when the failure occurred
