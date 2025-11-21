@@ -31,6 +31,7 @@ def require_admin(f):
 # ============================================================================
 
 @admin_bp.route('/overview', methods=['GET'])
+@require_auth
 @require_admin
 def get_overview():
     """Get entity counts and summary for the admin dashboard."""
@@ -90,6 +91,7 @@ def get_overview():
 # ============================================================================
 
 @admin_bp.route('/users', methods=['GET'])
+@require_auth
 @require_admin
 def get_all_users():
     """Get all users with summary information."""
@@ -128,6 +130,7 @@ def get_all_users():
 
 
 @admin_bp.route('/recordings', methods=['GET'])
+@require_auth
 @require_admin
 def get_all_recordings():
     """Get all recordings with summary information."""
@@ -173,6 +176,7 @@ def get_all_recordings():
 
 
 @admin_bp.route('/transcriptions', methods=['GET'])
+@require_auth
 @require_admin
 def get_all_transcriptions():
     """Get all transcriptions with summary information."""
@@ -224,6 +228,7 @@ def get_all_transcriptions():
 
 
 @admin_bp.route('/tags', methods=['GET'])
+@require_auth
 @require_admin
 def get_all_tags():
     """Get all tags across all users with usage counts."""
@@ -280,6 +285,7 @@ def get_all_tags():
 
 
 @admin_bp.route('/analysis-types', methods=['GET'])
+@require_auth
 @require_admin
 def get_all_analysis_types():
     """Get all analysis types with usage information."""
@@ -330,6 +336,7 @@ def get_all_analysis_types():
 # ============================================================================
 
 @admin_bp.route('/users/<user_id>', methods=['GET'])
+@require_auth
 @require_admin
 def get_user_detail(user_id: str):
     """Get detailed user information with related entities."""
@@ -387,6 +394,7 @@ def get_user_detail(user_id: str):
 
 
 @admin_bp.route('/recordings/<recording_id>', methods=['GET'])
+@require_auth
 @require_admin
 def get_recording_detail(recording_id: str):
     """Get detailed recording information with related entities."""
@@ -459,6 +467,7 @@ def get_recording_detail(recording_id: str):
 
 
 @admin_bp.route('/transcriptions/<transcription_id>', methods=['GET'])
+@require_auth
 @require_admin
 def get_transcription_detail(transcription_id: str):
     """Get detailed transcription information with related entities."""
@@ -525,6 +534,7 @@ def get_transcription_detail(transcription_id: str):
 # ============================================================================
 
 @admin_bp.route('/users/<user_id>/related/<relation_type>', methods=['GET'])
+@require_auth
 @require_admin
 def get_user_related(user_id: str, relation_type: str):
     """Get related entities for a user."""
@@ -588,6 +598,7 @@ def get_user_related(user_id: str, relation_type: str):
 
 
 @admin_bp.route('/recordings/<recording_id>/related/<relation_type>', methods=['GET'])
+@require_auth
 @require_admin
 def get_recording_related(recording_id: str, relation_type: str):
     """Get related entities for a recording."""
@@ -649,6 +660,7 @@ def get_recording_related(recording_id: str, relation_type: str):
 # ============================================================================
 
 @admin_bp.route('/integrity-check', methods=['POST'])
+@require_auth
 @require_admin
 def run_integrity_check():
     """Run data integrity checks and find orphaned records."""
@@ -748,6 +760,7 @@ def run_integrity_check():
 # ============================================================================
 
 @admin_bp.route('/users/<user_id>', methods=['DELETE'])
+@require_auth
 @require_admin
 def delete_user(user_id: str):
     """Delete a user and all related data (recordings, transcriptions, tags)."""
@@ -810,6 +823,7 @@ def delete_user(user_id: str):
 
 
 @admin_bp.route('/recordings/<recording_id>', methods=['DELETE'])
+@require_auth
 @require_admin
 def delete_recording(recording_id: str):
     """Delete a recording and its transcription."""
@@ -851,6 +865,7 @@ def delete_recording(recording_id: str):
 # ============================================================================
 
 @admin_bp.route('/bulk-operations', methods=['POST'])
+@require_auth
 @require_admin
 def bulk_operations():
     """Perform bulk operations on multiple entities."""
@@ -947,6 +962,7 @@ def bulk_operations():
 # ============================================================================
 
 @admin_bp.route('/export', methods=['GET'])
+@require_auth
 @require_admin
 def export_data():
     """Export all or selected data in JSON format."""
@@ -992,6 +1008,7 @@ def export_data():
 # ============================================================================
 
 @admin_bp.route('/search', methods=['GET'])
+@require_auth
 @require_admin
 def search():
     """Global search across all entity types."""
@@ -1070,6 +1087,7 @@ def search():
 # ============================================================================
 
 @admin_bp.route('/jobs', methods=['GET'])
+@require_auth
 @require_admin
 def get_jobs():
     """
@@ -1157,6 +1175,7 @@ def get_jobs():
 
 
 @admin_bp.route('/jobs/<job_id>', methods=['GET'])
+@require_auth
 @require_admin
 def get_job_details(job_id: str):
     """

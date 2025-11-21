@@ -42,6 +42,7 @@ def health():
 
 # Route to get a user by ID
 @api_bp.route('/user/<user_id>', methods=['GET'])
+@require_auth
 def get_user_by_id(user_id):
     user_handler = get_user_handler()
     user = user_handler.get_user(user_id)
@@ -51,6 +52,7 @@ def get_user_by_id(user_id):
 
 # Route to list all users
 @api_bp.route('/users', methods=['GET'])
+@require_auth
 def list_users():
     user_handler = get_user_handler()
     users = user_handler.get_all_users()
@@ -58,6 +60,7 @@ def list_users():
 
 # Route to get a recording by ID
 @api_bp.route('/recording/<recording_id>', methods=['GET'])
+@require_auth
 def get_recording_by_id(recording_id):
     recording_handler = get_recording_handler()
     recording = recording_handler.get_recording(recording_id)
@@ -67,6 +70,7 @@ def get_recording_by_id(recording_id):
 
 # Route to get audio URL for a recording
 @api_bp.route('/recording/<recording_id>/audio-url', methods=['GET'])
+@require_auth
 def get_recording_audio_url(recording_id):
     """Generate a time-limited SAS URL for streaming the recording's audio file."""
     try:
@@ -138,6 +142,7 @@ def get_recording_audio_url(recording_id):
 
 # Route to list all recordings
 @api_bp.route('/recordings', methods=['GET'])
+@require_auth
 def list_recordings():
     recording_handler = get_recording_handler()
     user = get_current_user()
@@ -151,6 +156,7 @@ def list_recordings():
 
 # Route to get a transcription by ID
 @api_bp.route('/transcription/<transcription_id>', methods=['GET'])
+@require_auth
 def get_transcription_by_id(transcription_id):
     transcription_handler = get_transcription_handler()
     transcription = transcription_handler.get_transcription(transcription_id)
@@ -160,6 +166,7 @@ def get_transcription_by_id(transcription_id):
 
 # Route to get all transcriptions for a user
 @api_bp.route('/user/<user_id>/transcriptions', methods=['GET'])
+@require_auth
 def get_user_transcriptions(user_id):
     transcription_handler = get_transcription_handler()
     transcriptions = transcription_handler.get_user_transcriptions(user_id)
@@ -167,6 +174,7 @@ def get_user_transcriptions(user_id):
 
 # Route to get all recordings for a user
 @api_bp.route('/user/<user_id>/recordings', methods=['GET'])
+@require_auth
 def get_user_recordings(user_id):
     recording_handler = get_recording_handler()
     recordings = recording_handler.get_user_recordings(user_id)
@@ -174,6 +182,7 @@ def get_user_recordings(user_id):
 
 # Route to get users by a list of IDs
 @api_bp.route('/users', methods=['POST'])
+@require_auth
 def get_users_by_ids():
     user_handler = get_user_handler()
     ids = request.json.get('ids', [])
@@ -182,6 +191,7 @@ def get_users_by_ids():
 
 # Route to get recordings by a list of IDs
 @api_bp.route('/recordings', methods=['POST'])
+@require_auth
 def get_recordings_by_ids():
     recording_handler = get_recording_handler()
     ids = request.json.get('ids', [])
@@ -190,6 +200,7 @@ def get_recordings_by_ids():
 
 # Route to get transcriptions by a list of IDs
 @api_bp.route('/transcriptions', methods=['POST'])
+@require_auth
 def get_transcriptions_by_ids():
     transcription_handler = get_transcription_handler()
     ids = request.json.get('ids', [])
@@ -198,12 +209,14 @@ def get_transcriptions_by_ids():
 
 # Route to delete items by ID
 @api_bp.route('/delete_user/<user_id>', methods=['GET'])
+@require_auth
 def delete_user(user_id):
     user_handler = get_user_handler()
     user_handler.delete_user(user_id)
     return jsonify({'message': 'User deleted successfully'}), 200
 
 @api_bp.route('/delete_recording/<recording_id>', methods=['GET'])
+@require_auth
 def delete_recording(recording_id):
     recording_handler = get_recording_handler()
     deleted_items_handler = get_deleted_items_handler()
@@ -223,6 +236,7 @@ def delete_recording(recording_id):
     return jsonify({'message': 'Recording deleted successfully'}), 200
 
 @api_bp.route('/delete_transcription/<transcription_id>', methods=['GET'])
+@require_auth
 def delete_transcription(transcription_id):
     transcription_handler = get_transcription_handler()
     transcription_handler.delete_transcription(transcription_id)
@@ -230,6 +244,7 @@ def delete_transcription(transcription_id):
 
 # Route to update items by ID
 @api_bp.route('/user/<user_id>', methods=['PUT'])
+@require_auth
 def update_user(user_id):
     user_handler = get_user_handler()
     user_data = request.json
@@ -239,6 +254,7 @@ def update_user(user_id):
     return jsonify({'error': 'User not found'}), 404
 
 @api_bp.route('/recording/<recording_id>', methods=['PUT'])
+@require_auth
 def update_recording(recording_id):
     recording_handler = get_recording_handler()
     recording_data = request.json
@@ -251,6 +267,7 @@ def update_recording(recording_id):
     return jsonify({'error': 'Recording not found'}), 404
 
 @api_bp.route('/transcription/<transcription_id>', methods=['PUT'])
+@require_auth
 def update_transcription(transcription_id):
     transcription_handler = get_transcription_handler()
     transcription_data = request.json
@@ -268,6 +285,7 @@ def update_transcription(transcription_id):
 
 #support upload from iphone share context menu
 @api_bp.route("/upload_from_ios_share", methods=['POST'])
+@require_auth
 def upload_from_ios_share():
     logger.info("upload_from_ios_share endpoint called")
 
@@ -375,6 +393,7 @@ def generate_callbacks(request, callback_token):
 
 # File upload form route
 @api_bp.route('/upload', methods=['POST'])
+@require_auth
 def upload():
     logger.info("upload endpoint called")
     if 'file' not in request.files:
@@ -453,6 +472,7 @@ def upload():
     return jsonify({'error': 'Only supported audio files are allowed'}), 400
 
 @api_bp.route('/transcoding_status/<recording_id>', methods=['GET'])
+@require_auth
 def get_transcoding_status(recording_id):
     recording_handler = get_recording_handler()
     recording = recording_handler.get_recording(recording_id)
@@ -562,6 +582,7 @@ def transcoding_callback():
 
 
 @api_bp.route('/recording/<recording_id>/postprocess', methods=['POST'])
+@require_auth
 def manual_postprocess_recording(recording_id):
     """
     Manually trigger AI post-processing for an existing recording.
@@ -634,6 +655,7 @@ def manual_postprocess_recording(recording_id):
 
 
 @api_bp.route('/recording/<recording_id>/update_speakers', methods=['POST'])
+@require_auth
 def update_speakers(recording_id):
     """
     Update speaker names for a recording.
@@ -748,6 +770,7 @@ def update_speakers(recording_id):
 
 
 @api_bp.route('/transcription/<transcription_id>/speaker', methods=['POST'])
+@require_auth
 def update_single_speaker(transcription_id):
     """
     Update a single speaker assignment in a transcription.
@@ -859,6 +882,7 @@ def update_single_speaker(transcription_id):
 
 # Tag routes
 @api_bp.route('/tags/get', methods=['GET'])
+@require_auth
 def get_user_tags():
     """Get all tags for the current user."""
     current_user = get_current_user()
@@ -874,6 +898,7 @@ def get_user_tags():
         return jsonify({'error': str(e)}), 500
 
 @api_bp.route('/tags/create', methods=['POST'])
+@require_auth
 def create_tag():
     """Create a new tag for the current user."""
     current_user = get_current_user()
@@ -909,6 +934,7 @@ def create_tag():
         return jsonify({'error': str(e)}), 500
 
 @api_bp.route('/tags/update', methods=['POST'])
+@require_auth
 def update_tag():
     """Update an existing tag."""
     current_user = get_current_user()
@@ -954,6 +980,7 @@ def update_tag():
         return jsonify({'error': str(e)}), 500
 
 @api_bp.route('/tags/delete/<tag_id>', methods=['GET'])
+@require_auth
 def delete_tag(tag_id):
     """Delete a tag and remove it from all recordings."""
     current_user = get_current_user()
@@ -972,6 +999,7 @@ def delete_tag(tag_id):
         return jsonify({'error': str(e)}), 500
 
 @api_bp.route('/recordings/<recording_id>/add_tag/<tag_id>', methods=['GET'])
+@require_auth
 def add_tag_to_recording(recording_id, tag_id):
     """Add a single tag to a recording."""
     current_user = get_current_user()
@@ -1004,6 +1032,7 @@ def add_tag_to_recording(recording_id, tag_id):
         return jsonify({'error': str(e)}), 500
 
 @api_bp.route('/recordings/<recording_id>/remove_tag/<tag_id>', methods=['GET'])
+@require_auth
 def remove_tag_from_recording(recording_id, tag_id):
     """Remove a specific tag from a recording."""
     current_user = get_current_user()

@@ -1,5 +1,6 @@
 import { makeStyles, Input, Button, Dropdown, Option, tokens } from '@fluentui/react-components';
 import { Search20Regular, ArrowExport20Regular, ArrowClockwise20Regular } from '@fluentui/react-icons';
+import { AuthButton } from '../auth/AuthButton';
 
 const useStyles = makeStyles({
   actionBar: {
@@ -95,6 +96,8 @@ export function TopActionBar({
       >
         Refresh
       </Button>
+
+      <AuthButton />
     </div>
   );
 }

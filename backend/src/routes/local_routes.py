@@ -15,8 +15,8 @@ local_bp = Blueprint('local', __name__)
 @local_bp.route('/users', methods=['GET'])
 def get_local_test_users():
     """Get list of test users for local development"""
-    if not os.getenv('LOCAL_AUTH_ENABLED'):
-        return jsonify({'error': 'Local auth not enabled'}), 403
+    if not os.getenv('USE_DEV_USER_BYPASS'):
+        return jsonify({'error': 'Dev user bypass not enabled'}), 403
         
     try:
         user_handler = get_user_handler()
@@ -29,7 +29,7 @@ def get_local_test_users():
 @local_bp.route('/login', methods=['POST'])
 def local_login():
     """Set current user session for local development"""
-    if not os.getenv('LOCAL_AUTH_ENABLED'):
+    if not os.getenv('USE_DEV_USER_BYPASS'):
         return jsonify({'error': 'Local auth not enabled'}), 403
         
     try:
@@ -58,7 +58,7 @@ def local_login():
 @local_bp.route('/reset-user/<user_id>', methods=['POST'])
 def reset_test_user(user_id):
     """Reset all data for a test user"""
-    if not os.getenv('LOCAL_AUTH_ENABLED'):
+    if not os.getenv('USE_DEV_USER_BYPASS'):
         return jsonify({'error': 'Local auth not enabled'}), 403
         
     try:
@@ -111,7 +111,7 @@ def reset_test_user(user_id):
 @local_bp.route('/create_test_user', methods=['POST'])
 def create_test_user():
     """Create a new test user for local development"""
-    if not os.getenv('LOCAL_AUTH_ENABLED'):
+    if not os.getenv('USE_DEV_USER_BYPASS'):
         return jsonify({'error': 'Local auth not enabled'}), 403
     
     try:
@@ -162,7 +162,7 @@ def create_test_user():
 @local_bp.route('/delete_test_user/<user_id>', methods=['POST'])
 def delete_test_user(user_id):
     """Delete a test user and all associated data"""
-    if not os.getenv('LOCAL_AUTH_ENABLED'):
+    if not os.getenv('USE_DEV_USER_BYPASS'):
         return jsonify({'error': 'Local auth not enabled'}), 403
         
     try:
@@ -217,7 +217,7 @@ def delete_test_user(user_id):
 @local_bp.route('/create_dummy_recording', methods=['POST'])
 def create_dummy_recording():
     """Create a dummy recording for testing purposes"""
-    if not os.getenv('LOCAL_AUTH_ENABLED'):
+    if not os.getenv('USE_DEV_USER_BYPASS'):
         return jsonify({'error': 'Local auth not enabled'}), 403
     
     current_user = get_current_user()

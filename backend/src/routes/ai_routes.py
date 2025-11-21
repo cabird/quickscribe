@@ -25,6 +25,7 @@ def test():
     return jsonify({"status": "up"})
 
 @ai_bp.route('/get_speaker_summaries/<transcription_id>', methods=['GET'])
+@require_auth
 def get_speaker_summaries(transcription_id):
     logger.info(f"get_speaker_summaries: transcription_id {transcription_id}")
     transcription_handler = get_transcription_handler()
@@ -75,6 +76,7 @@ def get_speaker_summaries(transcription_id):
     return jsonify({'error': 'Transcription not found or does not have a diarized transcript'}), 404
 
 @ai_bp.route('/infer_speaker_names/<transcription_id>')
+@require_auth
 def infer_speaker_names(transcription_id):
     transcription_handler = get_transcription_handler()
     transcription = transcription_handler.get_transcription(transcription_id)
