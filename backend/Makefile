@@ -13,30 +13,29 @@ LOCAL_CONTAINER_NAME = quickscribe-local
 # Get version from api_version.py
 VERSION := $(shell python -c "import sys; sys.path.insert(0, 'src'); from api_version import API_VERSION; print(API_VERSION)")
 
-.PHONY: bump_version clean build build_container deploy_azure deploy_local setup_container_infrastructure docker_stop local_run compose_up compose_down compose_logs deploy
+.PHONY: bump_version clean build_container deploy_azure deploy_local setup_container_infrastructure docker_stop local_run compose_up compose_down compose_logs deploy setup
 
-default: build
+default: setup
 
 repo2file:
 	repo2file . repo.txt repo2file.exclusion .py .ts Makefile
 
-build: src/db_handlers/models.py
-
-src/db_handlers/models.py: $(SHARED_DIR)/Models.ts
-	typescript-json-schema $(SHARED_DIR)/Models.ts "*" --propOrder --required --out $(SHARED_DIR)/models.schema.json
-	datamodel-codegen --input $(SHARED_DIR)/models.schema.json --input-file-type jsonschema  --output-model-type pydantic_v2.BaseModel --use-subclass-enum --output src/db_handlers/models.py
+# Install shared_quickscribe_py in editable mode for local development
+setup:
+	@echo "Installing shared_quickscribe_py in editable mode..."
+	pip install -e $(SHARED_QUICKSCRIBE_PY)
 
 bump_version:
 	bump2version --allow-dirty patch
 	@cat src/api_version.py
 
 # Local development targets
-local_run: build
+local_run: setup
 	@echo "Starting local development server..."
-	python src/app.py
+	cd src && python app.py
 
 # Build Docker container image
-build_container: build
+build_container:
 	@echo "=== Building Docker container image ==="
 	@echo "Version: $(VERSION)"
 	$(eval TEMP_DIR := quickscribe_deploy_$(VERSION))
@@ -122,7 +121,7 @@ docker_stop:
 	-docker rm $(LOCAL_CONTAINER_NAME)
 
 # Docker Compose targets
-compose_up: build
+compose_up: setup
 	@echo "Starting full stack with docker-compose..."
 	@echo "Backend: http://localhost:5000"
 	@echo "Frontend: http://localhost:3000"

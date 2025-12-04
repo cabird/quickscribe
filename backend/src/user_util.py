@@ -9,8 +9,7 @@ Supports three authentication modes:
 import os
 from config import config
 from flask import request, session, jsonify
-from shared_quickscribe_py.cosmos import get_user_handler
-from db_handlers.models import User
+from shared_quickscribe_py.cosmos import get_user_handler, User
 from typing import Optional
 from functools import wraps
 from datetime import datetime, UTC
@@ -125,26 +124,55 @@ def _get_authenticated_user() -> Optional[User]:
 
     # Get or create user
     user_handler = get_user_handler()
-    user = user_handler.get_user(user_id)
 
-    if not user:
-        # Auto-provision user on first login
-        logger.info(f"Auto-provisioning new user: {email}")
+    # First, try to find user by Azure OID (for linked accounts)
+    user = user_handler.get_user_by_azure_oid(user_id)
 
-        user = User(
-            id=user_id,
-            email=email,
-            name=name or email,  # Use email as name if name not provided
-            is_test_user=False,
-            # Add any other required fields from your User model
-        )
+    if user:
+        logger.info(f"Found existing user linked to Azure OID: {user.id}")
+        return user
 
-        try:
-            user_handler.save_user(user)
-            logger.info(f"User provisioned successfully: {user_id}")
-        except Exception as e:
-            logger.error(f"Failed to provision user: {e}")
-            return None
+    # No linked user found - check if there's a user with matching email we can link
+    if email:
+        users_by_email = user_handler.get_user_by_email(email) if hasattr(user_handler, 'get_user_by_email') else []
+        if not users_by_email:
+            # Try by name as fallback (for legacy users)
+            users_by_email = [u for u in user_handler.get_all_users() if u.email == email]
+
+        if users_by_email:
+            # Found existing user with same email - link Azure OID to them
+            user = users_by_email[0]
+            logger.info(f"Linking Azure OID {user_id} to existing user {user.id} ({user.email})")
+            user.azure_oid = user_id
+            try:
+                user_handler.save_user(user)
+                logger.info(f"Successfully linked Azure OID to user {user.id}")
+            except Exception as e:
+                logger.error(f"Failed to link Azure OID: {e}")
+            return user
+
+    # No existing user found - create a new one
+    logger.info(f"Auto-provisioning new user: {email}")
+
+    new_user_id = f"user-{user_id}"  # Prefix with 'user-' for consistency
+    user = User(
+        id=new_user_id,
+        partitionKey="user",
+        email=email,
+        name=name or email,  # Use email as name if name not provided
+        is_test_user=False,
+        type="user",
+        azure_oid=user_id,  # Store the Azure OID for future lookups
+    )
+
+    try:
+        # Use create_item for new users since they don't exist yet
+        user_data = user.model_dump(exclude_unset=True, exclude_none=True)
+        user_handler.container.create_item(body=user_data)
+        logger.info(f"User provisioned successfully: {new_user_id}")
+    except Exception as e:
+        logger.error(f"Failed to provision user: {e}")
+        return None
 
     return user
 

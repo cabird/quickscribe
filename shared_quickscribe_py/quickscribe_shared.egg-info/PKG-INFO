@@ -6,7 +6,6 @@ Requires-Python: >=3.11
 Requires-Dist: azure-cosmos>=4.7.0
 Requires-Dist: azure-storage-blob>=12.23.0
 Requires-Dist: azure-storage-queue>=12.12.0
-Requires-Dist: azure-cognitiveservices-speech>=1.41.0
 Requires-Dist: azure-identity>=1.19.0
 Requires-Dist: pydantic>=2.9.0
 Requires-Dist: pydantic-settings>=2.0.0

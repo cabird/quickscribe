@@ -20,7 +20,7 @@ from shared_quickscribe_py.azure_services.azure_openai import get_openai_client
 from logging_handler import JobLogger
 
 # Azure Speech Services imports
-import swagger_client
+import azure_speech_client
 import requests
 
 # Maximum number of processing failures before manual review is required
@@ -83,17 +83,17 @@ class TranscriptionPoller:
         # Initialize API client
         try:
             self.api_client = self._get_speech_api_client()
-            self.api = swagger_client.CustomSpeechTranscriptionsApi(api_client=self.api_client)
+            self.api = azure_speech_client.CustomSpeechTranscriptionsApi(api_client=self.api_client)
         except Exception as e:
             self.logger.error(f"Failed to initialize Azure Speech Services API client: {str(e)}")
             raise
 
     def _get_speech_api_client(self):
         """Create Azure Speech Services API client."""
-        configuration = swagger_client.Configuration()
+        configuration = azure_speech_client.Configuration()
         configuration.api_key["Ocp-Apim-Subscription-Key"] = self.speech_key
         configuration.host = f"https://{self.speech_region}.api.cognitive.microsoft.com/speechtotext/v3.2"
-        return swagger_client.ApiClient(configuration)
+        return azure_speech_client.ApiClient(configuration)
 
     def check_and_update_transcription(self, recording: Recording) -> bool:
         """

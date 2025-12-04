@@ -48,7 +48,11 @@ payload = {
   "max_tokens": 800
 }
 
-with open("prompts.yaml", 'r') as stream:
+# Get the directory where this script is located
+_script_dir = os.path.dirname(os.path.abspath(__file__))
+_prompts_path = os.path.join(_script_dir, '..', 'prompts.yaml')
+
+with open(_prompts_path, 'r') as stream:
     prompts = yaml.safe_load(stream)
 
 infer_speaker_prompt = prompts['prompts']['infer_speaker_names']['prompt']

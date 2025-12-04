@@ -1,0 +1,146 @@
+prompts:
+  infer_speaker_names:
+    description: "This prompt is used to infer speaker names based on a transcript."
+    prompt: |
+        I have a transcript labeled with generic speaker tags ("Speaker 1", "Speaker 2", etc.). Based on 
+        conversation context, including tone, phrasing, and topics discussed, please infer suitable 
+        names or labels for each speaker.
+
+        - If an actual name cannot be determined, use the existing speaker tag ("Speaker 1", "Speaker 2", etc.)
+        - Ensure each inferred name **unique and concise** (preferably one word, max two) and does not overlap with other labels.
+        - Clearly explain your reasoning for each choice in a concise manner.
+
+        Please output in the following format:
+
+        *** Reasoning ***
+
+        <Provide reasoning for the inferred names/roles of each speaker here>
+
+        *** JSON ***
+
+        {
+          "Speaker 1": { "name": "<inferred name or label>", "reasoning": "<concise reasoning>" },
+          "Speaker 2": { "name": "<inferred name or label>", "reasoning": "<concise reasoning>" },
+          "Speaker 3": { "name": "<inferred name or label>", "reasoning": "<concise reasoning>" }
+        }
+
+        __TRANSCRIPT__
+  get_speaker_summaries:
+    description: "This prompt is used to get identifying characteristics for each speaker in a diarized transcript."
+    prompt: |
+        ## TASK: Speaker Identification from Transcript
+
+        Analyze the transcript below to identify and distinguish between speakers. Create 1-3 sentence summaries that focus on WHO each speaker is, not WHAT they discussed.
+
+        ## EVIDENCE HIERARCHY (prioritize in this order):
+
+        1. **Explicit Names**: Direct address ("Thanks, John"), self-introduction, or third-party naming
+        2. **Clear Relationships**: Parent/child, manager/employee, teacher/student, interviewer/interviewee
+        3. **Contextual Clues**: Personal anecdotes, life situations, professional backgrounds        
+        4. **Behavioral Patterns**: Decision-making authority, questioning patterns, formality levels
+        5. **Speech Characteristics**: Technical jargon, accent mentions, linguistic markers
+
+
+        ## WHAT TO LOOK FOR:
+
+        **Names & Direct References:**
+        - "Hi, I'm Sarah" → Speaker is Sarah
+        - "What do you think, Mike?" → Addressed speaker is likely Mike
+        - References to absent people vs. present speakers
+
+        **Relationship Indicators:**
+        - Power dynamics (who gives orders/makes decisions)
+        - Familiarity levels (formal vs. casual language)
+        - Question patterns (interviewer asks open questions, interviewee provides detailed answers)
+        - Emotional dynamics (protective parent, supportive spouse, professional distance)
+
+        **Personal Identifiers:**
+        - Professional role mentions ("As your therapist..." "When I was teaching...")
+        - Life situations ("my kids", "at the office", "back in college")
+        - Expertise indicators (uses medical terms → likely healthcare professional)
+        - Geographic or cultural references
+
+        **Speech Patterns:**
+        - Interruption patterns (who dominates conversation)
+        - Response styles (brief vs. elaborate)
+        - Technical vocabulary usage
+        - Emotional tone consistency
+
+        ## EXAMPLE SUMMARIES:
+
+         "Speaker 1 is likely named David (addressed as such by Speaker 3) and appears to be a senior manager based on their directive tone and final decision-making throughout the conversation."
+
+         "Speaker 2 seems to be the spouse/partner of Speaker 1, using intimate language ('honey', 'remember when we...') and discussing shared household decisions."
+
+         "Speaker 3 could be a technical consultant or IT specialist, consistently using programming terminology and being asked for technical advice by other speakers."
+
+        ## AVOID:
+
+        - Topic-only descriptions ("discussed marketing strategies")
+        - Generic traits applicable to anyone ("spoke clearly", "asked questions")
+        - Equal focus on what was said vs. who said it
+
+        ## OUTPUT REQUIREMENTS:
+
+        Return ONLY a valid JSON object with no additional text, markdown formatting, or code blocks.
+
+        **Required format:**
+        {
+          "speaker_summaries": {
+            "Speaker Name 1": "Identifying summary with confidence indicators where applicable",
+            "Speaker Name 2": "Identifying summary with relationship/name clues if found",
+            "Speaker Name 3": "Identifying summary focusing on distinguishing characteristics"
+          }
+        }
+
+        **Confidence indicators to use when helpful:**
+        - "likely" / "probably" - strong evidence
+        - "possibly" / "might be" - moderate evidence  
+        - "appears to be" / "seems" - behavioral evidence
+        - State evidence even with uncertainty (better to provide potentially helpful hints than nothing)
+
+        ## TRANSCRIPT:
+
+        __TRANSCRIPT__
+  generate_title:
+    description: "Generate a concise title for an audio recording transcript"
+    prompt: |
+        Generate a concise, descriptive title (maximum 60 characters) for this audio transcript.
+        Focus on the main topic, purpose, or key subject discussed.
+        Be specific and informative. Do not use quotes around the title.
+        Return only the title, nothing else.
+        
+        __TRANSCRIPT__
+  generate_description:
+    description: "Generate a brief description summarizing the recording content"
+    prompt: |
+        Write a 1-2 sentence summary describing the main content and purpose of this audio transcript.
+        Be concise but informative about what was discussed or accomplished.
+        Return only the description, nothing else.
+        
+        __TRANSCRIPT__
+  generate_title_and_description:
+    description: "Generate both title and description for an audio recording transcript in one call"
+    prompt: |
+        Analyze this audio transcript and generate both a title and description.
+        
+        For the title:
+        - Maximum 60 characters
+        - Concise and descriptive
+        - Focus on the main topic or purpose
+        - No quotes around the title
+        
+        For the description:
+        - 1-2 sentences summarizing the main content
+        - Informative about what was discussed or accomplished
+        - Concise but comprehensive
+        
+        IMPORTANT: Return only valid JSON with no additional text, explanations, or formatting. 
+        Do not wrap the JSON in code blocks or add any other content.
+        
+        Required format:
+        {"title": "Your generated title here", "description": "Your generated description here"}
+        
+        __TRANSCRIPT__
+        
+        

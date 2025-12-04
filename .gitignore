@@ -20,3 +20,13 @@ node_modules/
 
 # Scratch/temporary work directory
 scratch/
+
+# Build artifacts
+shared_quickscribe_py/build/
+shared_quickscribe_py/dist/
+
+# Generated reports
+scripts/consistency_report.json
+
+# Production secrets - NEVER commit
+backend/production_settings.json

@@ -1,10 +1,13 @@
 import axios, { AxiosInstance } from 'axios';
-import { msalInstance } from '../auth/msalInstance';
+import { msalInstance, redirectPromise } from '../auth/msalInstance';
 import { loginRequest, authEnabled } from '../config/authConfig';
 
 // In production (served by Flask), use relative URLs (empty baseURL)
 // In development, use VITE_API_URL from .env
 const API_BASE_URL = import.meta.env.VITE_API_URL || '';
+
+// Track if a login redirect is in progress to prevent multiple simultaneous redirects
+let loginRedirectInProgress = false;
 
 /**
  * Acquire an access token for API calls.
@@ -18,10 +21,16 @@ async function getAccessToken(): Promise<string | null> {
     return null;
   }
 
+  // Wait for any pending redirect to be handled first
+  await redirectPromise;
+
   const accounts = msalInstance.getAllAccounts();
   if (accounts.length === 0) {
-    // User not logged in, redirect to login
-    await msalInstance.loginRedirect(loginRequest);
+    // User not logged in, redirect to login (but only once)
+    if (!loginRedirectInProgress) {
+      loginRedirectInProgress = true;
+      await msalInstance.loginRedirect(loginRequest);
+    }
     return null;
   }
 
@@ -40,8 +49,11 @@ async function getAccessToken(): Promise<string | null> {
       return response.accessToken;
     } catch (interactiveError) {
       console.error('Interactive token acquisition failed:', interactiveError);
-      // If interactive also fails, redirect to login
-      await msalInstance.loginRedirect(loginRequest);
+      // If interactive also fails, redirect to login (but only once)
+      if (!loginRedirectInProgress) {
+        loginRedirectInProgress = true;
+        await msalInstance.loginRedirect(loginRequest);
+      }
       return null;
     }
   }
@@ -80,7 +92,10 @@ class ApiClient {
         // Handle 401 Unauthorized - token expired or invalid
         if (error.response?.status === 401 && authEnabled) {
           console.warn('Received 401, redirecting to login...');
-          await msalInstance.loginRedirect(loginRequest);
+          if (!loginRedirectInProgress) {
+            loginRedirectInProgress = true;
+            await msalInstance.loginRedirect(loginRequest);
+          }
         }
 
         // Don't show toast here - let individual services handle error display

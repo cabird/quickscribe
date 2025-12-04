@@ -16,8 +16,8 @@ ffmpeg-python>=0.2.0
 requests>=2.31.0
 aiohttp>=3.9.0
 
-# Azure Speech Services (swagger client)
-# Will be installed from backend/azure_speech/python-client if needed
+# Azure Speech Services client (editable install from local package)
+-e ./azure_speech/python-client
 
 # Configuration and data formats
 PyYAML>=6.0

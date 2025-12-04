@@ -80,6 +80,7 @@ export interface User {
     role?: string; // Admin or user
     created_at?: string; // DateTime of when the user was created
     last_login?: string; // DateTime of when the user last logged in
+    azure_oid?: string; // Azure AD Object ID for linking AAD accounts
     plaudSettings?: PlaudSettings; // Plaud integration settings
     partitionKey: string;
     is_test_user?: boolean; // Indicates if this is a test user for local development

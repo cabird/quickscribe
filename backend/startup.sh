@@ -20,10 +20,10 @@ if [ -z "$WEBSITE_INSTANCE_ID" ]; then
     cp .env.local src/.env
     PORT=${PORT:-8000}
     echo "Using port: $PORT"
-    export FLASK_APP=src/app.py
+    export FLASK_APP=app.py
     export FLASK_DEBUG=1
     export FLASK_ENV=development
-    python -m flask run --host=0.0.0.0 --port=$PORT --debug --reload
+    cd src && python -m flask run --host=0.0.0.0 --port=$PORT --debug --reload
 else
     echo "Running in AZURE mode - copying .env.azure to .env"
     echo "WEBSITE_INSTANCE_ID: $WEBSITE_INSTANCE_ID"

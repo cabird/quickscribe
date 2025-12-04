@@ -14,6 +14,7 @@ shared_quickscribe_py/config/__init__.py
 shared_quickscribe_py/config/settings.py
 shared_quickscribe_py/cosmos/__init__.py
 shared_quickscribe_py/cosmos/analysis_type_handler.py
+shared_quickscribe_py/cosmos/deleted_items_handler.py
 shared_quickscribe_py/cosmos/handler_factory.py
 shared_quickscribe_py/cosmos/helpers.py
 shared_quickscribe_py/cosmos/job_execution_handler.py

@@ -1939,6 +1939,9 @@
         },
         "User": {
             "properties": {
+                "azure_oid": {
+                    "type": "string"
+                },
                 "created_at": {
                     "type": "string"
                 },
@@ -1984,6 +1987,7 @@
                 "role",
                 "created_at",
                 "last_login",
+                "azure_oid",
                 "plaudSettings",
                 "partitionKey",
                 "is_test_user",

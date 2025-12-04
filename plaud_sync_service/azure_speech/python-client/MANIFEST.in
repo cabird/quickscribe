@@ -1,0 +1,20 @@
+# Include documentation files
+include README.md
+include LICENSE
+recursive-include docs *.md
+
+# Include configuration files
+include requirements.txt
+include test-requirements.txt
+include pyproject.toml
+
+# Exclude development and build artifacts
+global-exclude *.py[cod]
+global-exclude __pycache__
+global-exclude *.so
+global-exclude .DS_Store
+prune build
+prune dist
+prune *.egg-info
+prune .venv
+prune test

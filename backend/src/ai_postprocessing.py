@@ -12,18 +12,21 @@ All AI operations are coordinated here while keeping llms.py generic.
 import asyncio
 import json
 import logging
+import os
 import yaml
 from typing import Dict, Optional, Tuple
-from db_handlers.handler_factory import get_recording_handler, get_transcription_handler, get_participant_handler
-from db_handlers.models import Recording, Transcription
+from shared_quickscribe_py.cosmos import get_recording_handler, get_transcription_handler, get_participant_handler, Recording, Transcription
 from llms import (
-    send_multiple_prompts_concurrent, 
+    send_multiple_prompts_concurrent,
     get_speaker_mapping,
     send_prompt_to_llm
 )
 
 # Load prompts
-with open("prompts.yaml", 'r') as stream:
+_script_dir = os.path.dirname(os.path.abspath(__file__))
+_prompts_path = os.path.join(_script_dir, '..', 'prompts.yaml')
+
+with open(_prompts_path, 'r') as stream:
     prompts = yaml.safe_load(stream)
 
 generate_title_prompt = prompts['prompts']['generate_title']['prompt']
@@ -234,7 +237,7 @@ def update_speaker_names(transcription_id: str, transcript_text: str, recording_
         participant_suggestions = suggest_participants_for_speakers(user_id, raw_speaker_mapping)
         
         # Convert raw dictionary to enhanced SpeakerMapping objects with participant info
-        from db_handlers.models import SpeakerMapping
+        from shared_quickscribe_py.cosmos.models import SpeakerMapping
         formatted_speaker_mapping = {}
         recording_participants = []
         
@@ -254,7 +257,7 @@ def update_speaker_names(transcription_id: str, transcript_text: str, recording_
             
             # Create RecordingParticipant entry if we have a valid participant
             if participant_info.get("participantId"):
-                from db_handlers.models import RecordingParticipant
+                from shared_quickscribe_py.cosmos.models import RecordingParticipant
                 recording_participants.append(RecordingParticipant(
                     participantId=participant_info["participantId"],
                     displayName=participant_info["displayName"],
@@ -580,7 +583,7 @@ def update_transcription_speaker_data_with_participants(transcription_id: str, s
     Returns:
         Results dict with update status
     """
-    from db_handlers.models import SpeakerMapping
+    from shared_quickscribe_py.cosmos.models import SpeakerMapping
     
     transcription_handler = get_transcription_handler()
     transcription = transcription_handler.get_transcription(transcription_id)
@@ -638,7 +641,7 @@ def update_recording_participants_with_participants(recording_id: str, speaker_m
         recording_id: ID of the recording to update
         speaker_mapping: Dict of speaker label -> participant data
     """
-    from db_handlers.models import RecordingParticipant
+    from shared_quickscribe_py.cosmos.models import RecordingParticipant
     
     recording_handler = get_recording_handler()
     recording = recording_handler.get_recording(recording_id)
@@ -709,7 +712,7 @@ def update_transcription_speaker_data(transcription_id: str, speaker_mapping: di
     Returns:
         Dict with updated speaker mapping and transcript
     """
-    from db_handlers.models import SpeakerMapping
+    from shared_quickscribe_py.cosmos.models import SpeakerMapping
     
     transcription_handler = get_transcription_handler()
     transcription = transcription_handler.get_transcription(transcription_id)

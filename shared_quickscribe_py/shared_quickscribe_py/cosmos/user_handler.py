@@ -47,6 +47,7 @@ class User(models.User):
     created_at: Optional[datetime] = None
     last_login: Optional[datetime] = None
     updated_at: Optional[datetime] = None
+    # azure_oid is inherited from models.User
     
     @field_validator('created_at', 'last_login', 'updated_at', mode='before')
     @classmethod
@@ -104,6 +105,15 @@ class UserHandler:
         parameters = [{"name": "@name", "value": name}]
         users = list(self.container.query_items(query=query, parameters=parameters, partition_key="user"))
         return [User(**filter_cosmos_fields(user)) for user in users]
+
+    def get_user_by_azure_oid(self, azure_oid: str) -> Optional[User]:
+        """Retrieve a user by Azure AD Object ID."""
+        query = "SELECT * FROM c WHERE c.azure_oid = @azure_oid"
+        parameters = [{"name": "@azure_oid", "value": azure_oid}]
+        users = list(self.container.query_items(query=query, parameters=parameters, partition_key="user"))
+        if users:
+            return User(**filter_cosmos_fields(users[0]))
+        return None
 
     def get_all_users(self) -> List[User]:
         """Retrieve all users and return as a list of User models."""
