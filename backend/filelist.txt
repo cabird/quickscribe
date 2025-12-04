@@ -15,6 +15,7 @@ src/frontend-dist/index.html
 src/frontend-dist/vite.svg
 src/llms.py
 src/logging_config.py
+src/plaud_sync_trigger.py
 src/routes/admin.py
 src/routes/ai_routes.py
 src/routes/api.py

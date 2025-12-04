@@ -94,24 +94,33 @@ class PlaudSyncTrigger:
             # Extract container config from job template
             container_name = self._settings.job_name
             container_image = None
+            existing_env = []
             if job.template and job.template.containers:
                 container_name = job.template.containers[0].name
                 container_image = job.template.containers[0].image
+                # Copy existing environment variables
+                if job.template.containers[0].env:
+                    existing_env = list(job.template.containers[0].env)
 
             if not container_image:
                 raise PlaudSyncTriggerError("Could not determine container image from job definition")
 
             logger.info(f"Using container: {container_name}, image: {container_image}")
+            env_vars_copied = len(existing_env)
+            logger.info(f"Copying {env_vars_copied} existing environment variables")
 
-            # Create execution template with TRIGGER_SOURCE=manual
+            # Add or override TRIGGER_SOURCE=manual
+            # Remove any existing TRIGGER_SOURCE first
+            existing_env = [e for e in existing_env if e.name != "TRIGGER_SOURCE"]
+            existing_env.append(EnvironmentVar(name="TRIGGER_SOURCE", value="manual"))
+
+            # Create execution template with all env vars plus TRIGGER_SOURCE=manual
             template = JobExecutionTemplate(
                 containers=[
                     JobExecutionContainer(
                         name=container_name,
                         image=container_image,
-                        env=[
-                            EnvironmentVar(name="TRIGGER_SOURCE", value="manual")
-                        ]
+                        env=existing_env
                     )
                 ]
             )
@@ -138,7 +147,8 @@ class PlaudSyncTrigger:
                 'execution_name': execution_name,
                 'job_name': self._settings.job_name,
                 'resource_group': self._settings.resource_group,
-                'status': status
+                'status': status,
+                'env_vars_copied': env_vars_copied
             }
 
         except AzureError as e:

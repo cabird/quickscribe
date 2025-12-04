@@ -24,6 +24,13 @@ if [ -z "$WEBSITE_INSTANCE_ID" ]; then
     fi
     PORT=${PORT:-8000}
     echo "Using port: $PORT"
+
+    # Activate virtual environment if it exists (local development)
+    if [ -d "venv" ]; then
+        echo "Activating virtual environment..."
+        source venv/bin/activate
+    fi
+
     export FLASK_APP=app.py
     export FLASK_DEBUG=1
     export FLASK_ENV=development

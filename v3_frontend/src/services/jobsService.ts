@@ -33,6 +33,18 @@ export interface JobDetailsResponse {
   data: JobExecution;
 }
 
+export interface TriggerSyncResponse {
+  status: string;
+  message: string;
+  data: {
+    execution_name: string;
+    job_name: string;
+    resource_group: string;
+    status: string;
+    env_vars_copied: number;
+  };
+}
+
 export const jobsService = {
   async getJobs(filters: JobsFilters = {}): Promise<JobsListResponse> {
     const params = new URLSearchParams();
@@ -49,6 +61,11 @@ export const jobsService = {
 
   async getJobDetails(jobId: string): Promise<JobDetailsResponse> {
     const response = await apiClient.get(`/api/admin/jobs/${jobId}`);
+    return response.data;
+  },
+
+  async triggerPlaudSync(): Promise<TriggerSyncResponse> {
+    const response = await apiClient.post('/api/admin/plaud-sync/trigger');
     return response.data;
   },
 };

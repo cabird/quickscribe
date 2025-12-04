@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { makeStyles, mergeClasses, Button, Tooltip, Text, tokens } from '@fluentui/react-components';
-import { DocumentText24Regular, TaskListLtr24Regular, Search24Regular } from '@fluentui/react-icons';
+import { DocumentText24Regular, TaskListLtr24Regular, Search24Regular, Settings24Regular } from '@fluentui/react-icons';
 import { APP_COLORS } from '../../config/styles';
 import { versionService } from '../../services/versionService';
 
@@ -45,8 +45,8 @@ const useStyles = makeStyles({
 });
 
 interface NavigationRailProps {
-  activeView: 'transcripts' | 'logs' | 'search';
-  onViewChange: (view: 'transcripts' | 'logs' | 'search') => void;
+  activeView: 'transcripts' | 'logs' | 'search' | 'settings';
+  onViewChange: (view: 'transcripts' | 'logs' | 'search' | 'settings') => void;
 }
 
 export function NavigationRail({ activeView, onViewChange }: NavigationRailProps) {
@@ -87,6 +87,15 @@ export function NavigationRail({ activeView, onViewChange }: NavigationRailProps
       </Tooltip>
 
       <div className={styles.spacer} />
+
+      <Tooltip content="Settings" relationship="label">
+        <Button
+          appearance="transparent"
+          icon={<Settings24Regular />}
+          className={mergeClasses(styles.navButton, activeView === 'settings' && styles.navButtonActive)}
+          onClick={() => onViewChange('settings')}
+        />
+      </Tooltip>
 
       <Tooltip content={`API Version: ${version}`} relationship="label">
         <Text className={styles.version}>v{version}</Text>

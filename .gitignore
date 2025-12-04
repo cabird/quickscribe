@@ -30,3 +30,6 @@ scripts/consistency_report.json
 
 # Production secrets - NEVER commit
 backend/production_settings.json
+
+# Plaud sync deploy packages
+plaud_sync_service/plaud_deploy_*/

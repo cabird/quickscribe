@@ -4,6 +4,7 @@ import { NavigationRail } from './NavigationRail';
 import { TranscriptsView } from '../transcripts/TranscriptsView';
 import { JobsView } from '../jobs/JobsView';
 import { SearchPlaceholder } from '../search/SearchPlaceholder';
+import { SettingsView } from '../settings/SettingsView';
 
 const useStyles = makeStyles({
   container: {
@@ -23,7 +24,7 @@ const useStyles = makeStyles({
 
 export function MainLayout() {
   const styles = useStyles();
-  const [activeView, setActiveView] = useState<'transcripts' | 'logs' | 'search'>('transcripts');
+  const [activeView, setActiveView] = useState<'transcripts' | 'logs' | 'search' | 'settings'>('transcripts');
 
   return (
     <div className={styles.container}>
@@ -32,6 +33,7 @@ export function MainLayout() {
         {activeView === 'transcripts' && <TranscriptsView />}
         {activeView === 'logs' && <JobsView />}
         {activeView === 'search' && <SearchPlaceholder />}
+        {activeView === 'settings' && <SettingsView />}
       </div>
     </div>
   );

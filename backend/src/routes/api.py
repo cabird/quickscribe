@@ -40,6 +40,57 @@ def health():
         'service': 'quickscribe-backend'
     }), 200
 
+
+@api_bp.route('/me', methods=['GET'])
+@require_auth
+def get_current_user_info():
+    """Get the current authenticated user's profile."""
+    current_user = get_current_user()
+    if not current_user:
+        return jsonify({'error': 'User not authenticated'}), 401
+    return jsonify(current_user.model_dump()), 200
+
+
+@api_bp.route('/me/plaud-settings', methods=['PUT'])
+@require_auth
+def update_current_user_plaud_settings():
+    """Update the current user's Plaud integration settings."""
+    current_user = get_current_user()
+    if not current_user:
+        return jsonify({'error': 'User not authenticated'}), 401
+
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'No data provided'}), 400
+
+    user_handler = get_user_handler()
+
+    # Get fresh user data
+    user = user_handler.get_user(current_user.id)
+    if not user:
+        return jsonify({'error': 'User not found'}), 404
+
+    # Initialize plaudSettings if it doesn't exist
+    if not user.plaudSettings:
+        from shared_quickscribe_py.cosmos import PlaudSettings
+        user.plaudSettings = PlaudSettings(bearerToken='')
+
+    # Update only the allowed fields
+    if 'enableSync' in data:
+        user.plaudSettings.enableSync = data['enableSync']
+    if 'bearerToken' in data:
+        user.plaudSettings.bearerToken = data['bearerToken']
+
+    # Save the user
+    user_handler.save_user(user)
+
+    return jsonify({
+        'status': 'success',
+        'message': 'Plaud settings updated',
+        'plaudSettings': user.plaudSettings.model_dump() if user.plaudSettings else None
+    }), 200
+
+
 # Route to get a user by ID
 @api_bp.route('/user/<user_id>', methods=['GET'])
 @require_auth

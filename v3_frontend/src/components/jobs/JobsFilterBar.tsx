@@ -1,5 +1,5 @@
 import { makeStyles, Button, Dropdown, Option, Switch, tokens } from '@fluentui/react-components';
-import { ArrowClockwise24Regular, Filter24Regular } from '@fluentui/react-icons';
+import { ArrowClockwise24Regular, Filter24Regular, CloudSync24Regular } from '@fluentui/react-icons';
 
 const useStyles = makeStyles({
   container: {
@@ -31,6 +31,8 @@ interface JobsFilterBarProps {
   onStatusChange: (value: string) => void;
   onTriggerSourceChange: (value: string) => void;
   onRefresh: () => void;
+  onTriggerSync: () => void;
+  isSyncing: boolean;
 }
 
 export function JobsFilterBar({
@@ -43,6 +45,8 @@ export function JobsFilterBar({
   onStatusChange,
   onTriggerSourceChange,
   onRefresh,
+  onTriggerSync,
+  isSyncing,
 }: JobsFilterBarProps) {
   const styles = useStyles();
 
@@ -139,6 +143,15 @@ export function JobsFilterBar({
       </Dropdown>
 
       <div className={styles.spacer} />
+
+      <Button
+        appearance="subtle"
+        icon={<CloudSync24Regular />}
+        onClick={onTriggerSync}
+        disabled={isSyncing}
+      >
+        {isSyncing ? 'Syncing...' : 'Sync Now'}
+      </Button>
 
       <Button
         appearance="subtle"

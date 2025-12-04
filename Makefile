@@ -6,7 +6,7 @@ FRONTEND_DIR = v3_frontend
 SHARED_PY_DIR = shared_quickscribe_py
 PLAUD_DIR = plaud_sync_service
 
-.PHONY: help build run-dev run-local build-containers run-local-container deploy-azure deploy-backend deploy-plaud clean bump-version bump-version-backend bump-version-plaud
+.PHONY: help setup build run-dev run-local build-containers run-local-container deploy-azure deploy-backend deploy-plaud clean bump-version bump-version-backend bump-version-plaud
 
 # Default target
 default: help
@@ -60,8 +60,13 @@ build:
 	@echo ""
 	@echo "✓ All components built successfully!"
 
+# Install shared library for local development
+setup:
+	@echo "Installing shared_quickscribe_py in editable mode..."
+	cd $(BACKEND_DIR) && make setup
+
 # Run full development environment (frontend dev server + backend)
-run-dev:
+run-dev: setup
 	@echo "=========================================="
 	@echo "Starting full development environment"
 	@echo "=========================================="
@@ -75,7 +80,7 @@ run-dev:
 	cd $(FRONTEND_DIR) && npm run dev
 
 # Run backend locally (serves built frontend assets)
-run-local:
+run-local: setup
 	@echo "=========================================="
 	@echo "Starting backend (serves frontend assets)"
 	@echo "=========================================="

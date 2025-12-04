@@ -6,6 +6,8 @@ import { JobViewer } from './JobViewer';
 import { ResizableSplitter } from '../layout/ResizableSplitter';
 import { useJobs } from '../../hooks/useJobs';
 import { useJobDetails } from '../../hooks/useJobDetails';
+import { jobsService } from '../../services/jobsService';
+import { showToast } from '../../utils/toast';
 
 const useStyles = makeStyles({
   container: {
@@ -32,6 +34,7 @@ export function JobsView() {
   const [hasActivity, setHasActivity] = useState(true);
   const [status, setStatus] = useState('');
   const [triggerSource, setTriggerSource] = useState('');
+  const [isSyncing, setIsSyncing] = useState(false);
 
   // Build filters object
   const filters = useMemo(
@@ -59,6 +62,35 @@ export function JobsView() {
     });
   }, []);
 
+  const handleTriggerSync = useCallback(async () => {
+    setIsSyncing(true);
+    try {
+      const response = await jobsService.triggerPlaudSync();
+      if (response.status === 'success') {
+        showToast.success(response.message || 'Plaud sync triggered successfully');
+        // Refresh the job list after a short delay to allow the job to appear
+        setTimeout(() => {
+          refetch();
+        }, 2000);
+      } else {
+        showToast.error(response.message || 'Failed to trigger Plaud sync');
+      }
+    } catch (error: unknown) {
+      console.error('Failed to trigger Plaud sync:', error);
+      // Extract error message from axios error response or fall back to generic message
+      let errorMessage = 'Failed to trigger Plaud sync';
+      if (error && typeof error === 'object' && 'response' in error) {
+        const axiosError = error as { response?: { data?: { error?: string; message?: string } } };
+        errorMessage = axiosError.response?.data?.error
+          || axiosError.response?.data?.message
+          || errorMessage;
+      }
+      showToast.error(errorMessage);
+    } finally {
+      setIsSyncing(false);
+    }
+  }, [refetch]);
+
   return (
     <div className={styles.container}>
       <JobsFilterBar
@@ -71,6 +103,8 @@ export function JobsView() {
         onStatusChange={setStatus}
         onTriggerSourceChange={setTriggerSource}
         onRefresh={refetch}
+        onTriggerSync={handleTriggerSync}
+        isSyncing={isSyncing}
       />
       <div className={styles.viewContainer}>
         <JobsList

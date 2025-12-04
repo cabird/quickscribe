@@ -23,7 +23,7 @@ repo2file:
 # Install shared_quickscribe_py in editable mode for local development
 setup:
 	@echo "Installing shared_quickscribe_py in editable mode..."
-	pip install -e $(SHARED_QUICKSCRIBE_PY)
+	./venv/bin/pip install -e $(SHARED_QUICKSCRIBE_PY)
 
 bump_version:
 	bump2version --allow-dirty patch
