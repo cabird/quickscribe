@@ -38,7 +38,7 @@ export function JobsView() {
     () => ({
       limit: 50,
       min_duration: minDuration,
-      has_activity: hasActivity,
+      has_activity: hasActivity ? true : undefined, // undefined = show all jobs
       status: status || undefined,
       trigger_source: (triggerSource as 'scheduled' | 'manual' | undefined) || undefined,
       sort_by: 'startTime' as const,

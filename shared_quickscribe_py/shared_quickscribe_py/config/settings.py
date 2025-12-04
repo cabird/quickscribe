@@ -149,6 +149,32 @@ class FlaskSettings(BaseSettings):
     )
 
 
+class PlaudSyncTriggerSettings(BaseSettings):
+    """
+    Service principal configuration for triggering Plaud Sync Container Apps Job.
+
+    Uses a dedicated service principal with limited scope to start the sync job.
+    """
+
+    client_id: str = Field(..., description="Service principal client ID (appId)")
+    client_secret: str = Field(..., description="Service principal client secret")
+    tenant_id: str = Field(..., description="Azure AD tenant ID")
+    subscription_id: str = Field(..., description="Azure subscription ID")
+    resource_group: str = Field(
+        default="QuickScribeResourceGroup",
+        description="Resource group containing the Container Apps Job"
+    )
+    job_name: str = Field(
+        default="quickscribe-plaud-sync-job",
+        description="Name of the Container Apps Job to trigger"
+    )
+
+    model_config = SettingsConfigDict(
+        env_prefix="PLAUD_SYNC_TRIGGER_",
+        case_sensitive=False
+    )
+
+
 # =============================================================================
 # Main Application Settings
 # =============================================================================
@@ -223,6 +249,10 @@ class QuickScribeSettings(BaseSettings):
         default=False,
         description="Enable AssemblyAI as alternative transcription service"
     )
+    plaud_sync_trigger_enabled: bool = Field(
+        default=False,
+        description="Enable manual triggering of Plaud Sync Container Apps Job"
+    )
 
     # =========================================================================
     # Service-Specific Settings (Conditionally Required)
@@ -236,6 +266,7 @@ class QuickScribeSettings(BaseSettings):
     azure_ad_auth: Optional[AzureADAuthSettings] = None
     assemblyai: Optional[AssemblyAISettings] = None
     flask: Optional[FlaskSettings] = None
+    plaud_sync_trigger: Optional[PlaudSyncTriggerSettings] = None
 
     # =========================================================================
     # Pydantic Configuration
@@ -344,6 +375,20 @@ class QuickScribeSettings(BaseSettings):
             except ValidationError as e:
                 raise ValueError(
                     f"AssemblyAI configuration required (assemblyai_enabled=True) "
+                    f"but validation failed: {e}"
+                )
+        return None
+
+    @field_validator('plaud_sync_trigger', mode='before')
+    @classmethod
+    def validate_plaud_sync_trigger(cls, v, info):
+        """Require Plaud Sync Trigger settings if plaud_sync_trigger_enabled is True."""
+        if info.data.get('plaud_sync_trigger_enabled'):
+            try:
+                return PlaudSyncTriggerSettings()
+            except ValidationError as e:
+                raise ValueError(
+                    f"Plaud Sync Trigger configuration required (plaud_sync_trigger_enabled=True) "
                     f"but validation failed: {e}"
                 )
         return None

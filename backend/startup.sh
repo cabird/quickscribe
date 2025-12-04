@@ -18,6 +18,10 @@ fi
 if [ -z "$WEBSITE_INSTANCE_ID" ]; then
     echo "Running in LOCAL mode - copying .env.local to .env"
     cp .env.local src/.env
+    # Read PORT from .env.local if not already set in environment
+    if [ -z "$PORT" ]; then
+        PORT=$(grep ^PORT= .env.local | cut -d= -f2)
+    fi
     PORT=${PORT:-8000}
     echo "Using port: $PORT"
     export FLASK_APP=app.py

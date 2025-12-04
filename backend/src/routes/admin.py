@@ -14,6 +14,7 @@ from shared_quickscribe_py.cosmos import (
     get_sync_progress_handler,
     get_job_execution_handler
 )
+from shared_quickscribe_py.config import get_settings
 from shared_quickscribe_py.cosmos import User, Recording, Transcription, Tag, AnalysisType, SyncProgress
 
 logger = logging.getLogger(__name__)
@@ -1229,3 +1230,101 @@ def get_job_details(job_id: str):
     except Exception as e:
         logger.error(f"Error getting job details for {job_id}: {e}")
         return jsonify({'status': 'error', 'error': str(e)}), 500
+
+
+# ============================================================================
+# Plaud Sync Trigger Endpoints
+# ============================================================================
+
+@admin_bp.route('/plaud-sync/trigger', methods=['POST'])
+@require_auth
+@require_admin
+def trigger_plaud_sync():
+    """
+    Manually trigger the Plaud Sync Container Apps Job.
+
+    This starts the Plaud sync service which will:
+    1. Check pending transcriptions for all users with Plaud sync enabled
+    2. Fetch and process new recordings from Plaud devices
+
+    Returns:
+        JSON response with execution details or error message
+    """
+    try:
+        settings = get_settings()
+
+        # Check if feature is enabled
+        if not settings.plaud_sync_trigger_enabled:
+            return jsonify({
+                'status': 'error',
+                'error': 'Plaud sync trigger is not enabled',
+                'hint': 'Set PLAUD_SYNC_TRIGGER_ENABLED=true and configure service principal'
+            }), 400
+
+        # Import here to avoid circular imports and allow graceful degradation
+        from plaud_sync_trigger import trigger_plaud_sync as do_trigger, PlaudSyncTriggerError
+
+        result = do_trigger()
+
+        return jsonify({
+            'status': 'success',
+            'message': 'Plaud sync job triggered successfully',
+            'data': result
+        })
+
+    except PlaudSyncTriggerError as e:
+        logger.error(f"Failed to trigger Plaud sync: {e}")
+        return jsonify({
+            'status': 'error',
+            'error': str(e)
+        }), 500
+    except Exception as e:
+        logger.error(f"Unexpected error triggering Plaud sync: {e}")
+        return jsonify({
+            'status': 'error',
+            'error': f'Unexpected error: {str(e)}'
+        }), 500
+
+
+@admin_bp.route('/plaud-sync/status', methods=['GET'])
+@require_auth
+@require_admin
+def get_plaud_sync_status():
+    """
+    Get the status of the Plaud Sync Container Apps Job.
+
+    Returns:
+        JSON response with job status or error message
+    """
+    try:
+        settings = get_settings()
+
+        # Check if feature is enabled
+        if not settings.plaud_sync_trigger_enabled:
+            return jsonify({
+                'status': 'error',
+                'error': 'Plaud sync trigger is not enabled'
+            }), 400
+
+        from plaud_sync_trigger import get_plaud_sync_trigger, PlaudSyncTriggerError
+
+        trigger = get_plaud_sync_trigger()
+        result = trigger.get_job_status()
+
+        return jsonify({
+            'status': 'success',
+            'data': result
+        })
+
+    except PlaudSyncTriggerError as e:
+        logger.error(f"Failed to get Plaud sync status: {e}")
+        return jsonify({
+            'status': 'error',
+            'error': str(e)
+        }), 500
+    except Exception as e:
+        logger.error(f"Unexpected error getting Plaud sync status: {e}")
+        return jsonify({
+            'status': 'error',
+            'error': f'Unexpected error: {str(e)}'
+        }), 500

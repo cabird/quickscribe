@@ -20,6 +20,7 @@ from shared_quickscribe_py.plaud import PlaudClient
 from logging_handler import JobLogger
 from transcription_poller import TranscriptionPoller
 from plaud_processor import PlaudProcessor
+from service_version import SERVICE_VERSION
 
 
 class JobExecutor:
@@ -107,7 +108,7 @@ class JobExecutor:
         self.max_recordings = max_recordings
         self.check_transcriptions_only = check_transcriptions_only
 
-        logger.info(f"=== Starting Plaud Sync Job ===")
+        logger.info(f"=== Starting Plaud Sync Job (v{SERVICE_VERSION}) ===")
         logger.info(f"Job ID: {job_id}")
         logger.info(f"Trigger Source: {trigger_source}")
         logger.info(f"User ID: {user_id if user_id else 'ALL USERS'}")

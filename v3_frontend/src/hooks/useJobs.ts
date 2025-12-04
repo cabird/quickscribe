@@ -11,6 +11,9 @@ export function useJobs(filters: JobsFilters = {}) {
   const [offset, setOffset] = useState(0);
 
   const fetchJobs = useCallback(async (reset: boolean = false) => {
+    if (reset) {
+      setJobs([]); // Clear immediately so UI shows loading state
+    }
     setLoading(true);
     try {
       const currentOffset = reset ? 0 : offset;

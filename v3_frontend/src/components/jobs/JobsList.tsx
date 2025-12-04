@@ -64,11 +64,15 @@ export function JobsList({
     return () => container.removeEventListener('scroll', handleScroll);
   }, [hasMore, loading, onLoadMore]);
 
-  if (jobs.length === 0 && !loading) {
+  if (jobs.length === 0) {
     return (
       <div className={styles.container} style={{ width: `${width}%` }}>
         <div className={styles.emptyState}>
-          <Text>No jobs found</Text>
+          {loading ? (
+            <Spinner size="medium" label="Loading jobs..." />
+          ) : (
+            <Text>No jobs found</Text>
+          )}
         </div>
       </div>
     );

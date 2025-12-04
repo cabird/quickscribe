@@ -52,7 +52,7 @@ export function JobsFilterBar({
 
       <div className={styles.filterGroup}>
         <Switch
-          label="Has Activity"
+          label="Activity Only"
           checked={hasActivity}
           onChange={(_, data) => onHasActivityChange(data.checked)}
         />

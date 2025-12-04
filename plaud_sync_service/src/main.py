@@ -35,6 +35,7 @@ def main():
         logger.info(f"Configuration loaded (environment: {settings.environment})")
 
         # Get execution parameters from environment
+        trigger_source = os.getenv('TRIGGER_SOURCE', 'scheduled')
         test_run_id = os.getenv('TEST_RUN_ID')
         max_recordings_str = os.getenv('MAX_RECORDINGS')
 
@@ -52,7 +53,7 @@ def main():
         # Execute the sync
         executor = JobExecutor(settings)
         job_id = executor.execute_sync_job(
-            trigger_source="scheduled",
+            trigger_source=trigger_source,
             user_id=None,  # Process all users
             test_run_id=test_run_id,
             max_recordings=max_recordings
