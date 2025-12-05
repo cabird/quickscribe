@@ -1,4 +1,4 @@
-import { makeStyles, mergeClasses, Text, tokens } from '@fluentui/react-components';
+import { makeStyles, mergeClasses, Text, tokens, Tooltip } from '@fluentui/react-components';
 import { Calendar20Regular, Clock20Regular, Timer20Regular, People20Regular } from '@fluentui/react-icons';
 import type { Recording } from '../../types';
 import { formatDate, formatTime, formatDuration } from '../../utils/dateUtils';
@@ -40,6 +40,11 @@ const useStyles = makeStyles({
     textOverflow: 'ellipsis',
     whiteSpace: 'nowrap',
   },
+  tooltipContent: {
+    maxWidth: '300px',
+    whiteSpace: 'pre-wrap',
+    wordBreak: 'break-word',
+  },
   icon: {
     fontSize: '16px',
   },
@@ -54,7 +59,7 @@ interface RecordingCardProps {
 export function RecordingCard({ recording, isSelected, onClick }: RecordingCardProps) {
   const styles = useStyles();
 
-  return (
+  const card = (
     <div
       className={mergeClasses(styles.card, isSelected && styles.cardSelected)}
       onClick={onClick}
@@ -93,4 +98,20 @@ export function RecordingCard({ recording, isSelected, onClick }: RecordingCardP
       )}
     </div>
   );
+
+  // Wrap card in tooltip if there's a description to show
+  if (recording.description) {
+    return (
+      <Tooltip
+        content={<div className={styles.tooltipContent}>{recording.description}</div>}
+        relationship="description"
+        showDelay={1000}
+        positioning="after"
+      >
+        {card}
+      </Tooltip>
+    );
+  }
+
+  return card;
 }
