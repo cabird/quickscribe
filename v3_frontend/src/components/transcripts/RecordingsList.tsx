@@ -1,12 +1,15 @@
 import { makeStyles, Spinner, Text } from '@fluentui/react-components';
 import type { Recording } from '../../types';
 import { RecordingCard } from './RecordingCard';
+import { APP_COLORS } from '../../config/styles';
 
 const useStyles = makeStyles({
   container: {
     minHeight: 0,
     overflowY: 'auto',
     flexShrink: 0,
+    backgroundColor: APP_COLORS.listBackground,
+    paddingTop: '8px',
   },
   loadingContainer: {
     display: 'flex',

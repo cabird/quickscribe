@@ -7,38 +7,49 @@ import { APP_COLORS } from '../../config/styles';
 
 const useStyles = makeStyles({
   card: {
-    padding: '12px 16px',
+    padding: '14px 16px',
+    margin: '0 8px 8px 8px',
     cursor: 'pointer',
-    borderBottom: `1px solid ${tokens.colorNeutralStroke2}`,
-    transition: 'background-color 0.2s',
+    backgroundColor: APP_COLORS.cardBackground,
+    borderRadius: '8px',
+    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.08)',
+    transition: 'background-color 0.15s, box-shadow 0.15s, transform 0.15s',
     ':hover': {
       backgroundColor: tokens.colorNeutralBackground1Hover,
+      boxShadow: '0 2px 6px rgba(0, 0, 0, 0.12)',
     },
   },
   cardSelected: {
-    backgroundColor: tokens.colorNeutralBackground1Selected,
+    backgroundColor: '#EBF5FF',
     borderLeft: `4px solid ${APP_COLORS.selectionBorder}`,
+    boxShadow: '0 2px 6px rgba(0, 0, 0, 0.1)',
+    ':hover': {
+      backgroundColor: '#E0F0FF',
+    },
   },
   title: {
-    fontWeight: tokens.fontWeightSemibold,
-    fontSize: tokens.fontSizeBase300,
-    marginBottom: '8px',
+    fontWeight: 600,
+    fontSize: '15px',
+    color: '#111827',
+    marginBottom: '10px',
+    lineHeight: '1.3',
   },
   metaRow: {
     display: 'flex',
     alignItems: 'center',
-    gap: '4px',
-    marginBottom: '4px',
-    fontSize: tokens.fontSizeBase200,
-    color: tokens.colorNeutralForeground3,
+    gap: '6px',
+    marginBottom: '6px',
+    fontSize: '13px',
+    color: '#6B7280',
   },
   description: {
-    fontSize: tokens.fontSizeBase200,
-    color: tokens.colorNeutralForeground2,
-    marginTop: '8px',
+    fontSize: '13px',
+    color: '#4B5563',
+    marginTop: '10px',
     overflow: 'hidden',
     textOverflow: 'ellipsis',
     whiteSpace: 'nowrap',
+    lineHeight: '1.5',
   },
   tooltipContent: {
     maxWidth: '300px',
@@ -46,7 +57,8 @@ const useStyles = makeStyles({
     wordBreak: 'break-word',
   },
   icon: {
-    fontSize: '16px',
+    fontSize: '14px',
+    color: '#9CA3AF',
   },
 });
 

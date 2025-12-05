@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { makeStyles, Text, Spinner, Divider, tokens, Button, Tooltip } from '@fluentui/react-components';
+import { makeStyles, Text, Spinner, tokens, Button, Tooltip } from '@fluentui/react-components';
 import { Copy24Regular, Chat24Regular, Delete24Regular } from '@fluentui/react-icons';
 import type { Recording, Transcription } from '../../types';
 import { TranscriptEntry } from './TranscriptEntry';
@@ -29,11 +29,21 @@ const useStyles = makeStyles({
   },
   headerButtons: {
     display: 'flex',
-    gap: '8px',
+    gap: '4px',
+  },
+  headerButton: {
+    color: '#9CA3AF',
+    transition: 'color 0.15s',
+    ':hover': {
+      color: '#374151',
+      backgroundColor: tokens.colorNeutralBackground1Hover,
+    },
   },
   header: {
     padding: '24px',
+    paddingBottom: '16px',
     flexShrink: 0,
+    borderBottom: `1px solid ${tokens.colorNeutralStroke2}`,
   },
   headerTop: {
     display: 'flex',
@@ -45,32 +55,30 @@ const useStyles = makeStyles({
     display: 'flex',
     flexDirection: 'column',
     gap: '4px',
+    flex: 1,
+    marginRight: '16px',
   },
   title: {
-    fontSize: tokens.fontSizeBase500,
-    fontWeight: tokens.fontWeightSemibold,
-  },
-  guid: {
-    fontSize: tokens.fontSizeBase100,
-    color: tokens.colorNeutralForeground3,
-    fontFamily: 'monospace',
+    fontSize: '22px',
+    fontWeight: 600,
+    color: '#111827',
+    lineHeight: '1.3',
   },
   meta: {
     display: 'flex',
-    gap: '16px',
-    fontSize: tokens.fontSizeBase200,
-    color: tokens.colorNeutralForeground3,
-    marginBottom: '8px',
-  },
-  description: {
-    fontSize: tokens.fontSizeBase300,
-    color: tokens.colorNeutralForeground2,
+    gap: '8px',
+    fontSize: '13px',
+    color: '#6B7280',
     marginTop: '8px',
   },
-  divider: {
-    flexShrink: 0,
-    flexGrow: 0,
-    flexBasis: 'auto',
+  metaSeparator: {
+    color: '#D1D5DB',
+  },
+  description: {
+    fontSize: '14px',
+    color: '#4B5563',
+    marginTop: '12px',
+    lineHeight: '1.6',
   },
   transcriptArea: {
     flex: 1,
@@ -208,6 +216,14 @@ export function TranscriptViewer({ transcription, recording, loading }: Transcri
     });
   }
 
+  // Build speaker index map based on order of first appearance
+  const speakerIndexMap = new Map<string, number>();
+  transcriptEntries.forEach((entry) => {
+    if (!speakerIndexMap.has(entry.speaker)) {
+      speakerIndexMap.set(entry.speaker, speakerIndexMap.size);
+    }
+  });
+
   const handleRefClick = (transcriptIndex: number) => {
     // Scroll to the transcript entry - use data attribute instead of CSS class
     const transcriptArea = document.querySelector('[data-transcript-area]');
@@ -232,14 +248,33 @@ export function TranscriptViewer({ transcription, recording, loading }: Transcri
           <div className={styles.headerTop}>
             <div className={styles.titleContainer}>
               <Text className={styles.title}>{recording.title || recording.original_filename}</Text>
-              {transcription && (
-                <Text className={styles.guid}>{transcription.id}</Text>
-              )}
+              <div className={styles.meta}>
+                {recording.recorded_timestamp && (
+                  <>
+                    <Text>{formatDate(recording.recorded_timestamp)}</Text>
+                    <Text className={styles.metaSeparator}>•</Text>
+                    <Text>{formatTime(recording.recorded_timestamp)}</Text>
+                  </>
+                )}
+                {recording.duration && (
+                  <>
+                    <Text className={styles.metaSeparator}>•</Text>
+                    <Text>{formatDuration(recording.duration)}</Text>
+                  </>
+                )}
+                {recording.participants && recording.participants.length > 0 && (
+                  <>
+                    <Text className={styles.metaSeparator}>•</Text>
+                    <Text>{formatSpeakersList(recording.participants)}</Text>
+                  </>
+                )}
+              </div>
             </div>
             <div className={styles.headerButtons}>
               <Tooltip content="Chat with transcript" relationship="label">
                 <Button
                   appearance="subtle"
+                  className={styles.headerButton}
                   icon={<Chat24Regular />}
                   onClick={() => setIsChatOpen(!isChatOpen)}
                 />
@@ -247,6 +282,7 @@ export function TranscriptViewer({ transcription, recording, loading }: Transcri
               <Tooltip content="Copy transcript to clipboard" relationship="label">
                 <Button
                   appearance="subtle"
+                  className={styles.headerButton}
                   icon={<Copy24Regular />}
                   onClick={handleCopyTranscript}
                 />
@@ -254,22 +290,12 @@ export function TranscriptViewer({ transcription, recording, loading }: Transcri
               <Tooltip content="Delete recording" relationship="label">
                 <Button
                   appearance="subtle"
+                  className={styles.headerButton}
                   icon={<Delete24Regular />}
                   onClick={handleDeleteRecording}
                 />
               </Tooltip>
             </div>
-          </div>
-          <div className={styles.meta}>
-            {recording.recorded_timestamp && (
-              <Text>
-                {formatDate(recording.recorded_timestamp)} • {formatTime(recording.recorded_timestamp)}
-              </Text>
-            )}
-            {recording.duration && <Text>• {formatDuration(recording.duration)}</Text>}
-            {recording.participants && recording.participants.length > 0 && (
-              <Text>• {formatSpeakersList(recording.participants)}</Text>
-            )}
           </div>
           {recording.description && (
             <div className={styles.description}>
@@ -278,13 +304,15 @@ export function TranscriptViewer({ transcription, recording, loading }: Transcri
           )}
         </div>
 
-        <Divider className={styles.divider} />
-
         <div className={styles.transcriptArea} data-transcript-area>
           {transcriptEntries.length > 0 ? (
             transcriptEntries.map((entry, index) => (
               <div key={index} data-transcript-entry>
-                <TranscriptEntry speaker={entry.speaker} text={entry.text} />
+                <TranscriptEntry
+                  speaker={entry.speaker}
+                  text={entry.text}
+                  speakerIndex={speakerIndexMap.get(entry.speaker) ?? 0}
+                />
               </div>
             ))
           ) : (

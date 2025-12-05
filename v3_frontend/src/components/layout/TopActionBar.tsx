@@ -7,8 +7,10 @@ const useStyles = makeStyles({
     alignItems: 'center',
     gap: '12px',
     padding: '12px 16px',
-    borderBottom: `1px solid ${tokens.colorNeutralStroke1}`,
     backgroundColor: tokens.colorNeutralBackground1,
+    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.08)',
+    zIndex: 10,
+    position: 'relative',
   },
   searchInput: {
     minWidth: '300px',
