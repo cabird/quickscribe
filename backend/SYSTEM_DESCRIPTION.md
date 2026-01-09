@@ -1,739 +1,445 @@
 # System Description
-**Git commit:** 798b46476c2d52dc8c006a9bbfdf98d8c1623415
+
+**Git commit:** e703cbb3bd2589cde1d761b37329472fabda3df4
+
+This document provides a comprehensive description of the QuickScribe Backend system. It is automatically maintained and updated based on code changes.
+
+---
 
 ## 1. Repository Structure
 
-The backend directory contains the Flask API server for QuickScribe, organized as follows:
-
 ```
 backend/
-├── src/                          # Main source code directory
-│   ├── app.py                    # Flask application factory and configuration
-│   ├── config.py                 # Configuration management wrapper
-│   ├── auth.py                   # Azure AD authentication with MSAL
-│   ├── blob_util.py              # Azure Blob Storage operations
-│   ├── llms.py                   # Azure OpenAI integration
-│   ├── ai_postprocessing.py      # AI post-processing orchestration
-│   ├── user_util.py              # User session management
-│   ├── util.py                   # General utility functions
-│   ├── logging_config.py         # Centralized logging configuration
-│   ├── api_version.py            # API version tracking (0.1.65)
-│   │
-│   ├── db_handlers/              # Data access layer
-│   │   ├── models.py             # Auto-generated Pydantic models
-│   │   ├── handler_factory.py   # Singleton handler creation
-│   │   ├── user_handler.py      # User CRUD operations
-│   │   ├── recording_handler.py # Recording management
-│   │   ├── transcription_handler.py # Transcription data
-│   │   ├── sync_progress_handler.py # Progress tracking
-│   │   ├── analysis_type_handler.py # AI analysis types
-│   │   ├── participant_handler.py   # Participant management
-│   │   └── util.py              # Database utilities
-│   │
-│   ├── routes/                   # API blueprints
-│   │   ├── api.py               # Main REST API endpoints
-│   │   ├── ai_routes.py         # AI analysis endpoints
-│   │   ├── local_routes.py      # Development-only routes
-│   │   ├── admin.py             # Admin endpoints
-│   │   └── participant_routes.py # Participant endpoints
-│   │
-│   ├── templates/                # Jinja2 templates
-│   │   ├── base.html
-│   │   ├── index.html
-│   │   ├── recordings.html
-│   │   ├── upload.html
-│   │   └── view_transcription.html
-│   │
+├── src/                          # Main application source code
+│   ├── app.py                    # Flask application factory and entry point
+│   ├── config.py                 # Configuration wrapper (shared_quickscribe_py)
+│   ├── auth.py                   # Azure AD JWT token validation
+│   ├── llms.py                   # LLM integration (Azure OpenAI)
+│   ├── ai_postprocessing.py      # AI post-processing for recordings
+│   ├── blob_util.py              # Azure Blob Storage utilities
+│   ├── user_util.py              # User authentication utilities
+│   ├── util.py                   # General utilities
+│   ├── logging_config.py         # Centralized logging with App Insights
+│   ├── api_version.py            # API version constant
+│   ├── plaud_sync_trigger.py     # Plaud device sync functionality
+│   ├── routes/                   # Flask blueprints
+│   │   ├── api.py                # Main API routes (/api/*)
+│   │   ├── ai_routes.py          # AI-specific routes (/api/ai/*)
+│   │   ├── local_routes.py       # Local development routes (/api/local/*)
+│   │   ├── admin.py              # Admin routes (/api/admin/*)
+│   │   └── participant_routes.py # Participant management (/api/participants/*)
+│   ├── frontend-dist/            # Built frontend assets (served statically)
 │   ├── static/                   # Static assets
-│   │   └── styles.css
-│   │
-│   └── frontend-dist/            # Built frontend assets
-│       ├── assets/
-│       ├── index.html
-│       └── vite.svg
-│
+│   └── templates/                # Jinja2 templates
 ├── tests/                        # Test suite
-│   ├── conftest.py              # Pytest configuration
-│   ├── unit/                    # Unit tests
-│   │   └── test_user_handler.py
-│   ├── integration/             # Integration tests
-│   │   ├── test_api_endpoints.py
-│   │   ├── test_analysis_execution.py
-│   │   └── test_analysis_types_real_db.py
-│   ├── e2e/                     # End-to-end tests
-│   │   └── test_complete_workflows.py
-│   └── fixtures/                # Test utilities
-│       └── test_utils.py
-│
+│   ├── conftest.py               # Shared pytest fixtures
+│   ├── unit/                     # Unit tests
+│   ├── integration/              # Integration tests
+│   ├── e2e/                      # End-to-end tests
+│   └── fixtures/                 # Test utilities and fixtures
 ├── migrations/                   # Database migrations
+│   ├── migration_runner.py       # Migration base class and utilities
 │   ├── 001_normalize_diarized_transcripts.py
 │   ├── 002_create_participant_profiles.py
-│   ├── README.md
-│   └── migration_runner.py
-│
-├── Makefile                      # Build automation
-├── Dockerfile                    # Container configuration
-├── requirements.txt              # Python dependencies
-├── pytest.ini                    # Test configuration
+│   └── 003_backfill_token_counts.py
+├── Makefile                      # Build and deployment automation
+├── Dockerfile                    # Container image definition
 ├── startup.sh                    # Container startup script
-├── run_tests.py                  # Test runner
-├── prompts.yaml                  # AI prompt templates
-├── example.env                   # Environment template
-├── README.md                     # Setup and usage guide
-├── ARCHITECTURE.md               # Detailed architecture documentation
-└── API_SPECIFICATION.md          # API endpoint documentation
+├── requirements.txt              # Python dependencies
+├── pytest.ini                    # Pytest configuration
+├── prompts.yaml                  # LLM prompt templates
+├── .bumpversion.cfg              # Version management configuration
+├── .env.local                    # Local development environment
+├── .env.azure                    # Azure production environment
+└── .coveragerc                   # Code coverage configuration
 ```
+
+---
 
 ## 2. Languages, Size & Composition
 
-### Primary Language
-- **Python 3.11** - 7,422 total lines of code in src/ directory
+| Category | Details |
+|----------|---------|
+| **Primary Language** | Python 3.11 |
+| **Framework** | Flask 3.0.3 |
+| **Source Files** | ~25 Python modules |
+| **Test Files** | ~10 test modules |
+| **Lines of Code** | ~5,000+ (excluding dependencies) |
+| **Configuration Files** | YAML, JSON, Makefile, Dockerfile |
 
-### File Types Distribution
-- **Python (.py)**: Core application logic, handlers, routes
-- **YAML (.yaml)**: Prompt templates for AI operations
-- **JSON (.json)**: Configuration and schema files
-- **Markdown (.md)**: Documentation files
-- **HTML**: Jinja2 templates for web interface
-- **CSS**: Styling for templates
-- **Shell (.sh)**: Deployment and startup scripts
+### Key Language Features Used
+- **Pydantic** for data validation and serialization
+- **Async/await** for concurrent LLM operations
+- **Type hints** throughout the codebase
+- **Flask Blueprints** for modular route organization
 
-### Code Organization
-- Source code: `src/` directory with modular organization
-- Tests: `tests/` with unit, integration, and e2e subdirectories
-- Configuration: Environment-based with shared settings library
-- Documentation: Comprehensive README, ARCHITECTURE, and API docs
+---
 
 ## 3. Key Components and Modules
 
-### Core Application (src/)
+### Core Application (`src/app.py`)
+- **Application Factory Pattern**: `create_app()` function creates Flask application
+- **Blueprint Registration**: Modular routes organized by feature
+- **Azure Service Initialization**: CosmosDB, Blob Storage clients
+- **CORS Configuration**: Development (localhost:3000) vs production
+- **Static File Serving**: Built frontend assets served from `frontend-dist/`
 
-**app.py** - Flask application factory
-- Creates Flask app with CORS configuration
-- Registers all blueprints with URL prefixes
-- Initializes Azure services (Blob Storage, Cosmos DB)
-- Sets up logging with Application Insights
-- Hot-reload support for development
-
-**config.py** - Configuration wrapper
-- Wraps shared_quickscribe_py.config for backward compatibility
+### Configuration (`src/config.py`)
+- Wraps `shared_quickscribe_py.config` for backward compatibility
+- Provides legacy `config.X` interface
 - Environment detection (Azure vs local development)
-- Configuration for all Azure services
-- Property-based access to nested settings
+- Supports: CosmosDB, Blob Storage, Azure OpenAI, Speech Services, Azure AD Auth
 
-**auth.py** - Azure AD authentication
-- MSAL integration for token validation
-- User token extraction and verification
-- JWT token handling
+### Authentication (`src/auth.py`)
+- **Azure AD JWT Token Validation**
+- JWKS (JSON Web Key Set) caching with 24-hour TTL
+- Token claims validation: issuer, audience, expiration
+- Thread-safe key refresh with double-check locking
 
-**llms.py** - Azure OpenAI integration
-- Async infrastructure for AI operations
-- Speaker mapping inference
-- Speaker summary generation
-- Prompt templating from prompts.yaml
+### LLM Integration (`src/llms.py`)
+- **Azure OpenAI Integration** for AI features
+- Synchronous and async API calls
+- Concurrent prompt execution (`send_multiple_prompts_concurrent`)
+- Timing and token usage metrics
+- Prompt templates loaded from `prompts.yaml`
 
-**ai_postprocessing.py** - Post-processing orchestration
-- Automatic title generation from transcripts
-- Description generation
-- Speaker inference coordination
-- Triggered on transcription completion
+### AI Post-Processing (`src/ai_postprocessing.py`)
+- **Title Generation**: Concise titles from transcripts
+- **Description Generation**: 1-2 sentence summaries
+- **Speaker Inference**: LLM-based speaker name detection
+- **Participant Management**: Auto-create/match participant profiles
+- Single LLM call optimization for title+description
 
-**blob_util.py** - Azure Blob Storage operations
-- File upload/download handling
-- SAS token generation for secure access
-- Container management
+### Blob Storage (`src/blob_util.py`)
+- Wrapper around `shared_quickscribe_py.azure_services`
+- File upload/download operations
+- SAS URL generation for secure access
+- Transcoding job queue management
 
-**user_util.py** - User session management
-- Current user resolution from request context
-- User data retrieval and caching
+### Routes Overview
 
-**logging_config.py** - Centralized logging
-- Application Insights integration
-- Structured JSON logging
-- Correlation ID tracking
+| Blueprint | Prefix | Purpose |
+|-----------|--------|---------|
+| `api_bp` | `/api` | Core CRUD operations, uploads, tags |
+| `ai_bp` | `/api/ai` | AI analysis, speaker inference, chat |
+| `local_bp` | `/api/local` | Local development utilities |
+| `admin_bp` | `/api/admin` | Admin operations |
+| `participant_bp` | `/api/participants` | Participant profile management |
 
-### Data Access Layer (src/db_handlers/)
+### Key API Endpoints
 
-**models.py** - Pydantic models (auto-generated)
-- Generated from TypeScript definitions in ../shared/Models.ts
-- Type-safe data validation
-- Used across backend, frontend, and transcoder
+**Recording Management**
+- `GET /api/recording/<id>` - Get recording details
+- `GET /api/recordings` - List user's recordings
+- `POST /api/upload` - Upload audio file
+- `PUT /api/recording/<id>` - Update recording
+- `GET /api/delete_recording/<id>` - Delete recording
+- `GET /api/recording/<id>/audio-url` - Get streaming URL
 
-**handler_factory.py** - Handler creation
-- Singleton pattern within Flask request context
-- Factory functions for all handler types
-- Consistent configuration across handlers
-- Request-scoped caching
+**Transcription Operations**
+- `GET /api/transcription/<id>` - Get transcription
+- `POST /api/recording/<id>/postprocess` - Trigger AI post-processing
+- `POST /api/recording/<id>/update_speakers` - Update speaker names
 
-**user_handler.py** - User operations
-- Extended Pydantic models with datetime serialization
-- CRUD operations for user profiles
-- PlaudSettings management
-- Field validators and serializers
+**AI Features**
+- `GET /api/ai/get_speaker_summaries/<id>` - Generate speaker summaries
+- `GET /api/ai/infer_speaker_names/<id>` - AI speaker inference
+- `GET /api/ai/analysis-types` - List analysis types
+- `POST /api/ai/execute-analysis` - Run custom analysis
+- `POST /api/ai/chat` - AI chat with transcript context
 
-**recording_handler.py** - Recording management
-- Recording CRUD operations
-- Migration support for backward compatibility
-- Tag association and management
-- Status tracking
+**Tags**
+- `GET /api/tags/get` - Get user's tags
+- `POST /api/tags/create` - Create tag
+- `POST /api/tags/update` - Update tag
+- `GET /api/tags/delete/<id>` - Delete tag
 
-**transcription_handler.py** - Transcription data
-- Transcription CRUD operations
-- Speaker mapping storage
-- Analysis results management
-
-**sync_progress_handler.py** - Progress tracking
-- Long-running operation status
-- Plaud sync progress monitoring
-
-**analysis_type_handler.py** - AI analysis types
-- Dynamic analysis type registration
-- Analysis result storage
-- Modular AI operation framework
-
-**participant_handler.py** - Participant management
-- Participant profile operations
-- Recording/transcription associations
-
-### API Routes (src/routes/)
-
-**api.py** - Main REST API (`/api/*`)
-- Recording endpoints (CRUD)
-- Transcription endpoints
-- Tag management
-- File upload handling
-- Transcoder callback endpoint
-- Azure AD authenticated
-
-**ai_routes.py** - AI analysis (`/api/ai/*`)
-- Speaker inference endpoint
-- Analysis type execution
-- AI post-processing triggers
-- OpenAI integration
-
-**local_routes.py** - Development utilities (`/api/local/*`)
-- Local authentication
-- Test user management
-- Development-only features
-
-**admin.py** - Admin endpoints (`/api/admin/*`)
-- Administrative operations
-- System management
-
-**participant_routes.py** - Participant API (`/api/participants/*`)
-- Participant CRUD operations
-- Participant merging (TODO)
-- Recording associations
-
-### Testing Suite (tests/)
-
-**conftest.py** - Pytest configuration
-- Shared fixtures
-- Mock setup
-- Test database configuration
-
-**unit/** - Unit tests
-- Individual component testing
-- Database handler tests
-- Isolated from external dependencies
-
-**integration/** - Integration tests
-- API endpoint testing
-- Service integration validation
-- Mock patching at route import level
-
-**e2e/** - End-to-end tests
-- Complete workflow testing
-- Full user journey validation
-
-**Test Runner (run_tests.py)**
-- Category-based test execution
-- Coverage reporting
-- Virtual environment validation
-- Categories: unit, integration, e2e, fast, all
-
-### Migrations (migrations/)
-
-**migration_runner.py** - Migration orchestration
-- Schema evolution support
-- Data migration execution
-
-**001_normalize_diarized_transcripts.py** - Transcript normalization
-**002_create_participant_profiles.py** - Participant schema
+---
 
 ## 4. Build, Tooling, and Dependencies
 
-### Build System (Makefile)
+### Core Dependencies
 
-**Key Targets:**
-- `make build` - Generate Python models from TypeScript
-- `make build_container` - Build Docker image
-- `make deploy_azure` - Deploy to Azure App Service
-- `make deploy_local` - Local Docker deployment
-- `make bump_version` - Increment version number
-- `make compose_up/down` - Docker Compose orchestration
-- `make local_run` - Run Flask development server
+| Package | Version | Purpose |
+|---------|---------|---------|
+| Flask | 3.0.3 | Web framework |
+| Pydantic | 2.9.2 | Data validation |
+| azure-cosmos | 4.7.0 | CosmosDB client |
+| azure-storage-blob | 12.23.1 | Blob storage |
+| azure-storage-queue | 12.12.0 | Queue storage |
+| azure-identity | 1.19.0 | Azure authentication |
+| openai | 1.51.2 | OpenAI API client |
+| assemblyai | 0.34.0 | AssemblyAI transcription |
+| PyJWT | 2.9.0 | JWT token handling |
+| msal | 1.31.0 | Microsoft authentication |
+| gunicorn | 22.0.0 | Production WSGI server |
+| aiohttp | 3.10.11 | Async HTTP client |
 
-**Model Generation Pipeline:**
-1. TypeScript definitions in `../shared/Models.ts`
-2. `typescript-json-schema` generates JSON schema
-3. `datamodel-codegen` creates Pydantic models
-4. Output: `src/db_handlers/models.py`
+### Testing Dependencies
+- pytest 8.3.3
+- pytest-asyncio 0.25.0
+- pytest-cov 5.0.0
+- pytest-flask 1.3.0
+- pytest-mock 3.14.0
 
-### Python Dependencies (requirements.txt)
+### Makefile Targets
 
-**Web Framework:**
-- Flask 3.0.3 - Core web framework
-- flask-cors 6.0.1 - CORS support
-- Flask-SocketIO 5.4.1 - WebSocket support
-- gunicorn 22.0.0 - Production WSGI server
+| Target | Description |
+|--------|-------------|
+| `make setup` | Install shared_quickscribe_py in editable mode |
+| `make local_run` | Start local development server |
+| `make build_container` | Build Docker image |
+| `make deploy_local` | Deploy locally with Docker |
+| `make deploy_azure` | Deploy to Azure App Service |
+| `make bump_version` | Increment patch version |
+| `make compose_up` | Start full stack with docker-compose |
+| `make clean` | Clean build artifacts |
 
-**Azure Services:**
-- azure-cosmos 4.7.0 - Cosmos DB client
-- azure-storage-blob 12.23.1 - Blob storage
-- azure-storage-queue 12.12.0 - Queue storage
-- azure-cognitiveservices-speech 1.41.1 - Speech services
-- azure-identity 1.19.0 - Authentication
-- azure-keyvault-secrets 4.8.0 - Key vault
-- opencensus-ext-azure 1.1.14 - Application Insights
+### Docker Configuration
+- **Base Image**: Python 3.11
+- **Port**: 8000 (WEBSITES_PORT for Azure)
+- **Startup**: `startup.sh` handles environment setup
+- **Environment Files**: `.env.local` or `.env.azure` copied to `.env`
 
-**Data Validation:**
-- pydantic 2.9.2 - Data validation
-- pydantic_core 2.23.4 - Core validation
-
-**AI/ML:**
-- openai 1.51.2 - OpenAI API client
-- assemblyai 0.34.0 - Alternative transcription
-- tiktoken 0.8.0 - Token counting
-
-**Testing:**
-- pytest 8.3.3 - Test framework
-- pytest-flask 1.3.0 - Flask testing
-- pytest-asyncio 0.25.0 - Async testing
-- pytest-cov 5.0.0 - Coverage reporting
-- pytest-mock 3.14.0 - Mocking support
-- coverage 7.8.2 - Coverage analysis
-
-**Utilities:**
-- python-dotenv 1.0.1 - Environment variables
-- PyYAML 6.0.2 - YAML parsing
-- requests 2.32.3 - HTTP client
-- msal 1.31.0 - Microsoft authentication
-- datamodel-code-generator 0.26.2 - Model generation
-
-### Development Tools
-
-**Docker** - Containerization
-- Multi-stage Dockerfile
-- Environment-based configuration (.env.local, .env.azure)
-- Startup script with mode detection
-
-**Pytest** - Testing framework
-- 41% test coverage (target: 70%)
-- Multiple test categories
-- Fixture-based architecture
-
-**bump2version** - Version management
-- Automated version incrementing
-- Synchronized with git tags
-
-### Version Control Integration
-
-**Current Version:** 0.1.65 (from api_version.py)
-**Version Files:**
-- `src/api_version.py` - API version constant
-- Bumped via `make bump_version`
+---
 
 ## 5. Runtime Architecture
 
-### Application Startup Flow
+### Request Flow
 
-**Container Startup (startup.sh):**
-1. Detect environment (Azure vs Local)
-   - Azure: Check WEBSITE_INSTANCE_ID
-   - Local: Default behavior
-2. Copy appropriate .env file
-   - Azure: `.env.azure` → `src/.env`
-   - Local: `.env.local` → `src/.env`
-3. Install local packages from `local_packages/`
-4. Start server:
-   - Azure: Gunicorn with timeout 600s on port 8000
-   - Local: Flask debug server with hot reload
+```
+Client Request
+     │
+     ▼
+┌──────────────┐
+│   Flask App   │◄── CORS middleware
+│   (app.py)    │
+└──────┬───────┘
+       │
+       ▼
+┌──────────────┐
+│  Auth Check   │◄── JWT validation (auth.py)
+│  @require_auth│
+└──────┬───────┘
+       │
+       ▼
+┌──────────────┐
+│   Blueprint   │◄── api_bp, ai_bp, etc.
+│    Routes     │
+└──────┬───────┘
+       │
+       ▼
+┌──────────────┐
+│   Handlers   │◄── shared_quickscribe_py.cosmos
+│  (CosmosDB)  │
+└──────────────┘
+```
 
-**Flask Application Factory (app.py):**
-1. Configure logging (logging_config.setup_logging)
-2. Load environment variables
-3. Create Flask app with static folder
-4. Enable CORS based on environment
-5. Register blueprints:
-   - `/api` - Main API (api_bp)
-   - `/api/ai` - AI routes (ai_bp)
-   - `/api/local` - Local routes (local_bp)
-   - `/api/admin` - Admin routes (admin_bp)
-   - `/api/participants` - Participant routes (participant_bp)
-6. Initialize Azure services:
-   - Blob Storage client
-   - Cosmos DB client
-7. Setup Application Insights logging
+### Audio Processing Pipeline
 
-### Request Processing Flow
+```
+1. Upload Audio
+      │
+      ▼
+┌──────────────────┐
+│  Blob Storage    │◄── store_recording_as_blob()
+│  (Original File) │
+└────────┬─────────┘
+         │
+         ▼
+┌──────────────────┐
+│  Azure Queue     │◄── send_to_transcoding_queue()
+│ (Processing Job) │
+└────────┬─────────┘
+         │
+         ▼
+┌──────────────────┐
+│ Transcoder       │  (Separate container)
+│ Container        │
+└────────┬─────────┘
+         │
+         ▼
+┌──────────────────┐
+│ Callback API     │◄── /api/transcoding_callback
+│ (Status Update)  │
+└────────┬─────────┘
+         │
+         ▼
+┌──────────────────┐
+│ AI Post-Process  │◄── postprocess_recording_full()
+│ (Title/Desc/...)│
+└──────────────────┘
+```
 
-**Authentication:**
-1. Client sends request with Authorization header
-2. `@require_auth` decorator validates Azure AD token
-3. `get_current_user()` extracts user from token
-4. User object stored in Flask request context
+### Logging Architecture
+- **Console Output**: JSON-formatted logs
+- **Azure App Insights**: Optional integration via OpenCensus
+- **Custom Dimensions**: service, namespace, version, request context
+- **Logger Namespace**: `quickscribe.backend.<module>`
 
-**Database Operations:**
-1. Route handler calls `get_*_handler()` from handler_factory
-2. Factory creates or retrieves cached handler
-3. Handler performs Cosmos DB operations
-4. Pydantic models validate data
-5. Extended models handle datetime serialization
-6. Response returned to client
+### External Service Integrations
 
-**Audio Processing Pipeline:**
-1. Client uploads audio → `/api/recordings/upload`
-2. File stored in Azure Blob Storage
-3. Queue message created with blob reference
-4. Transcoder service picks up message
-5. Transcoder processes audio, uploads MP3
-6. Callback to `/api/transcoder/callback` updates status
-7. AI post-processing triggered on completion:
-   - Title generation
-   - Description generation
-   - Speaker inference
+| Service | Purpose | Module |
+|---------|---------|--------|
+| Azure CosmosDB | Data persistence | shared_quickscribe_py.cosmos |
+| Azure Blob Storage | Audio file storage | blob_util.py |
+| Azure Queue Storage | Transcoding jobs | blob_util.py |
+| Azure OpenAI | LLM operations | llms.py |
+| Azure Speech Services | Transcription | transcription_service.py |
+| AssemblyAI | Alternative transcription | assemblyai |
+| Azure AD | Authentication | auth.py |
+| Azure App Insights | Monitoring | logging_config.py |
 
-### Microservices Communication
-
-**Queue-based Processing:**
-- Backend → Azure Storage Queue → Transcoder
-- Asynchronous, decoupled architecture
-- Scalable processing
-
-**Callback Pattern:**
-- Transcoder → `/api/transcoder/callback` → Cosmos DB update
-- Status updates propagated to frontend
-- Error handling and retry logic
-
-### Database Architecture
-
-**Cosmos DB Containers:**
-- `users` - Partitioned by `id`
-- `recordings` - Partitioned by `userId`
-- `transcripts` - Partitioned by `userId`
-- `analysis_types` - Dynamic AI analysis types
-- `participants` - Speaker/participant profiles
-
-**Data Isolation:**
-- User-based partitioning
-- Secure data access
-- Optimized query performance
-
-### Logging and Monitoring
-
-**Azure Application Insights:**
-- Request tracing with correlation IDs
-- Custom events for business metrics
-- Exception tracking
-- Performance monitoring
-
-**Structured Logging:**
-- JSON format for machine parsing
-- API version included in all logs
-- Error context preservation
+---
 
 ## 6. Development Workflows
 
 ### Local Development Setup
 
 ```bash
-# 1. Create virtual environment
-cd backend
-python -m venv venv
-source venv/bin/activate  # or venv\Scripts\activate on Windows
-
-# 2. Install dependencies
-pip install -r requirements.txt
-
-# 3. Configure environment
-cp example.env .env
-# Edit .env with Azure credentials
-
-# 4. Build shared models
-make build
-
-# 5. Run development server
-python src/app.py
-# Or: make local_run
-```
-
-### Testing Workflow
-
-```bash
-# Activate virtual environment (required!)
+# 1. Activate virtual environment
+cd /home/cbird/repos/quickscribe/backend
 source venv/bin/activate
 
-# Run different test categories
-python run_tests.py unit           # Unit tests only
-python run_tests.py integration    # Integration tests
-python run_tests.py e2e            # End-to-end tests
-python run_tests.py fast           # Quick tests (excludes slow)
-python run_tests.py all            # Full suite with coverage
+# 2. Install shared library
+make setup
 
-# Run with options
-python run_tests.py all --coverage --verbose
-python run_tests.py fast --html    # Generate HTML coverage report
+# 3. Start development server
+make local_run
+# OR
+cd src && python app.py
 ```
 
-### Model Synchronization
+### Running Tests
 
 ```bash
-# After editing ../shared/Models.ts
-make build
+# Activate virtual environment first
+source venv/bin/activate
 
-# This runs:
-# 1. typescript-json-schema on Models.ts
-# 2. Generates models.schema.json
-# 3. datamodel-codegen creates models.py
+# Run all tests with coverage
+python run_tests.py all
+
+# Run specific test categories
+python run_tests.py unit
+python run_tests.py integration
+python run_tests.py e2e
+python run_tests.py fast  # Excludes slow tests
+
+# Options
+python run_tests.py all --verbose
+python run_tests.py all --html  # HTML coverage report
 ```
 
-### Deployment Workflow
+### Docker Development
 
-**Local Docker Testing:**
 ```bash
-make build_container    # Build image
-make deploy_local       # Run locally on port 5000
-make docker_stop        # Stop container
+# Build and run locally
+make build_container
+make deploy_local
+
+# Full stack with docker-compose
+make compose_up
+make compose_logs
+make compose_down
 ```
 
-**Azure Production Deployment:**
+### Deployment
+
 ```bash
-# 1. Bump version
+# Deploy to Azure
 make bump_version
-
-# 2. Build and deploy
 make deploy_azure
 
-# Automated process:
-# - Builds Docker image
-# - Pushes to Azure Container Registry
-# - Updates App Service
-# - Configures environment
+# Deploy to test slot
+make deploy_to_test
 ```
 
-**Full Stack Development:**
-```bash
-# From repository root
-make compose_up    # Start backend + frontend
-make compose_logs  # Follow logs
-make compose_down  # Stop all services
-```
-
-### Version Management
+### Database Migrations
 
 ```bash
-# Bump patch version (0.1.65 → 0.1.66)
-make bump_version
-
-# Version stored in:
-# - src/api_version.py (API_VERSION constant)
-# - Git tags (created by bump2version)
+cd migrations
+python 001_normalize_diarized_transcripts.py --dry-run
+python 001_normalize_diarized_transcripts.py --execute
 ```
 
-### Code Quality Checks
-
-```bash
-# Format code
-black src/
-
-# Sort imports
-isort src/
-
-# Run tests with coverage
-python run_tests.py all --coverage --html
-# View: htmlcov/index.html
-```
+---
 
 ## 7. Known Limitations / TODOs
 
-### From Code Analysis
+### Code TODOs
 
-**src/routes/ai_routes.py:82**
-- TODO: Uncomment restriction to prevent multiple speaker inference runs
-- Currently allows re-inferring speakers multiple times
+1. **`src/routes/participant_routes.py`**
+   - TODO: Add logic to clean up participant references in recordings/transcriptions
+   - TODO: Update all recordings and transcriptions to point to primary participant
 
-**src/routes/participant_routes.py:230**
-- TODO: Add logic to clean up participant references in recordings/transcriptions
-- Missing cleanup when participants are deleted
+2. **`src/routes/ai_routes.py`**
+   - TODO: Uncomment speaker inference guard to prevent multiple inferences on the same transcription
 
-**src/routes/participant_routes.py:387**
-- TODO: Update all recordings and transcriptions to point to primary participant
-- Participant merging not fully implemented
+### Technical Debt
 
-### Testing Coverage
+- **Test Coverage**: Currently at ~41%, target is 70%
+- **Speaker Inference**: Currently disabled in post-processing; users manually assign speakers
+- **Legacy Routes**: Some DELETE operations use GET method (e.g., `/delete_recording/<id>`)
+- **Plaud Integration**: File extension handling for `.opus` files that are actually MP3
 
-**Current: 41% | Target: 70%**
-- Need more integration tests
-- E2E workflow coverage incomplete
-- Mock strategy needs refinement
+### Known Issues
 
-### Architecture Considerations
+- Transcoding timeout is set to 30 days (TRANSCRIPTION_IN_PROGRESS_TIMEOUT_SECONDS)
+- Some older recordings may lack `transcoding_status` field
 
-**Pydantic Model Synchronization:**
-- Manual build step required after TypeScript changes
-- Could automate with file watchers
-- Risk of models getting out of sync
-
-**Database Migration:**
-- Migration system exists but manual execution
-- No automatic migration on deployment
-- Need better migration tracking
-
-**Error Handling:**
-- Inconsistent error response formats across routes
-- Could benefit from centralized error handler
-- Need better validation error messages
-
-### Performance Opportunities
-
-**Connection Pooling:**
-- No connection pooling for Cosmos DB
-- Could optimize with connection reuse
-- Reduce latency for database operations
-
-**Caching:**
-- No Redis or distributed caching
-- Repeated database queries for same data
-- Could cache user profiles, analysis types
-
-**Async Processing:**
-- Some blocking operations in request handlers
-- Could benefit from async/await patterns
-- Background task queue for AI operations
+---
 
 ## 8. Suggested Improvements or Considerations for AI Agents
 
 ### Code Navigation Tips
 
-1. **Entry Point:** Start at `src/app.py` to understand application structure
-2. **API Routes:** Check `src/routes/api.py` for available endpoints
-3. **Data Models:** Review `src/db_handlers/models.py` (auto-generated) and handler files for schema
-4. **Configuration:** All settings in `src/config.py` wrapping shared_quickscribe_py.config
-5. **Testing:** Look at `tests/conftest.py` for fixtures and test setup
+1. **Start with `src/app.py`** to understand application structure
+2. **Route files** in `src/routes/` define all API endpoints
+3. **Shared models** are in `shared_quickscribe_py` (external package)
+4. **Database handlers** accessed via `get_*_handler()` factory functions
 
-### Architecture Patterns to Understand
+### Common Patterns
 
-**Handler Factory Pattern:**
-- All database access goes through handlers
-- Factory creates singleton instances per request
-- Import from `handler_factory.py`, never instantiate directly
-- Example: `get_recording_handler()` not `RecordingHandler()`
+1. **Authentication**: Use `@require_auth` decorator on protected routes
+2. **User Context**: Call `get_current_user()` to get authenticated user
+3. **Database Operations**: Use handlers from `shared_quickscribe_py.cosmos`
+4. **Logging**: Use `get_logger('module_name', API_VERSION)`
 
-**Extended Pydantic Models:**
-- Base models auto-generated in `models.py`
-- Extended versions in handler files add serialization
-- Use `save_user(user)` not manual dict conversion
-- Datetime fields auto-serialize to ISO format
+### Testing Considerations
 
-**Blueprint Routing:**
-- Routes organized by domain/functionality
-- Each blueprint has URL prefix
-- Authentication via `@require_auth` decorator
-- User context via `get_current_user()`
+- Tests require virtual environment activation
+- Use mock patching at route import level for database isolation
+- Integration tests may require running backend locally
+- See `backend/tests/conftest.py` for shared fixtures
 
-**Environment-based Configuration:**
-- Production uses `.env.azure` (baked into Docker image)
-- Local development uses `.env.local`
-- startup.sh handles selection
-- Shared settings library provides type-safe access
+### Environment Variables
 
-### Testing Strategy
+Key environment variables (see `.env.local` or `.env.azure`):
+- `AZURE_COSMOS_ENDPOINT`, `AZURE_COSMOS_KEY`
+- `AZURE_STORAGE_CONNECTION_STRING`
+- `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET`, `AZURE_TENANT_ID`
+- `ASSEMBLYAI_API_KEY`, `OPENAI_API_KEY`
+- `APPLICATIONINSIGHTS_CONNECTION_STRING`
+- `FLASK_ENV`, `FLASK_DEBUG`
 
-**Mock Approach:**
-- Mock at route import level to prevent database hits
-- Use pytest fixtures from conftest.py
-- Test categories via markers: @pytest.mark.unit, etc.
-- Always activate venv before running tests
+### Safe Modifications
 
-**Test Organization:**
-- Unit: Individual components in isolation
-- Integration: API endpoints with mocked services
-- E2E: Complete workflows with minimal mocking
-- Fast: Quick tests for CI/CD (excludes slow markers)
+When modifying the backend:
+1. Run `python run_tests.py fast` before committing
+2. Update models in `shared/Models.ts` and run `make build`
+3. Test locally with `make local_run` or `make compose_up`
+4. Check for breaking changes in API responses
 
-### Common Pitfalls
+### API Response Format
 
-1. **Dictionary Access on Pydantic Models:**
-   - ❌ `user.plaudSettings['field'] = value`
-   - ✅ `user.plaudSettings.field = value`
+Most endpoints return JSON with this structure:
+```json
+{
+  "status": "success|error",
+  "data": {...},
+  "message": "Optional message",
+  "error": "Error message if status is error"
+}
+```
 
-2. **DateTime Serialization:**
-   - ❌ Manual `.isoformat()` conversion
-   - ✅ Let Pydantic serializers handle it
-
-3. **Handler Instantiation:**
-   - ❌ `handler = RecordingHandler(...)`
-   - ✅ `handler = get_recording_handler()`
-
-4. **Missing Virtual Environment:**
-   - Scripts require `venv` activation
-   - Tests will fail without proper environment
-   - Check with `echo $VIRTUAL_ENV`
-
-5. **Model Sync:**
-   - After editing `../shared/Models.ts`
-   - Must run `make build`
-   - Frontend auto-syncs, backend needs manual build
-
-### Integration Points
-
-**With Frontend:**
-- Built assets served from `src/frontend-dist/`
-- API endpoints at `/api/*`
-- CORS enabled for localhost:3000 in dev mode
-
-**With Transcoder:**
-- Queue messages via Azure Storage Queue
-- Callback endpoint: `/api/transcoder/callback`
-- Status updates propagate to Cosmos DB
-
-**With Plaud Service:**
-- Separate microservice handles Plaud device sync
-- Webhook endpoint in plaud routes (not under `/api/plaud`)
-- Shared models via shared_quickscribe_py
-
-### Deployment Considerations
-
-**Azure App Service:**
-- Uses Gunicorn with 600s timeout
-- Environment from baked `.env.azure`
-- Managed identity for service access
-- Application Insights auto-configured
-
-**Local Development:**
-- Flask debug server with hot reload
-- Environment from `.env.local`
-- Explicit credentials in .env file
-- CORS allows localhost:3000
-
-**Docker:**
-- Multi-stage build not shown (single Dockerfile)
-- Startup script handles environment selection
-- Port 8000 internally, mapped externally
-- Shared packages from local_packages/ directory
-
-### AI Analysis Best Practices
-
-When analyzing or modifying this codebase:
-
-1. **Check ARCHITECTURE.md** for detailed design patterns
-2. **Review API_SPECIFICATION.md** for endpoint contracts
-3. **Examine existing tests** to understand expected behavior
-4. **Use handler_factory** for all database operations
-5. **Follow blueprint patterns** for new routes
-6. **Add tests** for new functionality (aim for 70% coverage)
-7. **Update models.py** only via `make build` from TypeScript
-8. **Validate changes** with `python run_tests.py fast` before commit
-9. **Check TODOs** in code for known incomplete features
-10. **Consider backward compatibility** when modifying database models
+Or Pydantic models directly: `model.model_dump()`
