@@ -5,13 +5,15 @@ import { PeopleActionBar } from './PeopleActionBar';
 import { PeopleList } from './PeopleList';
 import { ParticipantDetailPanel } from './ParticipantDetailPanel';
 import { AddParticipantDialog } from './AddParticipantDialog';
+import { DeleteConfirmDialog } from './DeleteConfirmDialog';
+import { MergeParticipantDialog } from './MergeParticipantDialog';
 import { ResizableSplitter } from '../layout/ResizableSplitter';
 import { useParticipants } from '../../hooks/useParticipants';
 import { useParticipantDetails } from '../../hooks/useParticipantDetails';
 import { usePeopleList, type SortBy, type SortOrder } from '../../hooks/usePeopleList';
 import { participantsService } from '../../services/participantsService';
 import { showToast } from '../../utils/toast';
-import type { UpdateParticipantRequest, CreateParticipantRequest } from '../../types';
+import type { UpdateParticipantRequest, CreateParticipantRequest, Participant } from '../../types';
 
 const useStyles = makeStyles({
   container: {
@@ -53,6 +55,14 @@ export function PeopleView() {
   const [listPanelWidth, setListPanelWidth] = useState(35);
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  // Bulk selection state
+  const [checkedParticipantIds, setCheckedParticipantIds] = useState<Set<string>>(new Set());
+
+  // Dialog states
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<{ participant: Participant; isBulk: boolean } | null>(null);
+  const [mergeDialogOpen, setMergeDialogOpen] = useState(false);
 
   // Data fetching - list
   const { participants, loading, refetch } = useParticipants();
@@ -156,6 +166,124 @@ export function PeopleView() {
     });
   }, []);
 
+  // Handle checkbox change for bulk selection
+  const handleCheckChange = useCallback((participantId: string, checked: boolean) => {
+    setCheckedParticipantIds(prev => {
+      const newSet = new Set(prev);
+      if (checked) {
+        newSet.add(participantId);
+      } else {
+        newSet.delete(participantId);
+      }
+      return newSet;
+    });
+  }, []);
+
+  // Clear all checked selections
+  const handleClearSelections = useCallback(() => {
+    setCheckedParticipantIds(new Set());
+  }, []);
+
+  // Handle delete from detail panel
+  const handleDeleteClick = useCallback((participant: Participant) => {
+    setDeleteTarget({ participant, isBulk: false });
+    setDeleteDialogOpen(true);
+  }, []);
+
+  // Handle bulk delete
+  const handleBulkDeleteClick = useCallback(() => {
+    // Get the first checked participant to show in the dialog
+    const firstCheckedId = Array.from(checkedParticipantIds)[0];
+    const firstChecked = participants.find(p => p.id === firstCheckedId);
+    if (firstChecked) {
+      setDeleteTarget({ participant: firstChecked, isBulk: true });
+      setDeleteDialogOpen(true);
+    }
+  }, [checkedParticipantIds, participants]);
+
+  // Confirm delete operation
+  const handleConfirmDelete = useCallback(async () => {
+    if (!deleteTarget) return;
+
+    setSaving(true);
+    try {
+      if (deleteTarget.isBulk) {
+        // Delete all checked participants
+        const idsToDelete = Array.from(checkedParticipantIds);
+        await Promise.all(idsToDelete.map(id => participantsService.deleteParticipant(id)));
+
+        // Clear selection and checked items
+        if (selectedParticipantId && checkedParticipantIds.has(selectedParticipantId)) {
+          setSelectedParticipantId(null);
+        }
+        setCheckedParticipantIds(new Set());
+
+        showToast.success(`Deleted ${idsToDelete.length} participant${idsToDelete.length > 1 ? 's' : ''}`);
+      } else {
+        // Delete single participant
+        await participantsService.deleteParticipant(deleteTarget.participant.id);
+
+        // Clear selection if the deleted participant was selected
+        if (selectedParticipantId === deleteTarget.participant.id) {
+          setSelectedParticipantId(null);
+        }
+        // Also remove from checked if it was checked
+        if (checkedParticipantIds.has(deleteTarget.participant.id)) {
+          setCheckedParticipantIds(prev => {
+            const newSet = new Set(prev);
+            newSet.delete(deleteTarget.participant.id);
+            return newSet;
+          });
+        }
+
+        showToast.success('Participant deleted');
+      }
+
+      // Refetch the list
+      await refetch();
+    } catch (error) {
+      showToast.error('Failed to delete participant(s)');
+    } finally {
+      setSaving(false);
+      setDeleteDialogOpen(false);
+      setDeleteTarget(null);
+    }
+  }, [deleteTarget, checkedParticipantIds, selectedParticipantId, setSelectedParticipantId, refetch]);
+
+  // Handle merge from detail panel
+  const handleMergeClick = useCallback(() => {
+    setMergeDialogOpen(true);
+  }, []);
+
+  // Confirm merge operation
+  const handleConfirmMerge = useCallback(async (secondaryId: string) => {
+    if (!selectedParticipant) return;
+
+    setSaving(true);
+    try {
+      await participantsService.mergeParticipants(selectedParticipant.id, secondaryId);
+
+      // Remove the merged participant from checked if it was checked
+      if (checkedParticipantIds.has(secondaryId)) {
+        setCheckedParticipantIds(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(secondaryId);
+          return newSet;
+        });
+      }
+
+      // Refetch both list and details
+      await Promise.all([refetch(), refetchDetails()]);
+
+      showToast.success('Participants merged successfully');
+      setMergeDialogOpen(false);
+    } catch (error) {
+      showToast.error('Failed to merge participants');
+    } finally {
+      setSaving(false);
+    }
+  }, [selectedParticipant, checkedParticipantIds, refetch, refetchDetails]);
+
   return (
     <div className={styles.container}>
       <PeopleActionBar
@@ -170,6 +298,9 @@ export function PeopleView() {
         uniqueGroups={uniqueGroups}
         onRefresh={refetch}
         onAddPerson={() => setAddDialogOpen(true)}
+        selectedCount={checkedParticipantIds.size}
+        onClearSelections={handleClearSelections}
+        onDeleteSelected={handleBulkDeleteClick}
       />
       <div className={styles.viewContainer}>
         <PeopleList
@@ -179,6 +310,8 @@ export function PeopleView() {
           loading={loading}
           width={listPanelWidth}
           totalCount={participants.length}
+          checkedParticipantIds={checkedParticipantIds}
+          onCheckChange={handleCheckChange}
         />
         <ResizableSplitter onResize={handleResize} />
         <ParticipantDetailPanel
@@ -190,6 +323,8 @@ export function PeopleView() {
           onSave={handleSaveParticipant}
           existingMeParticipant={existingMeParticipant}
           saving={saving}
+          onDelete={handleDeleteClick}
+          onMerge={handleMergeClick}
         />
       </div>
 
@@ -198,6 +333,27 @@ export function PeopleView() {
         open={addDialogOpen}
         onOpenChange={setAddDialogOpen}
         onSave={handleAddParticipant}
+        saving={saving}
+      />
+
+      {/* Delete Confirmation Dialog */}
+      <DeleteConfirmDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        participant={deleteTarget?.participant || null}
+        isBulk={deleteTarget?.isBulk || false}
+        bulkCount={checkedParticipantIds.size}
+        onConfirm={handleConfirmDelete}
+        saving={saving}
+      />
+
+      {/* Merge Participant Dialog */}
+      <MergeParticipantDialog
+        open={mergeDialogOpen}
+        onOpenChange={setMergeDialogOpen}
+        primaryParticipant={selectedParticipant}
+        participants={participants}
+        onConfirm={handleConfirmMerge}
         saving={saving}
       />
     </div>

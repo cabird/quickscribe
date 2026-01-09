@@ -33,6 +33,8 @@ import {
   Dismiss20Regular,
   Person20Regular,
   Key20Regular,
+  Delete20Regular,
+  PersonSwap20Regular,
 } from '@fluentui/react-icons';
 import type { Participant, Recording, UpdateParticipantRequest } from '../../types';
 import { formatDate } from '../../utils/dateUtils';
@@ -315,6 +317,8 @@ interface ParticipantDetailPanelProps {
   onSave?: (participantId: string, updates: UpdateParticipantRequest) => Promise<void>;
   existingMeParticipant?: Participant | null;
   saving?: boolean;
+  onDelete?: (participant: Participant) => void;
+  onMerge?: () => void;
 }
 
 export function ParticipantDetailPanel({
@@ -326,6 +330,8 @@ export function ParticipantDetailPanel({
   onSave,
   existingMeParticipant,
   saving = false,
+  onDelete,
+  onMerge,
 }: ParticipantDetailPanelProps) {
   const styles = useStyles();
   const [isEditing, setIsEditing] = useState(false);
@@ -715,8 +721,28 @@ export function ParticipantDetailPanel({
               <Text className={styles.fullName}>{fullName}</Text>
             )}
           </div>
-          {onSave && (
-            <div className={styles.headerActions}>
+          <div className={styles.headerActions}>
+            {onMerge && (
+              <Button
+                appearance="subtle"
+                icon={<PersonSwap20Regular />}
+                onClick={onMerge}
+                title="Merge with another participant"
+              >
+                Merge
+              </Button>
+            )}
+            {onDelete && (
+              <Button
+                appearance="subtle"
+                icon={<Delete20Regular />}
+                onClick={() => onDelete(participant)}
+                title="Delete participant"
+              >
+                Delete
+              </Button>
+            )}
+            {onSave && (
               <Button
                 appearance="subtle"
                 icon={<Edit20Regular />}
@@ -724,8 +750,8 @@ export function ParticipantDetailPanel({
               >
                 Edit
               </Button>
-            </div>
-          )}
+            )}
+          </div>
         </div>
 
         {/* Info Section */}

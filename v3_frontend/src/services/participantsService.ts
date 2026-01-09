@@ -9,6 +9,9 @@ import type {
   GetParticipantsResponse,
   GetParticipantResponse,
   GetParticipantRecordingsResponse,
+  DeleteParticipantResponse,
+  MergeParticipantsRequest,
+  MergeParticipantsResponse,
 } from '../types';
 
 export const participantsService = {
@@ -69,6 +72,30 @@ export const participantsService = {
     );
     if (!response.data.data) {
       throw new Error('Failed to update participant');
+    }
+    return response.data.data;
+  },
+
+  // DELETE /api/participants/:id - Delete a participant
+  deleteParticipant: async (participantId: string): Promise<void> => {
+    await apiClient.delete<DeleteParticipantResponse>(
+      `/api/participants/${encodeURIComponent(participantId)}`
+    );
+  },
+
+  // POST /api/participants/:id/merge/:otherId - Merge two participants
+  // The first participant (primaryId) will be kept, second (secondaryId) will be deleted
+  mergeParticipants: async (
+    primaryId: string,
+    secondaryId: string,
+    mergeFields?: MergeParticipantsRequest['merge_fields']
+  ): Promise<Participant> => {
+    const response = await apiClient.post<MergeParticipantsResponse>(
+      `/api/participants/${encodeURIComponent(primaryId)}/merge/${encodeURIComponent(secondaryId)}`,
+      { merge_fields: mergeFields }
+    );
+    if (!response.data.data) {
+      throw new Error('Failed to merge participants');
     }
     return response.data.data;
   },

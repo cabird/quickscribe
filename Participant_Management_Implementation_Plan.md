@@ -442,6 +442,42 @@ PeopleActionBar shows when selections exist:
 - Clear button
 - Delete Selected button (with confirmation for all)
 
+### Phase 4 Implementation Notes ✅ COMPLETED
+
+**Implemented on:** 2026-01-09
+
+**Files Modified:**
+- `src/services/participantsService.ts` - Added `deleteParticipant()` and `mergeParticipants()` methods
+- `src/components/people/ParticipantCard.tsx` - Added checkbox bulk selection with hover visibility and Ctrl/Cmd+Click support
+- `src/components/people/PeopleList.tsx` - Added props for checked state management
+- `src/components/people/PeopleView.tsx` - Added bulk selection state, delete/merge handlers, dialog integration
+- `src/components/people/PeopleActionBar.tsx` - Added bulk action UI with conditional rendering
+- `src/components/people/ParticipantDetailPanel.tsx` - Added Delete and Merge buttons to header
+- `src/components/people/index.ts` - Updated barrel exports for new dialogs
+
+**Files Created:**
+- `src/components/people/DeleteConfirmDialog.tsx` - Confirmation dialog for single/bulk delete operations
+- `src/components/people/MergeParticipantDialog.tsx` - Searchable dialog for selecting participant to merge
+
+**Features Implemented:**
+- Single participant delete from detail panel with confirmation
+- Bulk participant delete from action bar when items are selected
+- Merge participants: select secondary to merge into currently selected (primary)
+- Checkbox bulk selection on cards (visible on hover, persists when checked)
+- Ctrl/Cmd+Click support for toggling selection
+- State cleanup after operations (clear selections, update list, handle deleted selection)
+- Confirmation dialogs with appropriate warnings about data unlinking
+
+**Code Review Notes:**
+- Implementation follows existing patterns from RecordingCard for checkbox behavior
+- Backend merge already implements fill-empty-only strategy with alias combination
+- Backend delete/merge endpoints were already implemented - this phase added frontend support
+- Backend recording reference updates during merge noted as TODO (pre-existing backend limitation)
+
+**Known Limitations (Acceptable):**
+- Hardcoded nav rail width (68px) in resize handler - follows existing TranscriptsView pattern
+- Backend recording filtering uses in-memory O(N) approach - acceptable for current data sizes
+
 ---
 
 ## Service Methods Summary

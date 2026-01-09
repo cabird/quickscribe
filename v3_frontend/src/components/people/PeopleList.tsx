@@ -46,6 +46,8 @@ interface PeopleListProps {
   loading: boolean;
   width: number;
   totalCount: number;
+  checkedParticipantIds: Set<string>;
+  onCheckChange: (participantId: string, checked: boolean) => void;
 }
 
 export function PeopleList({
@@ -55,6 +57,8 @@ export function PeopleList({
   loading,
   width,
   totalCount,
+  checkedParticipantIds,
+  onCheckChange,
 }: PeopleListProps) {
   const styles = useStyles();
 
@@ -93,6 +97,8 @@ export function PeopleList({
           key={participant.id}
           participant={participant}
           isSelected={selectedParticipantId === participant.id}
+          isChecked={checkedParticipantIds.has(participant.id)}
+          onCheckChange={(checked) => onCheckChange(participant.id, checked)}
           onClick={() => onParticipantSelect(participant.id)}
         />
       ))}

@@ -13,6 +13,8 @@ import {
   Filter20Regular,
   ArrowClockwise20Regular,
   PersonAdd20Regular,
+  Delete20Regular,
+  Dismiss20Regular,
 } from '@fluentui/react-icons';
 import type { SortBy, SortOrder } from '../../hooks/usePeopleList';
 
@@ -40,6 +42,16 @@ const useStyles = makeStyles({
   spacer: {
     flex: 1,
   },
+  selectionInfo: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+  },
+  selectionCount: {
+    fontSize: '14px',
+    fontWeight: 500,
+    color: tokens.colorNeutralForeground1,
+  },
 });
 
 interface PeopleActionBarProps {
@@ -54,6 +66,9 @@ interface PeopleActionBarProps {
   uniqueGroups: string[];
   onRefresh: () => void;
   onAddPerson: () => void;
+  selectedCount: number;
+  onClearSelections: () => void;
+  onDeleteSelected: () => void;
 }
 
 const sortOptions: { value: SortBy; label: string }[] = [
@@ -74,12 +89,43 @@ export function PeopleActionBar({
   uniqueGroups,
   onRefresh,
   onAddPerson,
+  selectedCount,
+  onClearSelections,
+  onDeleteSelected,
 }: PeopleActionBarProps) {
   const styles = useStyles();
 
   const toggleSortOrder = () => {
     onSortOrderChange(sortOrder === 'asc' ? 'desc' : 'asc');
   };
+
+  // Show bulk action UI when items are selected
+  if (selectedCount > 0) {
+    return (
+      <div className={styles.container}>
+        <div className={styles.selectionInfo}>
+          <span className={styles.selectionCount}>{selectedCount} selected</span>
+          <Button
+            appearance="subtle"
+            icon={<Dismiss20Regular />}
+            onClick={onClearSelections}
+          >
+            Clear
+          </Button>
+        </div>
+
+        <div className={styles.spacer} />
+
+        <Button
+          appearance="primary"
+          icon={<Delete20Regular />}
+          onClick={onDeleteSelected}
+        >
+          Delete Selected
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <div className={styles.container}>

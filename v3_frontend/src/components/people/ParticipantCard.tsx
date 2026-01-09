@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import {
   makeStyles,
   mergeClasses,
@@ -5,6 +6,7 @@ import {
   tokens,
   Persona,
   Badge,
+  Checkbox,
 } from '@fluentui/react-components';
 import { Calendar20Regular } from '@fluentui/react-icons';
 import type { Participant } from '../../types';
@@ -78,6 +80,25 @@ const useStyles = makeStyles({
       backgroundColor: '#E0F0FF',
     },
   },
+  cardChecked: {
+    backgroundColor: '#EBF5FF',
+    borderLeft: `4px solid ${APP_COLORS.selectionBorder}`,
+    boxShadow: '0 2px 6px rgba(0, 0, 0, 0.1)',
+    ':hover': {
+      backgroundColor: '#E0F0FF',
+    },
+  },
+  checkboxContainer: {
+    position: 'absolute',
+    top: '8px',
+    right: '8px',
+    zIndex: 1,
+    opacity: 0,
+    transition: 'opacity 0.15s',
+  },
+  checkboxVisible: {
+    opacity: 1,
+  },
   contentWrapper: {
     flex: 1,
     minWidth: 0,
@@ -125,11 +146,14 @@ const useStyles = makeStyles({
 interface ParticipantCardProps {
   participant: Participant;
   isSelected: boolean;
-  onClick: () => void;
+  isChecked: boolean;
+  onCheckChange: (checked: boolean) => void;
+  onClick: (e: React.MouseEvent) => void;
 }
 
-export function ParticipantCard({ participant, isSelected, onClick }: ParticipantCardProps) {
+export function ParticipantCard({ participant, isSelected, isChecked, onCheckChange, onClick }: ParticipantCardProps) {
   const styles = useStyles();
+  const [isHovered, setIsHovered] = useState(false);
 
   const initials = getInitials(participant);
   const fullName = getFullName(participant);
@@ -137,14 +161,42 @@ export function ParticipantCard({ participant, isSelected, onClick }: Participan
   // Build secondary text: full name if available, otherwise role or organization
   const secondaryText = fullName || participant.role || participant.organization || undefined;
 
+  const handleClick = (e: React.MouseEvent) => {
+    // Ctrl/Cmd + Click toggles selection
+    if (e.ctrlKey || e.metaKey) {
+      e.preventDefault();
+      onCheckChange(!isChecked);
+    } else {
+      onClick(e);
+    }
+  };
+
+  const handleCheckboxClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onCheckChange(!isChecked);
+  };
+
   return (
     <div
       className={mergeClasses(
         styles.card,
-        isSelected && styles.cardSelected
+        isSelected && styles.cardSelected,
+        isChecked && styles.cardChecked
       )}
-      onClick={onClick}
+      onClick={handleClick}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
     >
+      {/* Checkbox - visible on hover or when checked */}
+      <div
+        className={mergeClasses(
+          styles.checkboxContainer,
+          (isHovered || isChecked) && styles.checkboxVisible
+        )}
+        onClick={handleCheckboxClick}
+      >
+        <Checkbox checked={isChecked} />
+      </div>
       <Persona
         name={participant.displayName}
         secondaryText={secondaryText}
