@@ -1,9 +1,12 @@
 import { apiClient } from './api';
 import type {
   Participant,
+  Recording,
   CreateParticipantRequest,
   CreateParticipantResponse,
   GetParticipantsResponse,
+  GetParticipantResponse,
+  GetParticipantRecordingsResponse,
 } from '../types';
 
 export const participantsService = {
@@ -28,6 +31,29 @@ export const participantsService = {
       `/api/participants/search?name=${encodeURIComponent(name)}&fuzzy=${fuzzy}`
     );
     return response.data.data || [];
+  },
+
+  // GET /api/participants/:id - Get a specific participant by ID
+  getParticipantById: async (participantId: string): Promise<Participant | null> => {
+    const response = await apiClient.get<GetParticipantResponse>(
+      `/api/participants/${encodeURIComponent(participantId)}`
+    );
+    return response.data.data || null;
+  },
+
+  // GET /api/participants/:id/recordings - Get recordings where participant appears
+  getParticipantRecordings: async (
+    participantId: string,
+    limit: number = 5,
+    offset: number = 0
+  ): Promise<{ recordings: Recording[]; total: number }> => {
+    const response = await apiClient.get<GetParticipantRecordingsResponse>(
+      `/api/participants/${encodeURIComponent(participantId)}/recordings?limit=${limit}&offset=${offset}`
+    );
+    return {
+      recordings: response.data.data || [],
+      total: response.data.total || 0,
+    };
   },
 
   // Helper: Find or create a participant by name

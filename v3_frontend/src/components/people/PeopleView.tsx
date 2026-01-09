@@ -6,6 +6,7 @@ import { PeopleList } from './PeopleList';
 import { ParticipantDetailPanel } from './ParticipantDetailPanel';
 import { ResizableSplitter } from '../layout/ResizableSplitter';
 import { useParticipants } from '../../hooks/useParticipants';
+import { useParticipantDetails } from '../../hooks/useParticipantDetails';
 import { usePeopleList, type SortBy, type SortOrder } from '../../hooks/usePeopleList';
 
 const useStyles = makeStyles({
@@ -47,8 +48,16 @@ export function PeopleView() {
   const [groupFilter, setGroupFilter] = useState('');
   const [listPanelWidth, setListPanelWidth] = useState(35);
 
-  // Data fetching
+  // Data fetching - list
   const { participants, loading, refetch } = useParticipants();
+
+  // Data fetching - selected participant details
+  const {
+    participant: selectedParticipant,
+    recordings: participantRecordings,
+    totalRecordings,
+    loading: detailsLoading,
+  } = useParticipantDetails(selectedParticipantId);
 
   // Filtered and sorted list
   const { filteredParticipants, uniqueGroups } = usePeopleList(
@@ -58,6 +67,13 @@ export function PeopleView() {
     sortOrder,
     groupFilter
   );
+
+  // Handle recording click - navigate to transcripts view with that recording selected
+  const handleRecordingClick = useCallback((recordingId: string) => {
+    window.dispatchEvent(new CustomEvent('navigateToRecording', {
+      detail: { recordingId }
+    }));
+  }, []);
 
   const handleResize = useCallback((delta: number) => {
     setListPanelWidth(prev => {
@@ -93,7 +109,13 @@ export function PeopleView() {
           totalCount={participants.length}
         />
         <ResizableSplitter onResize={handleResize} />
-        <ParticipantDetailPanel selectedParticipantId={selectedParticipantId} />
+        <ParticipantDetailPanel
+          participant={selectedParticipant}
+          recordings={participantRecordings}
+          totalRecordings={totalRecordings}
+          loading={detailsLoading}
+          onRecordingClick={handleRecordingClick}
+        />
       </div>
     </div>
   );

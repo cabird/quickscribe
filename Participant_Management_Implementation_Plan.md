@@ -254,6 +254,44 @@ window.dispatchEvent(new CustomEvent('navigateToRecording', {
 ```
 MainLayout listens and switches view + sets selection.
 
+### Phase 2 Implementation Notes ✅ COMPLETED
+
+**Implemented on:** 2026-01-09
+
+**Backend Changes:**
+- Added `GET /api/participants/<id>/recordings` endpoint in `participant_routes.py`
+- Includes limit/offset pagination, total count
+- Filters recordings where participant appears in participants array (handles both RecordingParticipant objects and legacy dict formats)
+
+**Frontend Files Created:**
+- `src/hooks/useParticipantDetails.ts` - Fetches participant + recordings in parallel
+
+**Frontend Files Modified:**
+- `src/services/participantsService.ts` - Added `getParticipantById()`, `getParticipantRecordings()`
+- `src/components/people/ParticipantDetailPanel.tsx` - Full read-only implementation
+- `src/components/people/PeopleView.tsx` - Uses new hook, passes data to detail panel
+- `src/components/layout/MainLayout.tsx` - Listens for navigateToRecording event
+- `src/components/transcripts/TranscriptsView.tsx` - Added props for external navigation
+- `shared/Models.ts` - Added `GetParticipantRecordingsResponse` type
+
+**Detail Panel Features:**
+- Header with Fluent UI Persona avatar, displayName, "Me" badge
+- Info grid: Email, Role, Group, Relationship, First/Last Seen
+- Aliases section (conditionally rendered)
+- Notes section (conditionally rendered)
+- Statistics section (total recordings count)
+- Recent Recordings list with clickable cards
+- Cross-view navigation to TranscriptsView when clicking recordings
+
+**Code Review Notes:**
+- Backend uses in-memory filtering (O(N)) - acceptable for current data sizes, consider database-level query in future optimization
+- Implementation follows existing patterns from TranscriptsView
+
+**Not Implemented (per Phase 2 scope):**
+- Edit button (Phase 3)
+- "Show all" recordings navigation (future enhancement)
+- Most common co-speakers stat (deferred - would require additional backend work)
+
 ---
 
 ## Phase 3: Editing + Add Person + Mark as "Me"

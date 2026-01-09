@@ -461,3 +461,86 @@ def update_participant_last_seen(participant_id: str):
             'status': 'error',
             'error': 'Failed to update last seen timestamp'
         }), 500
+
+@participant_bp.route('/<participant_id>/recordings', methods=['GET'])
+@require_auth
+def get_participant_recordings(participant_id: str):
+    """
+    Get recordings where a participant appears.
+
+    Args:
+        participant_id: ID of the participant
+
+    Query parameters:
+        - limit: Maximum number of recordings to return (default: 5)
+        - offset: Number of recordings to skip (default: 0)
+
+    Returns:
+        JSON response with recordings and total count
+    """
+    try:
+        user_id = get_current_user().id
+        limit = request.args.get('limit', '5')
+        offset = request.args.get('offset', '0')
+
+        try:
+            limit = int(limit)
+            offset = int(offset)
+        except ValueError:
+            return jsonify({
+                'status': 'error',
+                'error': 'limit and offset must be integers'
+            }), 400
+
+        # Verify participant exists and belongs to user
+        handler = get_participant_handler()
+        participant = handler.get_participant(user_id, participant_id)
+
+        if not participant:
+            return jsonify({
+                'status': 'error',
+                'error': 'Participant not found'
+            }), 404
+
+        # Get recordings where this participant appears
+        from shared_quickscribe_py.cosmos import get_recording_handler
+        recording_handler = get_recording_handler()
+
+        # Query recordings for the user that have this participant in their participants array
+        # The participants field can be either a list of strings or a list of RecordingParticipant objects
+        # We need to check for both cases
+        all_recordings = recording_handler.get_all_recordings(user_id=user_id)
+
+        # Filter recordings where this participant appears
+        matching_recordings = []
+        for recording in all_recordings:
+            if recording.participants:
+                for p in recording.participants:
+                    # Check if it's a RecordingParticipant object (has participantId)
+                    if hasattr(p, 'participantId') and p.participantId == participant_id:
+                        matching_recordings.append(recording)
+                        break
+                    # Check if it's a dict with participantId
+                    elif isinstance(p, dict) and p.get('participantId') == participant_id:
+                        matching_recordings.append(recording)
+                        break
+
+        # Get total count before pagination
+        total = len(matching_recordings)
+
+        # Apply pagination
+        paginated_recordings = matching_recordings[offset:offset + limit]
+
+        return jsonify({
+            'status': 'success',
+            'data': [r.model_dump() for r in paginated_recordings],
+            'count': len(paginated_recordings),
+            'total': total
+        })
+
+    except Exception as e:
+        logger.error(f"Error fetching recordings for participant {participant_id}: {e}")
+        return jsonify({
+            'status': 'error',
+            'error': 'Failed to fetch participant recordings'
+        }), 500

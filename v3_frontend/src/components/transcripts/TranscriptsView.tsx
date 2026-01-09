@@ -24,7 +24,14 @@ const useStyles = makeStyles({
   },
 });
 
-export function TranscriptsView() {
+interface TranscriptsViewProps {
+  /** External recording ID to navigate to (e.g., from People view) */
+  navigateToRecordingId?: string | null;
+  /** Callback when navigation is complete */
+  onNavigationComplete?: () => void;
+}
+
+export function TranscriptsView({ navigateToRecordingId, onNavigationComplete }: TranscriptsViewProps = {}) {
   const styles = useStyles();
   const [selectedRecordingId, setSelectedRecordingId] = useState<string | null>(null);
   const [checkedRecordingIds, setCheckedRecordingIds] = useState<Set<string>>(new Set());
@@ -137,6 +144,15 @@ export function TranscriptsView() {
       return Math.max(20, Math.min(60, newWidth));
     });
   }, []);
+
+  // Handle external navigation to a specific recording
+  useEffect(() => {
+    if (navigateToRecordingId) {
+      setSelectedRecordingId(navigateToRecordingId);
+      // Notify parent that navigation is complete
+      onNavigationComplete?.();
+    }
+  }, [navigateToRecordingId, onNavigationComplete]);
 
   // Listen for recording deleted event
   useEffect(() => {

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { makeStyles } from '@fluentui/react-components';
 import { NavigationRail } from './NavigationRail';
 import { TranscriptsView } from '../transcripts/TranscriptsView';
@@ -26,12 +26,38 @@ const useStyles = makeStyles({
 export function MainLayout() {
   const styles = useStyles();
   const [activeView, setActiveView] = useState<'transcripts' | 'people' | 'logs' | 'search' | 'settings'>('transcripts');
+  const [pendingRecordingId, setPendingRecordingId] = useState<string | null>(null);
+
+  // Handle navigation to a specific recording from other views (e.g., People view)
+  const handleNavigateToRecording = useCallback((event: Event) => {
+    const customEvent = event as CustomEvent<{ recordingId: string }>;
+    const { recordingId } = customEvent.detail;
+    setPendingRecordingId(recordingId);
+    setActiveView('transcripts');
+  }, []);
+
+  useEffect(() => {
+    window.addEventListener('navigateToRecording', handleNavigateToRecording);
+    return () => {
+      window.removeEventListener('navigateToRecording', handleNavigateToRecording);
+    };
+  }, [handleNavigateToRecording]);
+
+  // Clear pending recording ID after TranscriptsView has had a chance to use it
+  const handleRecordingNavigated = useCallback(() => {
+    setPendingRecordingId(null);
+  }, []);
 
   return (
     <div className={styles.container}>
       <NavigationRail activeView={activeView} onViewChange={setActiveView} />
       <div className={styles.mainContent}>
-        {activeView === 'transcripts' && <TranscriptsView />}
+        {activeView === 'transcripts' && (
+          <TranscriptsView
+            navigateToRecordingId={pendingRecordingId}
+            onNavigationComplete={handleRecordingNavigated}
+          />
+        )}
         {activeView === 'people' && <PeopleView />}
         {activeView === 'logs' && <JobsView />}
         {activeView === 'search' && <SearchPlaceholder />}

@@ -432,6 +432,11 @@ export interface GetParticipantResponse extends ApiResponse<Participant> {}
 export interface DeleteParticipantResponse extends ApiResponse<null> {}
 export interface MergeParticipantsResponse extends ApiResponse<Participant> {}
 
+// Participant Recordings API - response includes total for pagination
+export interface GetParticipantRecordingsResponse extends ApiResponse<Recording[]> {
+    total: number;
+}
+
 // Common error response for failed requests
 export interface ErrorResponse {
     error: string;
