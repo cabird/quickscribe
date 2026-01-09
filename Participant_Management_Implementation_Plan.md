@@ -356,6 +356,39 @@ Form fields: displayName (required), firstName, lastName, email, role, organizat
 
 On submit: Call `createParticipant()`, close dialog, refetch list, select new participant
 
+### Phase 3 Implementation Notes ✅ COMPLETED
+
+**Implemented on:** 2026-01-09
+
+**Files Modified:**
+- `src/services/participantsService.ts` - Added `updateParticipant()` method
+- `src/components/people/ParticipantDetailPanel.tsx` - Full edit mode with inline form
+- `src/components/people/PeopleActionBar.tsx` - Added "Add Person" button with `PersonAdd20Regular` icon
+- `src/components/people/PeopleView.tsx` - Save handlers, "Me" singleton logic, toast notifications
+- `src/components/people/index.ts` - Added barrel export for AddParticipantDialog
+- `shared/Models.ts` - Added `isUser` field to `UpdateParticipantRequest`
+
+**Files Created:**
+- `src/components/people/AddParticipantDialog.tsx` - Dialog for creating new participants
+
+**Features Implemented:**
+- Edit mode with Save/Cancel buttons in header
+- Editable fields: displayName, firstName, lastName, email, role, organization (Group), relationship, notes, aliases
+- "This is me" toggle with confirmation dialog when another participant is already marked as "Me"
+- "Me" singleton constraint enforced with rollback on failure
+- Add Person dialog with form validation (displayName required)
+- Toast notifications for success/error states
+- Auto-selection of newly created participants
+
+**Code Review Feedback Addressed:**
+- Added rollback logic for atomic "Me" toggle (if second API call fails, restores previous "Me" status)
+- Added proper error handling with toast notifications for all save operations
+- Removed unused `infoItemFullWidth` style definition
+
+**Known Limitations (Acceptable for Phase 3):**
+- Hardcoded nav rail width (68px) in resize handler - follows existing TranscriptsView pattern
+- Backend recording filtering happens in memory (acceptable for current data sizes, noted for future optimization)
+
 ---
 
 ## Phase 4: Merge, Bulk Operations, Delete

@@ -4,6 +4,8 @@ import type {
   Recording,
   CreateParticipantRequest,
   CreateParticipantResponse,
+  UpdateParticipantRequest,
+  UpdateParticipantResponse,
   GetParticipantsResponse,
   GetParticipantResponse,
   GetParticipantRecordingsResponse,
@@ -54,6 +56,21 @@ export const participantsService = {
       recordings: response.data.data || [],
       total: response.data.total || 0,
     };
+  },
+
+  // PUT /api/participants/:id - Update an existing participant
+  updateParticipant: async (
+    participantId: string,
+    data: UpdateParticipantRequest
+  ): Promise<Participant> => {
+    const response = await apiClient.put<UpdateParticipantResponse>(
+      `/api/participants/${encodeURIComponent(participantId)}`,
+      data
+    );
+    if (!response.data.data) {
+      throw new Error('Failed to update participant');
+    }
+    return response.data.data;
   },
 
   // Helper: Find or create a participant by name

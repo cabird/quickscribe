@@ -403,6 +403,7 @@ export interface UpdateParticipantRequest {
     relationshipToUser?: string;
     notes?: string;
     aliases?: string[];
+    isUser?: boolean;
 }
 
 export interface MergeParticipantsRequest {

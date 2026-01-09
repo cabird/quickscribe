@@ -1,6 +1,39 @@
-import { makeStyles, Text, tokens, Spinner, Persona, Badge, Card, CardHeader } from '@fluentui/react-components';
-import { People24Regular, Mail20Regular, Briefcase20Regular, Building20Regular, PersonLink20Regular, Calendar20Regular, Document20Regular, ChevronRight20Regular } from '@fluentui/react-icons';
-import type { Participant, Recording } from '../../types';
+import { useState, useEffect, useCallback } from 'react';
+import {
+  makeStyles,
+  Text,
+  tokens,
+  Spinner,
+  Persona,
+  Badge,
+  Card,
+  CardHeader,
+  Button,
+  Input,
+  Textarea,
+  Switch,
+  Dialog,
+  DialogSurface,
+  DialogBody,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+} from '@fluentui/react-components';
+import {
+  People24Regular,
+  Mail20Regular,
+  Briefcase20Regular,
+  Building20Regular,
+  PersonLink20Regular,
+  Calendar20Regular,
+  Document20Regular,
+  ChevronRight20Regular,
+  Edit20Regular,
+  Save20Regular,
+  Dismiss20Regular,
+  Person20Regular,
+} from '@fluentui/react-icons';
+import type { Participant, Recording, UpdateParticipantRequest } from '../../types';
 import { formatDate } from '../../utils/dateUtils';
 
 const useStyles = makeStyles({
@@ -66,6 +99,10 @@ const useStyles = makeStyles({
   fullName: {
     fontSize: '14px',
     color: '#6B7280',
+  },
+  headerActions: {
+    display: 'flex',
+    gap: '8px',
   },
   section: {
     marginBottom: '24px',
@@ -175,6 +212,66 @@ const useStyles = makeStyles({
       textDecoration: 'underline',
     },
   },
+  // Edit mode styles
+  editInput: {
+    width: '100%',
+  },
+  editDisplayName: {
+    fontSize: '18px',
+    fontWeight: 500,
+  },
+  meToggleRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
+    padding: '12px',
+    backgroundColor: tokens.colorNeutralBackground2,
+    borderRadius: '8px',
+    marginTop: '16px',
+  },
+  meToggleLabel: {
+    display: 'flex',
+    flexDirection: 'column',
+    flex: 1,
+  },
+  meToggleLabelPrimary: {
+    fontSize: '14px',
+    fontWeight: 500,
+    color: '#111827',
+  },
+  meToggleLabelSecondary: {
+    fontSize: '12px',
+    color: '#6B7280',
+  },
+  aliasInputContainer: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '8px',
+  },
+  aliasHint: {
+    fontSize: '12px',
+    color: '#6B7280',
+  },
+  savingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    zIndex: 10,
+  },
+  containerRelative: {
+    flex: 1,
+    display: 'flex',
+    flexDirection: 'column',
+    overflow: 'hidden',
+    backgroundColor: tokens.colorNeutralBackground1,
+    position: 'relative',
+  },
 });
 
 interface ParticipantDetailPanelProps {
@@ -183,6 +280,9 @@ interface ParticipantDetailPanelProps {
   totalRecordings: number;
   loading: boolean;
   onRecordingClick?: (recordingId: string) => void;
+  onSave?: (participantId: string, updates: UpdateParticipantRequest) => Promise<void>;
+  existingMeParticipant?: Participant | null;
+  saving?: boolean;
 }
 
 export function ParticipantDetailPanel({
@@ -191,8 +291,148 @@ export function ParticipantDetailPanel({
   totalRecordings,
   loading,
   onRecordingClick,
+  onSave,
+  existingMeParticipant,
+  saving = false,
 }: ParticipantDetailPanelProps) {
   const styles = useStyles();
+  const [isEditing, setIsEditing] = useState(false);
+  const [showMeConfirmDialog, setShowMeConfirmDialog] = useState(false);
+
+  // Edit form state
+  const [editForm, setEditForm] = useState<UpdateParticipantRequest>({});
+
+  // Initialize edit form when participant changes or entering edit mode
+  useEffect(() => {
+    if (participant && isEditing) {
+      setEditForm({
+        displayName: participant.displayName,
+        firstName: participant.firstName || '',
+        lastName: participant.lastName || '',
+        email: participant.email || '',
+        role: participant.role || '',
+        organization: participant.organization || '',
+        relationshipToUser: participant.relationshipToUser || '',
+        notes: participant.notes || '',
+        aliases: participant.aliases || [],
+        isUser: participant.isUser || false,
+      });
+    }
+  }, [participant, isEditing]);
+
+  // Reset edit mode when participant changes
+  useEffect(() => {
+    setIsEditing(false);
+  }, [participant?.id]);
+
+  const handleEditClick = useCallback(() => {
+    if (participant) {
+      setEditForm({
+        displayName: participant.displayName,
+        firstName: participant.firstName || '',
+        lastName: participant.lastName || '',
+        email: participant.email || '',
+        role: participant.role || '',
+        organization: participant.organization || '',
+        relationshipToUser: participant.relationshipToUser || '',
+        notes: participant.notes || '',
+        aliases: participant.aliases || [],
+        isUser: participant.isUser || false,
+      });
+      setIsEditing(true);
+    }
+  }, [participant]);
+
+  const handleCancelEdit = useCallback(() => {
+    setIsEditing(false);
+    setEditForm({});
+  }, []);
+
+  const handleSave = useCallback(async () => {
+    if (!participant || !onSave) return;
+
+    // Validate displayName
+    if (!editForm.displayName?.trim()) {
+      return; // Don't save if displayName is empty
+    }
+
+    // Build updates object with only changed fields
+    const updates: UpdateParticipantRequest = {};
+
+    if (editForm.displayName !== participant.displayName) {
+      updates.displayName = editForm.displayName?.trim();
+    }
+    if (editForm.firstName !== (participant.firstName || '')) {
+      updates.firstName = editForm.firstName?.trim() || undefined;
+    }
+    if (editForm.lastName !== (participant.lastName || '')) {
+      updates.lastName = editForm.lastName?.trim() || undefined;
+    }
+    if (editForm.email !== (participant.email || '')) {
+      updates.email = editForm.email?.trim() || undefined;
+    }
+    if (editForm.role !== (participant.role || '')) {
+      updates.role = editForm.role?.trim() || undefined;
+    }
+    if (editForm.organization !== (participant.organization || '')) {
+      updates.organization = editForm.organization?.trim() || undefined;
+    }
+    if (editForm.relationshipToUser !== (participant.relationshipToUser || '')) {
+      updates.relationshipToUser = editForm.relationshipToUser?.trim() || undefined;
+    }
+    if (editForm.notes !== (participant.notes || '')) {
+      updates.notes = editForm.notes?.trim() || undefined;
+    }
+    if (JSON.stringify(editForm.aliases) !== JSON.stringify(participant.aliases || [])) {
+      updates.aliases = editForm.aliases;
+    }
+    if (editForm.isUser !== (participant.isUser || false)) {
+      updates.isUser = editForm.isUser;
+    }
+
+    // Only save if there are changes
+    if (Object.keys(updates).length === 0) {
+      setIsEditing(false);
+      return;
+    }
+
+    try {
+      await onSave(participant.id, updates);
+      setIsEditing(false);
+    } catch {
+      // Error is already handled by the parent (toast shown)
+      // Keep edit mode open so user can retry
+    }
+  }, [participant, editForm, onSave]);
+
+  const handleMeToggle = useCallback((checked: boolean) => {
+    if (checked && existingMeParticipant && existingMeParticipant.id !== participant?.id) {
+      // Show confirmation dialog
+      setShowMeConfirmDialog(true);
+    } else {
+      setEditForm(prev => ({ ...prev, isUser: checked }));
+    }
+  }, [existingMeParticipant, participant?.id]);
+
+  const handleConfirmMeToggle = useCallback(() => {
+    setEditForm(prev => ({ ...prev, isUser: true }));
+    setShowMeConfirmDialog(false);
+  }, []);
+
+  const handleAliasesChange = useCallback((value: string) => {
+    // Split by commas and trim each alias
+    const aliases = value
+      .split(',')
+      .map(a => a.trim())
+      .filter(a => a.length > 0);
+    setEditForm(prev => ({ ...prev, aliases }));
+  }, []);
+
+  const handleRecordingClick = (recordingId: string) => {
+    if (onRecordingClick) {
+      onRecordingClick(recordingId);
+    }
+  };
 
   if (loading) {
     return (
@@ -219,12 +459,207 @@ export function ParticipantDetailPanel({
     ? `${participant.firstName} ${participant.lastName}`
     : participant.firstName || participant.lastName || null;
 
-  const handleRecordingClick = (recordingId: string) => {
-    if (onRecordingClick) {
-      onRecordingClick(recordingId);
-    }
-  };
+  // Edit mode rendering
+  if (isEditing) {
+    return (
+      <div className={styles.containerRelative}>
+        {saving && (
+          <div className={styles.savingOverlay}>
+            <Spinner size="medium" label="Saving..." />
+          </div>
+        )}
+        <div className={styles.scrollContainer}>
+          {/* Header with Edit Actions */}
+          <div className={styles.header}>
+            <Persona
+              size="huge"
+              name={editForm.displayName || participant.displayName}
+              avatar={{ color: 'colorful' }}
+            />
+            <div className={styles.headerInfo}>
+              <Input
+                className={styles.editDisplayName}
+                value={editForm.displayName || ''}
+                onChange={(_, data) => setEditForm(prev => ({ ...prev, displayName: data.value }))}
+                placeholder="Display Name (required)"
+                required
+              />
+              {editForm.isUser && (
+                <Badge className={styles.meBadge} size="small">Me</Badge>
+              )}
+            </div>
+            <div className={styles.headerActions}>
+              <Button
+                appearance="primary"
+                icon={<Save20Regular />}
+                onClick={handleSave}
+                disabled={!editForm.displayName?.trim() || saving}
+              >
+                Save
+              </Button>
+              <Button
+                appearance="subtle"
+                icon={<Dismiss20Regular />}
+                onClick={handleCancelEdit}
+                disabled={saving}
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
 
+          {/* Editable Info Section */}
+          <div className={styles.section}>
+            <Text className={styles.sectionTitle}>Information</Text>
+            <div className={styles.infoGrid}>
+              <div className={styles.infoItem}>
+                <Text className={styles.infoLabel}>
+                  <Person20Regular />
+                  First Name
+                </Text>
+                <Input
+                  className={styles.editInput}
+                  value={editForm.firstName || ''}
+                  onChange={(_, data) => setEditForm(prev => ({ ...prev, firstName: data.value }))}
+                  placeholder="First name"
+                />
+              </div>
+              <div className={styles.infoItem}>
+                <Text className={styles.infoLabel}>
+                  <Person20Regular />
+                  Last Name
+                </Text>
+                <Input
+                  className={styles.editInput}
+                  value={editForm.lastName || ''}
+                  onChange={(_, data) => setEditForm(prev => ({ ...prev, lastName: data.value }))}
+                  placeholder="Last name"
+                />
+              </div>
+              <div className={styles.infoItem}>
+                <Text className={styles.infoLabel}>
+                  <Mail20Regular />
+                  Email
+                </Text>
+                <Input
+                  className={styles.editInput}
+                  value={editForm.email || ''}
+                  onChange={(_, data) => setEditForm(prev => ({ ...prev, email: data.value }))}
+                  placeholder="email@example.com"
+                  type="email"
+                />
+              </div>
+              <div className={styles.infoItem}>
+                <Text className={styles.infoLabel}>
+                  <Briefcase20Regular />
+                  Role
+                </Text>
+                <Input
+                  className={styles.editInput}
+                  value={editForm.role || ''}
+                  onChange={(_, data) => setEditForm(prev => ({ ...prev, role: data.value }))}
+                  placeholder="e.g., Project Manager"
+                />
+              </div>
+              <div className={styles.infoItem}>
+                <Text className={styles.infoLabel}>
+                  <Building20Regular />
+                  Group
+                </Text>
+                <Input
+                  className={styles.editInput}
+                  value={editForm.organization || ''}
+                  onChange={(_, data) => setEditForm(prev => ({ ...prev, organization: data.value }))}
+                  placeholder="e.g., Acme Corp"
+                />
+              </div>
+              <div className={styles.infoItem}>
+                <Text className={styles.infoLabel}>
+                  <PersonLink20Regular />
+                  Relationship
+                </Text>
+                <Input
+                  className={styles.editInput}
+                  value={editForm.relationshipToUser || ''}
+                  onChange={(_, data) => setEditForm(prev => ({ ...prev, relationshipToUser: data.value }))}
+                  placeholder="e.g., Colleague, Client"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Aliases Section - Editable */}
+          <div className={styles.section}>
+            <Text className={styles.sectionTitle}>Aliases</Text>
+            <div className={styles.aliasInputContainer}>
+              <Input
+                className={styles.editInput}
+                value={(editForm.aliases || []).join(', ')}
+                onChange={(_, data) => handleAliasesChange(data.value)}
+                placeholder="Add aliases separated by commas"
+              />
+              <Text className={styles.aliasHint}>
+                Separate multiple aliases with commas (e.g., "Johnny, J. Smith, JS")
+              </Text>
+            </div>
+          </div>
+
+          {/* Notes Section - Editable */}
+          <div className={styles.section}>
+            <Text className={styles.sectionTitle}>Notes</Text>
+            <Textarea
+              value={editForm.notes || ''}
+              onChange={(_, data) => setEditForm(prev => ({ ...prev, notes: data.value }))}
+              placeholder="Add notes about this person..."
+              resize="vertical"
+              style={{ width: '100%', minHeight: '100px' }}
+            />
+          </div>
+
+          {/* "This is me" Toggle */}
+          <div className={styles.section}>
+            <div className={styles.meToggleRow}>
+              <div className={styles.meToggleLabel}>
+                <Text className={styles.meToggleLabelPrimary}>This is me</Text>
+                <Text className={styles.meToggleLabelSecondary}>
+                  Mark this participant as yourself
+                </Text>
+              </div>
+              <Switch
+                checked={editForm.isUser || false}
+                onChange={(_, data) => handleMeToggle(data.checked)}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Confirmation Dialog for "Me" Toggle */}
+        <Dialog open={showMeConfirmDialog} onOpenChange={(_, data) => setShowMeConfirmDialog(data.open)}>
+          <DialogSurface>
+            <DialogBody>
+              <DialogTitle>Change "Me" Participant?</DialogTitle>
+              <DialogContent>
+                <Text>
+                  This will remove "Me" status from "{existingMeParticipant?.displayName}".
+                  Only one participant can be marked as "Me" at a time.
+                </Text>
+              </DialogContent>
+              <DialogActions>
+                <Button appearance="secondary" onClick={() => setShowMeConfirmDialog(false)}>
+                  Cancel
+                </Button>
+                <Button appearance="primary" onClick={handleConfirmMeToggle}>
+                  Confirm
+                </Button>
+              </DialogActions>
+            </DialogBody>
+          </DialogSurface>
+        </Dialog>
+      </div>
+    );
+  }
+
+  // Read-only mode rendering (existing code)
   return (
     <div className={styles.container}>
       <div className={styles.scrollContainer}>
@@ -246,6 +681,17 @@ export function ParticipantDetailPanel({
               <Text className={styles.fullName}>{fullName}</Text>
             )}
           </div>
+          {onSave && (
+            <div className={styles.headerActions}>
+              <Button
+                appearance="subtle"
+                icon={<Edit20Regular />}
+                onClick={handleEditClick}
+              >
+                Edit
+              </Button>
+            </div>
+          )}
         </div>
 
         {/* Info Section */}

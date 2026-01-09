@@ -12,6 +12,7 @@ import {
   ArrowSortUp20Regular,
   Filter20Regular,
   ArrowClockwise20Regular,
+  PersonAdd20Regular,
 } from '@fluentui/react-icons';
 import type { SortBy, SortOrder } from '../../hooks/usePeopleList';
 
@@ -52,6 +53,7 @@ interface PeopleActionBarProps {
   onGroupFilterChange: (group: string) => void;
   uniqueGroups: string[];
   onRefresh: () => void;
+  onAddPerson: () => void;
 }
 
 const sortOptions: { value: SortBy; label: string }[] = [
@@ -71,6 +73,7 @@ export function PeopleActionBar({
   onGroupFilterChange,
   uniqueGroups,
   onRefresh,
+  onAddPerson,
 }: PeopleActionBarProps) {
   const styles = useStyles();
 
@@ -137,6 +140,14 @@ export function PeopleActionBar({
       )}
 
       <div className={styles.spacer} />
+
+      <Button
+        appearance="primary"
+        icon={<PersonAdd20Regular />}
+        onClick={onAddPerson}
+      >
+        Add Person
+      </Button>
 
       <Button
         appearance="subtle"
