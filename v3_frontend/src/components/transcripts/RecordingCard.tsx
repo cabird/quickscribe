@@ -1,12 +1,14 @@
-import { makeStyles, mergeClasses, Text, tokens, Tooltip } from '@fluentui/react-components';
-import { Calendar20Regular, Clock20Regular, Timer20Regular, People20Regular } from '@fluentui/react-icons';
+import { useState } from 'react';
+import { makeStyles, mergeClasses, Text, tokens, Tooltip, Checkbox } from '@fluentui/react-components';
+import { Calendar20Regular, Clock20Regular, Timer20Regular, People20Regular, NumberSymbol20Regular } from '@fluentui/react-icons';
 import type { Recording } from '../../types';
 import { formatDate, formatTime, formatDuration } from '../../utils/dateUtils';
-import { truncateText, formatSpeakersList } from '../../utils/formatters';
+import { truncateText, formatSpeakersList, formatTokenCount } from '../../utils/formatters';
 import { APP_COLORS } from '../../config/styles';
 
 const useStyles = makeStyles({
   card: {
+    position: 'relative',
     padding: '14px 16px',
     margin: '0 8px 8px 8px',
     cursor: 'pointer',
@@ -26,6 +28,25 @@ const useStyles = makeStyles({
     ':hover': {
       backgroundColor: '#E0F0FF',
     },
+  },
+  cardChecked: {
+    backgroundColor: '#EBF5FF',
+    borderLeft: `4px solid ${APP_COLORS.selectionBorder}`,
+    boxShadow: '0 2px 6px rgba(0, 0, 0, 0.1)',
+    ':hover': {
+      backgroundColor: '#E0F0FF',
+    },
+  },
+  checkboxContainer: {
+    position: 'absolute',
+    top: '8px',
+    right: '8px',
+    zIndex: 1,
+    opacity: 0,
+    transition: 'opacity 0.15s',
+  },
+  checkboxVisible: {
+    opacity: 1,
   },
   title: {
     fontWeight: 600,
@@ -64,18 +85,52 @@ const useStyles = makeStyles({
 
 interface RecordingCardProps {
   recording: Recording;
-  isSelected: boolean;
-  onClick: () => void;
+  isSelected: boolean;  // For viewer selection (single)
+  isChecked: boolean;   // For multi-select
+  onCheckChange: (checked: boolean) => void;
+  onClick: (e: React.MouseEvent) => void;
 }
 
-export function RecordingCard({ recording, isSelected, onClick }: RecordingCardProps) {
+export function RecordingCard({ recording, isSelected, isChecked, onCheckChange, onClick }: RecordingCardProps) {
   const styles = useStyles();
+  const [isHovered, setIsHovered] = useState(false);
+
+  const handleClick = (e: React.MouseEvent) => {
+    // Ctrl/Cmd + Click toggles selection
+    if (e.ctrlKey || e.metaKey) {
+      e.preventDefault();
+      onCheckChange(!isChecked);
+    } else {
+      onClick(e);
+    }
+  };
+
+  const handleCheckboxChange = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onCheckChange(!isChecked);
+  };
 
   const card = (
     <div
-      className={mergeClasses(styles.card, isSelected && styles.cardSelected)}
-      onClick={onClick}
+      className={mergeClasses(
+        styles.card,
+        isSelected && styles.cardSelected,
+        isChecked && styles.cardChecked
+      )}
+      onClick={handleClick}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
     >
+      {/* Checkbox - visible on hover or when checked */}
+      <div
+        className={mergeClasses(
+          styles.checkboxContainer,
+          (isHovered || isChecked) && styles.checkboxVisible
+        )}
+        onClick={handleCheckboxChange}
+      >
+        <Checkbox checked={isChecked} />
+      </div>
       <Text className={styles.title}>
         {recording.title || recording.original_filename}
       </Text>
@@ -89,10 +144,21 @@ export function RecordingCard({ recording, isSelected, onClick }: RecordingCardP
         </div>
       )}
 
-      {recording.duration && (
+      {(recording.duration || recording.token_count) && (
         <div className={styles.metaRow}>
-          <Timer20Regular className={styles.icon} />
-          <Text>{formatDuration(recording.duration)}</Text>
+          {recording.duration && (
+            <>
+              <Timer20Regular className={styles.icon} />
+              <Text>{formatDuration(recording.duration)}</Text>
+            </>
+          )}
+          {recording.token_count && (
+            <>
+              {recording.duration && <Text style={{ margin: '0 4px' }}>•</Text>}
+              <NumberSymbol20Regular className={styles.icon} />
+              <Text>{formatTokenCount(recording.token_count)}</Text>
+            </>
+          )}
         </div>
       )}
 

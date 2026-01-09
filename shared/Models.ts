@@ -104,6 +104,7 @@ export interface Recording {
     transcription_status?: "not_started" | "in_progress" | "completed" | "failed"; // Transcription status with specific values
     transcription_status_updated_at?: string; // ISO timestamp for when transcription status last updated
     transcription_id?: string; // References the transcription id for this recording if one exists
+    token_count?: number; // Approximate token count of transcript (denormalized from Transcription)
     az_transcription_id?: string; // Azure transcription ID if in progress or completed
     transcription_error_message?: string; // Error message if transcription fails
     transcription_job_id?: string; // Azure Speech Services batch job ID for tracking async transcription
@@ -310,6 +311,7 @@ export interface Transcription {
     transcript_json?: string; // Raw JSON transcription data
     az_raw_transcription?: string; // Raw Azure transcription result as a JSON string
     az_transcription_id?: string; // Azure transcription id
+    token_count?: number; // Approximate token count of transcript text (chars / 4)
     partitionKey: string;
     testRunId?: string; // Test run identifier for cleanup purposes (only set during test runs)
 

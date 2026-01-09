@@ -9,11 +9,18 @@ from pathlib import Path
 from datetime import datetime
 from typing import List, Dict, Any
 
-# Load environment variables from .env file
+# Get the plaud_sync_service root directory (parent of scripts/)
 from dotenv import load_dotenv
-env_file = Path(__file__).parent / '.env'
+SCRIPT_DIR = Path(__file__).parent
+SERVICE_ROOT = SCRIPT_DIR.parent
+
+# Load environment variables from .env file in service root
+env_file = SERVICE_ROOT / '.env'
 if env_file.exists():
     load_dotenv(env_file)
+
+# Add src/ directory to path
+sys.path.insert(0, str(SERVICE_ROOT / 'src'))
 
 from shared_quickscribe_py.config import get_settings
 from shared_quickscribe_py.cosmos import JobExecutionHandler

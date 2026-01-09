@@ -27,12 +27,45 @@ const useStyles = makeStyles({
 export function TranscriptsView() {
   const styles = useStyles();
   const [selectedRecordingId, setSelectedRecordingId] = useState<string | null>(null);
+  const [checkedRecordingIds, setCheckedRecordingIds] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState('');
   const [searchType, setSearchType] = useState<'basic' | 'fulltext'>('basic');
   const [dateRange, setDateRange] = useState<'all' | 'week' | 'month' | 'quarter'>('all');
   const [listPanelWidth, setListPanelWidth] = useState(35); // percentage
 
   const { recordings, loading: recordingsLoading, refetch } = useRecordings();
+
+  // Calculate total token count for selected recordings
+  const selectedTokenCount = useMemo(() => {
+    return Array.from(checkedRecordingIds).reduce((total, id) => {
+      const recording = recordings.find(r => r.id === id);
+      return total + (recording?.token_count || 0);
+    }, 0);
+  }, [checkedRecordingIds, recordings]);
+
+  // Handle check/uncheck of recordings
+  const handleCheckChange = useCallback((recordingId: string, checked: boolean) => {
+    setCheckedRecordingIds(prev => {
+      const next = new Set(prev);
+      if (checked) {
+        next.add(recordingId);
+      } else {
+        next.delete(recordingId);
+      }
+      return next;
+    });
+  }, []);
+
+  // Clear all selections
+  const handleClearSelection = useCallback(() => {
+    setCheckedRecordingIds(new Set());
+  }, []);
+
+  // Handle chat with selected transcripts
+  const handleChatWithSelected = useCallback(() => {
+    // TODO: Implement chat drawer opening with selected transcripts
+    console.log('Chat with selected:', Array.from(checkedRecordingIds));
+  }, [checkedRecordingIds]);
   const selectedRecording = recordings.find(r => r.id === selectedRecordingId);
   const { transcription, loading: transcriptionLoading } = useTranscription(
     selectedRecording?.transcription_id || null
@@ -113,6 +146,14 @@ export function TranscriptsView() {
       if (recordingId === selectedRecordingId) {
         setSelectedRecordingId(null);
       }
+      // If the deleted recording was checked, remove from checked set
+      if (checkedRecordingIds.has(recordingId)) {
+        setCheckedRecordingIds(prev => {
+          const next = new Set(prev);
+          next.delete(recordingId);
+          return next;
+        });
+      }
       // Refetch recordings to update the list
       refetch();
     };
@@ -121,7 +162,7 @@ export function TranscriptsView() {
     return () => {
       window.removeEventListener('recordingDeleted', handleRecordingDeleted as EventListener);
     };
-  }, [selectedRecordingId, refetch]);
+  }, [selectedRecordingId, checkedRecordingIds, refetch]);
 
   return (
     <div className={styles.container}>
@@ -134,12 +175,18 @@ export function TranscriptsView() {
         onDateRangeChange={setDateRange}
         onExport={handleExport}
         onRefresh={refetch}
+        selectedCount={checkedRecordingIds.size}
+        selectedTokenCount={selectedTokenCount}
+        onClearSelection={handleClearSelection}
+        onChatWithSelected={handleChatWithSelected}
       />
       <div className={styles.viewContainer}>
         <RecordingsList
           recordings={filteredRecordings}
           selectedRecordingId={selectedRecordingId}
           onRecordingSelect={setSelectedRecordingId}
+          checkedRecordingIds={checkedRecordingIds}
+          onCheckChange={handleCheckChange}
           loading={recordingsLoading}
           width={listPanelWidth}
         />

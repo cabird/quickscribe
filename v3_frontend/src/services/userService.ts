@@ -25,7 +25,6 @@ export const userService = {
    * Update the current user's Plaud integration settings.
    */
   async updatePlaudSettings(
-    userId: string,
     settings: UpdatePlaudSettingsRequest
   ): Promise<UpdatePlaudSettingsResponse> {
     const response = await apiClient.put('/api/me/plaud-settings', settings);

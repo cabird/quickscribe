@@ -31,6 +31,8 @@ interface RecordingsListProps {
   recordings: Recording[];
   selectedRecordingId: string | null;
   onRecordingSelect: (recordingId: string) => void;
+  checkedRecordingIds: Set<string>;
+  onCheckChange: (recordingId: string, checked: boolean) => void;
   loading: boolean;
   width: number;
 }
@@ -39,6 +41,8 @@ export function RecordingsList({
   recordings,
   selectedRecordingId,
   onRecordingSelect,
+  checkedRecordingIds,
+  onCheckChange,
   loading,
   width,
 }: RecordingsListProps) {
@@ -71,6 +75,8 @@ export function RecordingsList({
           key={recording.id}
           recording={recording}
           isSelected={selectedRecordingId === recording.id}
+          isChecked={checkedRecordingIds.has(recording.id)}
+          onCheckChange={(checked) => onCheckChange(recording.id, checked)}
           onClick={() => onRecordingSelect(recording.id)}
         />
       ))}

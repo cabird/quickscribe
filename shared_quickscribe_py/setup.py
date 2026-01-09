@@ -27,6 +27,7 @@ setup(
         # Utilities
         "python-dotenv>=1.0.0",
         "mutagen>=1.47.0",  # For audio file metadata
+        "tiktoken>=0.5.0",  # For accurate token counting
     ],
     python_requires=">=3.11",
 )

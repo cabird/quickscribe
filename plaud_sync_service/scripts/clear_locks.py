@@ -8,13 +8,20 @@ import sys
 from pathlib import Path
 from dotenv import load_dotenv
 
-# Load environment variables from .env file
-env_file = Path(__file__).parent / '.env'
+# Get the plaud_sync_service root directory (parent of scripts/)
+SCRIPT_DIR = Path(__file__).parent
+SERVICE_ROOT = SCRIPT_DIR.parent
+
+# Load environment variables from .env file in service root
+env_file = SERVICE_ROOT / '.env'
 if env_file.exists():
     load_dotenv(env_file)
     print(f"Loaded environment from: {env_file}")
 else:
     print(f"Warning: .env file not found at {env_file}")
+
+# Add src/ directory to path
+sys.path.insert(0, str(SERVICE_ROOT / 'src'))
 
 from shared_quickscribe_py.config import get_settings
 from shared_quickscribe_py.cosmos import LocksHandler

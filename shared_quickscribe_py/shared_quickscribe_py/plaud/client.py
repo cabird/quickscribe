@@ -39,6 +39,7 @@ class AudioFile:
     is_summary: bool
     keywords: List[str] = field(default_factory=list)
     filetag_id_list: List[str] = field(default_factory=list)
+    wait_pull: bool = False  # New field added by Plaud API
 
     @property
     def duration_seconds(self):

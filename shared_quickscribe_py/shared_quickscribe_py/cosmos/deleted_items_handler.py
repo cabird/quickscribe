@@ -71,7 +71,7 @@ class DeletedItemsHandler:
         if not deleted_items or not deleted_items.items:
             return []
 
-        plaud_recordings = deleted_items.items.get('plaud_recording')
+        plaud_recordings = deleted_items.items.plaud_recording
         return plaud_recordings if plaud_recordings else []
 
     def add_deleted_plaud_id(self, user_id: str, plaud_id: str) -> bool:
@@ -92,7 +92,7 @@ class DeletedItemsHandler:
 
             if existing:
                 # Update existing document
-                plaud_recordings = existing.items.get('plaud_recording', [])
+                plaud_recordings = existing.items.plaud_recording or []
 
                 # Avoid duplicates
                 if plaud_id in plaud_recordings:
@@ -100,7 +100,7 @@ class DeletedItemsHandler:
                     return True
 
                 plaud_recordings.append(plaud_id)
-                existing.items['plaud_recording'] = plaud_recordings
+                existing.items.plaud_recording = plaud_recordings
                 existing.updatedAt = datetime.now(UTC).isoformat()
 
                 # Update in Cosmos
@@ -150,7 +150,7 @@ class DeletedItemsHandler:
                 logger.warning(f"No deleted items document for user {user_id}")
                 return False
 
-            plaud_recordings = existing.items.get('plaud_recording', [])
+            plaud_recordings = existing.items.plaud_recording or []
 
             if plaud_id not in plaud_recordings:
                 logger.warning(f"Plaud ID {plaud_id} not in deleted items for user {user_id}")
@@ -158,7 +158,7 @@ class DeletedItemsHandler:
 
             # Remove the ID
             plaud_recordings.remove(plaud_id)
-            existing.items['plaud_recording'] = plaud_recordings
+            existing.items.plaud_recording = plaud_recordings
             existing.updatedAt = datetime.now(UTC).isoformat()
 
             # Update in Cosmos

@@ -9,7 +9,7 @@
     "lint": "eslint . --ext .ts,.tsx",
     "format": "prettier --write 'src/**/*.{ts,tsx,css}'",
     "sync-models": "node scripts/sync-models.js",
-    "deploy:copy": "rm -rf ../backend/frontend-dist/* && cp -r dist/* ../backend/frontend-dist/",
+    "deploy:copy": "rm -rf ../backend/src/frontend-dist/* && cp -r dist/* ../backend/src/frontend-dist/",
     "deploy:build-and-copy": "npm run build && npm run deploy:copy"
   },
   "dependencies": {

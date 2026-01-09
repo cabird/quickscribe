@@ -393,9 +393,14 @@ def chat():
     Accepts a conversation history (including system message with tagged transcript)
     and returns AI responses with inline reference tags.
 
+    Supports both single transcription and multiple transcriptions:
+    - Single: "transcription_id": "uuid" (backwards compatible)
+    - Multiple: "transcription_ids": ["uuid1", "uuid2", ...]
+
     Request Body:
         {
-            "transcription_id": "transcript-uuid",
+            "transcription_id": "transcript-uuid",  // OR
+            "transcription_ids": ["uuid1", "uuid2"],
             "messages": [
                 {"role": "system", "content": "You are analyzing... [[ref_AA00]] Speaker 1: ..."},
                 {"role": "user", "content": "What did Speaker 1 say?"},
@@ -425,12 +430,21 @@ def chat():
         if not data:
             return jsonify({'error': 'Request body is required'}), 400
 
+        # Support both single transcription_id and multiple transcription_ids
+        transcription_ids = data.get('transcription_ids')
         transcription_id = data.get('transcription_id')
         messages = data.get('messages')
 
-        # Validate required fields
-        if not transcription_id:
-            return jsonify({'error': 'transcription_id is required'}), 400
+        # Normalize to list of IDs
+        if transcription_ids and isinstance(transcription_ids, list):
+            ids_to_process = transcription_ids
+        elif transcription_id:
+            ids_to_process = [transcription_id]
+        else:
+            return jsonify({'error': 'transcription_id or transcription_ids is required'}), 400
+
+        if len(ids_to_process) == 0:
+            return jsonify({'error': 'At least one transcription ID is required'}), 400
 
         if not messages or not isinstance(messages, list) or len(messages) == 0:
             return jsonify({'error': 'messages array is required and must not be empty'}), 400
@@ -444,15 +458,21 @@ def chat():
             if msg['role'] not in ['system', 'user', 'assistant']:
                 return jsonify({'error': 'Message role must be system, user, or assistant'}), 400
 
-        # Verify user has access to this transcription
+        # Verify user has access to all transcriptions
         transcription_handler = get_transcription_handler()
-        transcription = transcription_handler.get_transcription(transcription_id)
+        transcriptions = []
 
-        if not transcription:
-            return jsonify({'error': 'Transcription not found'}), 404
+        for tid in ids_to_process:
+            transcription = transcription_handler.get_transcription(tid)
+            if not transcription:
+                return jsonify({'error': f'Transcription not found: {tid}'}), 404
+            if transcription.user_id != current_user.id:
+                return jsonify({'error': 'Access denied'}), 403
+            transcriptions.append(transcription)
 
-        if transcription.user_id != current_user.id:
-            return jsonify({'error': 'Access denied'}), 403
+        # Log info about multi-transcript chat
+        if len(transcriptions) > 1:
+            logger.info(f"Multi-transcript chat with {len(transcriptions)} transcripts for user {current_user.id}")
 
         # Get OpenAI client and send messages
         try:
@@ -461,7 +481,7 @@ def chat():
 
             # Log token usage for tracking
             logger.info(
-                f"Chat request completed - transcription_id={transcription_id}, "
+                f"Chat request completed - transcription_ids={ids_to_process}, "
                 f"user_id={current_user.id}, "
                 f"prompt_tokens={result['promptTokens']}, "
                 f"completion_tokens={result['responseTokens']}, "

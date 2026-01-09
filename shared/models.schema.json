@@ -1364,6 +1364,9 @@
                 "title": {
                     "type": "string"
                 },
+                "token_count": {
+                    "type": "number"
+                },
                 "transcoding_completed_at": {
                     "type": "string"
                 },
@@ -1447,6 +1450,7 @@
                 "transcription_status",
                 "transcription_status_updated_at",
                 "transcription_id",
+                "token_count",
                 "az_transcription_id",
                 "transcription_error_message",
                 "transcription_job_id",
@@ -1748,6 +1752,9 @@
                 "text": {
                     "type": "string"
                 },
+                "token_count": {
+                    "type": "number"
+                },
                 "transcript_json": {
                     "type": "string"
                 },
@@ -1768,6 +1775,7 @@
                 "transcript_json",
                 "az_raw_transcription",
                 "az_transcription_id",
+                "token_count",
                 "partitionKey",
                 "testRunId",
                 "speaker_mapping",

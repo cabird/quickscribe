@@ -139,7 +139,7 @@ export function SettingsView() {
 
     try {
       setSaving(true);
-      await userService.updatePlaudSettings(user.id, {
+      await userService.updatePlaudSettings({
         enableSync,
         bearerToken,
       });

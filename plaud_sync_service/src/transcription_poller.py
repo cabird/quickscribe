@@ -209,9 +209,9 @@ class TranscriptionPoller:
                 self.logger.info(f"  Step 4: Generating diarized transcript", recording.id)
                 transcription.diarized_transcript = self._generate_diarized_transcript(json_data)
 
-                # Update transcription record
+                # Update transcription record (auto-calculates token_count)
                 self.logger.info(f"  Step 5: Saving transcription to Cosmos DB", recording.id)
-                self.transcription_handler.update_transcription(transcription)
+                updated_transcription = self.transcription_handler.update_transcription(transcription)
 
                 # Update recording
                 self.logger.info(f"  Step 6: Updating recording status to 'completed'", recording.id)
@@ -220,6 +220,8 @@ class TranscriptionPoller:
                 recording.transcription_job_status = TranscriptionJobStatus.completed
                 recording.transcription_job_id = None  # Clear job ID, no longer needed
                 recording.last_check_time = datetime.now(UTC).isoformat()
+                # Denormalize token_count to recording for fast frontend display
+                recording.token_count = updated_transcription.token_count
                 self.recording_handler.update_recording(recording)
 
                 # Reset failure count on success

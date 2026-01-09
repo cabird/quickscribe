@@ -15,44 +15,36 @@ export interface ChatResponse {
   responseTimeMs?: number;
 }
 
-// Mock service for now - returns with random refs from transcript
-// Keeping for potential future use
-// const mockChatService = {
-//   async chat(_transcriptionId: string, _messages: ChatMessage[], availableRefs: string[]): Promise<ChatResponse> {
-//     // Simulate API delay
-//     await new Promise(resolve => setTimeout(resolve, 1000));
-
-//     // Ensure we have at least 2 refs
-//     if (availableRefs.length < 2) {
-//       return {
-//         message: `Here's the answer to your query.`
-//       };
-//     }
-
-//     // Pick 2 random refs from available refs
-//     const shuffled = [...availableRefs].sort(() => Math.random() - 0.5);
-//     const ref1 = shuffled[0];
-//     const ref2 = shuffled[1];
-
-//     return {
-//       message: `Here's the answer to your query. This relates to [[${ref1}]] and also [[${ref2}]].`
-//     };
-//   }
-// };
-
-// Real service (not implemented yet)
+// Real chat service supporting single or multiple transcription IDs
 const realChatService = {
-  async chat(transcriptionId: string, messages: ChatMessage[]): Promise<ChatResponse> {
+  /**
+   * Chat with one or more transcriptions
+   * @param transcriptionIds - Single ID or array of IDs
+   * @param messages - Chat messages including system prompt
+   */
+  async chat(transcriptionIds: string | string[], messages: ChatMessage[]): Promise<ChatResponse> {
+    // Normalize to array and use appropriate API parameter
+    const idsArray = Array.isArray(transcriptionIds) ? transcriptionIds : [transcriptionIds];
+
     const response = await apiClient.post('/api/ai/chat', {
-      transcription_id: transcriptionId,
+      // Use transcription_ids for multiple, transcription_id for backwards compat with single
+      ...(idsArray.length === 1
+        ? { transcription_id: idsArray[0] }
+        : { transcription_ids: idsArray }),
       messages
     });
     return response.data;
   }
 };
 
-// Export real service - backend is ready
+// Export chat service
 export const chatService = {
-  chat: (transcriptionId: string, messages: ChatMessage[], _availableRefs?: string[]) =>
-    realChatService.chat(transcriptionId, messages)
+  /**
+   * Chat with transcription(s)
+   * @param transcriptionIds - Single ID or array of IDs
+   * @param messages - Chat messages
+   * @param _availableRefs - Optional refs (currently unused)
+   */
+  chat: (transcriptionIds: string | string[], messages: ChatMessage[], _availableRefs?: string[]) =>
+    realChatService.chat(transcriptionIds, messages)
 };

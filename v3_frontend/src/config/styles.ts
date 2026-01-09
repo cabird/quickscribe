@@ -26,7 +26,7 @@ export const SPACING = {
 } as const;
 
 export const LAYOUT = {
-  navRailWidth: 68,
-  navRailExpandedWidth: 220,
+  navRailWidth: 96,
+  navRailExpandedWidth: 240,
   listPanelWidthPercent: 35,
 } as const;

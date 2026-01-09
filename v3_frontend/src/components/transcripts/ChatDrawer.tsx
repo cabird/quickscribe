@@ -48,8 +48,8 @@ const useStyles = makeStyles({
 });
 
 interface ChatDrawerProps {
-  transcriptionId: string;
-  transcriptEntries: Array<{ speaker: string; text: string }>;
+  transcriptionIds: string[];  // Support multiple transcription IDs
+  transcriptEntries: Array<{ speaker: string; text: string; transcriptLabel?: string }>;  // Optional label for multi-transcript
   messages: ChatMessage[];
   onMessagesChange: (messages: ChatMessage[]) => void;
   onClose: () => void;
@@ -57,7 +57,7 @@ interface ChatDrawerProps {
   onRefClick: (transcriptIndex: number) => void;
 }
 
-export function ChatDrawer({ transcriptionId, transcriptEntries, messages, onMessagesChange, onClose, onMinimize, onRefClick }: ChatDrawerProps) {
+export function ChatDrawer({ transcriptionIds, transcriptEntries, messages, onMessagesChange, onClose, onMinimize, onRefClick }: ChatDrawerProps) {
   const styles = useStyles();
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -75,19 +75,32 @@ export function ChatDrawer({ transcriptionId, transcriptEntries, messages, onMes
     });
 
     // Build tagged transcript for system message
+    // Include transcript label if present (for multi-transcript chat)
     const taggedTranscript = transcriptEntries
       .map((entry, index) => {
         const refId = generateRefId(index);
-        return `[[${refId}]] ${entry.speaker}: ${entry.text}`;
+        const labelPrefix = entry.transcriptLabel ? `[${entry.transcriptLabel}] ` : '';
+        return `[[${refId}]] ${labelPrefix}${entry.speaker}: ${entry.text}`;
       })
       .join('\n\n');
 
+    const isMultiTranscript = transcriptionIds.length > 1;
+
     // Initialize with system message only if messages are empty
     if (messages.length === 0) {
-      onMessagesChange([
-        {
-          role: 'system',
-          content: `You are analyzing a transcript. Each paragraph is tagged with a unique reference ID in the format [[ref_AB01]].
+      const systemContent = isMultiTranscript
+        ? `You are analyzing ${transcriptionIds.length} transcripts. Each paragraph is tagged with a unique reference ID in the format [[ref_AB01]] and includes a transcript label in brackets like [Transcript 1].
+
+IMPORTANT: When citing multiple parts of the transcripts, you MUST write each reference tag separately with its own double brackets. For example:
+- CORRECT: "This was discussed in [[ref_AB01]] and [[ref_AB05]]"
+- WRONG: "This was discussed in [[ref_AB01], [ref_AB05]]"
+- WRONG: "This was discussed in [[ref_AB01, ref_AB05]]"
+
+Always include the full [[ref_XX##]] format for each reference, even when citing multiple passages.
+
+Transcripts:
+${taggedTranscript}`
+        : `You are analyzing a transcript. Each paragraph is tagged with a unique reference ID in the format [[ref_AB01]].
 
 IMPORTANT: When citing multiple parts of the transcript, you MUST write each reference tag separately with its own double brackets. For example:
 - CORRECT: "This was discussed in [[ref_AB01]] and [[ref_AB05]]"
@@ -97,11 +110,16 @@ IMPORTANT: When citing multiple parts of the transcript, you MUST write each ref
 Always include the full [[ref_XX##]] format for each reference, even when citing multiple passages.
 
 Transcript:
-${taggedTranscript}`,
+${taggedTranscript}`;
+
+      onMessagesChange([
+        {
+          role: 'system',
+          content: systemContent,
         },
       ]);
     }
-  }, [transcriptEntries, messages.length, onMessagesChange]);
+  }, [transcriptEntries, transcriptionIds.length, messages.length, onMessagesChange]);
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -120,8 +138,8 @@ ${taggedTranscript}`,
     setIsLoading(true);
 
     try {
-      // Call chat service (mock for now)
-      const response = await chatService.chat(transcriptionId, newMessages, availableRefs.current);
+      // Call chat service with all transcription IDs
+      const response = await chatService.chat(transcriptionIds, newMessages, availableRefs.current);
 
       // Add assistant response
       onMessagesChange([
@@ -147,10 +165,14 @@ ${taggedTranscript}`,
     }
   };
 
+  const isMultiTranscript = transcriptionIds.length > 1;
+
   return (
     <div className={styles.drawer}>
       <div className={styles.header}>
-        <span className={styles.title}>Chat with Transcript</span>
+        <span className={styles.title}>
+          {isMultiTranscript ? `Chat with ${transcriptionIds.length} Transcripts` : 'Chat with Transcript'}
+        </span>
         <div className={styles.headerButtons}>
           <Button
             appearance="subtle"

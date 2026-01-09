@@ -1,5 +1,6 @@
-import { makeStyles, Input, Button, Dropdown, Option, tokens } from '@fluentui/react-components';
-import { Search20Regular, ArrowExport20Regular, ArrowClockwise20Regular } from '@fluentui/react-icons';
+import { makeStyles, Input, Button, Dropdown, Option, tokens, Text } from '@fluentui/react-components';
+import { Search20Regular, ArrowExport20Regular, ArrowClockwise20Regular, Checkmark20Filled, Dismiss20Regular, Chat20Regular, NumberSymbol20Regular } from '@fluentui/react-icons';
+import { formatTokenCount } from '../../utils/formatters';
 
 const useStyles = makeStyles({
   actionBar: {
@@ -21,6 +22,34 @@ const useStyles = makeStyles({
   spacer: {
     flex: 1,
   },
+  selectionInfo: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    padding: '4px 12px',
+    borderRadius: '6px',
+    backgroundColor: tokens.colorNeutralBackground3,
+  },
+  selectionCount: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '4px',
+    color: tokens.colorBrandForeground1,
+    fontWeight: 600,
+  },
+  tokenCount: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '4px',
+    color: tokens.colorNeutralForeground2,
+  },
+  tokenCountWarning: {
+    color: '#D97706', // Amber warning color
+  },
+  separator: {
+    color: tokens.colorNeutralStroke1,
+    margin: '0 4px',
+  },
 });
 
 interface TopActionBarProps {
@@ -32,6 +61,11 @@ interface TopActionBarProps {
   onDateRangeChange: (range: 'all' | 'week' | 'month' | 'quarter') => void;
   onExport: () => void;
   onRefresh: () => void;
+  // Selection props
+  selectedCount: number;
+  selectedTokenCount: number;
+  onClearSelection: () => void;
+  onChatWithSelected: () => void;
 }
 
 export function TopActionBar({
@@ -43,8 +77,13 @@ export function TopActionBar({
   onDateRangeChange,
   onExport,
   onRefresh,
+  selectedCount,
+  selectedTokenCount,
+  onClearSelection,
+  onChatWithSelected,
 }: TopActionBarProps) {
   const styles = useStyles();
+  const isTokenCountHigh = selectedTokenCount > 100000;
 
   return (
     <div className={styles.actionBar}>
@@ -81,6 +120,36 @@ export function TopActionBar({
       </Dropdown>
 
       <div className={styles.spacer} />
+
+      {/* Selection info - shown when recordings are selected */}
+      {selectedCount > 0 && (
+        <>
+          <div className={styles.selectionInfo}>
+            <span className={styles.selectionCount}>
+              <Checkmark20Filled />
+              <Text weight="semibold">{selectedCount}</Text>
+            </span>
+            <span className={styles.separator}>•</span>
+            <span className={`${styles.tokenCount} ${isTokenCountHigh ? styles.tokenCountWarning : ''}`}>
+              <NumberSymbol20Regular />
+              <Text>{formatTokenCount(selectedTokenCount)}</Text>
+            </span>
+          </div>
+          <Button
+            appearance="subtle"
+            icon={<Dismiss20Regular />}
+            onClick={onClearSelection}
+            title="Clear selection"
+          />
+          <Button
+            appearance="primary"
+            icon={<Chat20Regular />}
+            onClick={onChatWithSelected}
+          >
+            Chat
+          </Button>
+        </>
+      )}
 
       <Button
         appearance="subtle"

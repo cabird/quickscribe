@@ -326,7 +326,7 @@ export function TranscriptViewer({ transcription, recording, loading }: Transcri
       {isChatOpen && transcription && (
         <div className={styles.chatDrawerContainer} style={{ width: `${chatDrawerWidth}%` }}>
           <ChatDrawer
-            transcriptionId={transcription.id}
+            transcriptionIds={[transcription.id]}
             transcriptEntries={transcriptEntries}
             messages={chatMessages}
             onMessagesChange={setChatMessages}

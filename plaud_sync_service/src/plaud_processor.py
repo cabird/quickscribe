@@ -168,7 +168,7 @@ class PlaudProcessor:
             self.logger.debug(f"Downloading: {plaud_recording.filename}")
 
             # Create temporary file
-            suffix = self._get_file_extension(plaud_recording.filetype)
+            suffix = self._get_file_extension(plaud_recording.filetype, plaud_recording.fullname)
             with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp_file:
                 local_path = tmp_file.name
 
@@ -209,12 +209,25 @@ class PlaudProcessor:
             self.logger.error(f"Download failed: {str(e)}")
             return None
 
-    def _get_file_extension(self, file_type: str) -> str:
-        """Get file extension from file type, handling Plaud's opus-as-mp3 quirk."""
-        extension = file_type.lower()
+    def _get_file_extension(self, file_type: str, fullname: str = "") -> str:
+        """Get file extension from file type, handling Plaud's opus-as-mp3 quirk.
+
+        Falls back to extracting extension from fullname if file_type is empty.
+        """
+        extension = file_type.lower() if file_type else ""
+
+        # If filetype is empty, extract from fullname (e.g., "abc123.opus" -> "opus")
+        if not extension and fullname and "." in fullname:
+            extension = fullname.rsplit(".", 1)[-1].lower()
+
         if extension == "opus":
             # Plaud .opus files are actually MP3
             extension = "mp3"
+
+        # Default to mp3 if still no extension
+        if not extension:
+            extension = "mp3"
+
         return f".{extension}"
 
     def _check_if_needs_chunking(self, file_path: str) -> Tuple[bool, float, float]:

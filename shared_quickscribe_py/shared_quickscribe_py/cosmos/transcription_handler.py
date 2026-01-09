@@ -5,6 +5,7 @@ from .models import Transcription as BaseTranscription, TranscriptionStatus, Spe
 from .util import filter_cosmos_fields  # Import the utility function
 from typing import Optional, List, Dict
 from pydantic import field_validator
+import tiktoken
 
 class Transcription(BaseTranscription):
     """Extended Transcription model with proper speaker_mapping handling."""
@@ -116,12 +117,46 @@ class TranscriptionHandler:
         """
         Update an existing transcription in Cosmos DB and return the updated Transcription model.
 
+        Automatically calculates token_count if transcript text exists.
+
         :param transcription: Transcription model instance with updated data.
         :return: Updated Transcription model instance.
         """
+        # Auto-calculate token_count if transcript text exists
+        transcript_text = transcription.diarized_transcript or transcription.text
+        if transcript_text:
+            transcription.token_count = self.calculate_token_count(transcript_text)
+
         transcription_data = transcription.model_dump(exclude_unset=True)
         updated_item = self.container.upsert_item(body=transcription_data)
         return Transcription(**filter_cosmos_fields(updated_item))
+
+    # Cache the tokenizer instance for performance
+    _tokenizer = None
+
+    @classmethod
+    def _get_tokenizer(cls):
+        """Get or create the cached tiktoken tokenizer."""
+        if cls._tokenizer is None:
+            # o200k_base is used by GPT-4o and newer models
+            cls._tokenizer = tiktoken.get_encoding("o200k_base")
+        return cls._tokenizer
+
+    @classmethod
+    def calculate_token_count(cls, text: str) -> int:
+        """
+        Calculate token count for text using tiktoken.
+
+        Uses the o200k_base encoding (GPT-4o tokenizer),
+        which provides accurate counts for modern LLMs.
+
+        :param text: The text to count tokens for.
+        :return: Token count.
+        """
+        if not text:
+            return 0
+        tokenizer = cls._get_tokenizer()
+        return len(tokenizer.encode(text))
 
     def delete_transcription(self, transcription_id: str) -> None:
         """

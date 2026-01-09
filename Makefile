@@ -52,10 +52,7 @@ build:
 	@echo "=== Building shared_quickscribe_py models ==="
 	cd $(SHARED_PY_DIR) && make build
 	@echo ""
-	@echo "=== Building frontend ==="
-	cd $(FRONTEND_DIR) && npm run build
-	@echo ""
-	@echo "=== Copying frontend assets to backend ==="
+	@echo "=== Building frontend and copying to backend ==="
 	cd $(FRONTEND_DIR) && ./deploy.sh
 	@echo ""
 	@echo "✓ All components built successfully!"
@@ -112,7 +109,7 @@ run-local-container:
 	cd $(BACKEND_DIR) && make deploy_local
 
 # Deploy backend to Azure
-deploy-backend:
+deploy-backend: build
 	@echo "=========================================="
 	@echo "Deploying backend (web app) to Azure"
 	@echo "=========================================="

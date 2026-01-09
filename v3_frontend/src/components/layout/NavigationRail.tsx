@@ -58,11 +58,11 @@ const useStyles = makeStyles({
     paddingLeft: '12px',
     paddingRight: '8px',
     marginBottom: '16px',
-    minHeight: '44px',
+    minHeight: '72px',
   },
   logo: {
-    width: '44px',
-    height: '44px',
+    width: '72px',
+    height: '72px',
     flexShrink: 0,
     objectFit: 'contain',
   },
@@ -128,6 +128,7 @@ const useStyles = makeStyles({
   navIcon: {
     flexShrink: 0,
     color: tokens.colorNeutralForeground1,
+    transform: 'scale(1.25)',
   },
   navIconActive: {
     color: tokens.colorNeutralForegroundOnBrand,

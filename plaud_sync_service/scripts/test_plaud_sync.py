@@ -10,12 +10,16 @@ import argparse
 from datetime import datetime, UTC
 from dotenv import load_dotenv
 
-# Load .env file from current directory
-dotenv_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env')
+# Get the plaud_sync_service root directory (parent of scripts/)
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+SERVICE_ROOT = os.path.dirname(SCRIPT_DIR)
+
+# Load .env file from service root
+dotenv_path = os.path.join(SERVICE_ROOT, '.env')
 load_dotenv(dotenv_path)
 
-# Add parent directory to path to import job_executor
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+# Add src/ directory to path to import job_executor
+sys.path.insert(0, os.path.join(SERVICE_ROOT, 'src'))
 
 from shared_quickscribe_py.config import get_settings
 from job_executor import JobExecutor
