@@ -68,7 +68,7 @@ def create_analysis_type_handler():
     return AnalysisTypeHandler(config.COSMOS_URL, config.COSMOS_KEY, config.COSMOS_DB_NAME, 'analysis_types')
 
 def create_participant_handler():
-    return ParticipantHandler(config.COSMOS_URL, config.COSMOS_KEY, config.COSMOS_DB_NAME, config.COSMOS_CONTAINER_NAME)
+    return ParticipantHandler(config.COSMOS_URL, config.COSMOS_KEY, config.COSMOS_DB_NAME, 'participants')
 
 def create_job_execution_handler():
     return JobExecutionHandler(config.COSMOS_URL, config.COSMOS_KEY, config.COSMOS_DB_NAME, config.COSMOS_CONTAINER_NAME)

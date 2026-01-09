@@ -163,16 +163,29 @@ def get_recording_audio_url(recording_id):
         
         # The transcoded file should be at the blob_name location
         # Try blob_name first (newer recordings), then fall back to unique_filename
+        # Blobs may be stored with user_id prefix: {user_id}/{filename}
         blob_name = None
-        
+
         if hasattr(recording, 'blob_name') and recording.blob_name:
             blob_name = recording.blob_name
             logger.info(f"Recording {recording_id} has blob_name: {blob_name}")
         elif hasattr(recording, 'unique_filename') and recording.unique_filename:
-            # For recordings, the blob is typically stored as just the unique_filename
-            # in the recordings container
-            blob_name = recording.unique_filename
-            logger.info(f"Recording {recording_id} using unique_filename: {blob_name}")
+            # Try with user_id prefix first (newer storage pattern), then fall back to just filename
+            from blob_util import _get_blob_client
+            blob_client = _get_blob_client()
+
+            # Try {user_id}/{filename} first
+            user_prefixed_path = f"{recording.user_id}/{recording.unique_filename}"
+            if blob_client.blob_exists(user_prefixed_path):
+                blob_name = user_prefixed_path
+                logger.info(f"Recording {recording_id} found at user-prefixed path: {blob_name}")
+            elif blob_client.blob_exists(recording.unique_filename):
+                # Fall back to just the filename (older storage pattern)
+                blob_name = recording.unique_filename
+                logger.info(f"Recording {recording_id} found at filename only: {blob_name}")
+            else:
+                logger.error(f"Recording {recording_id} blob not found at either {user_prefixed_path} or {recording.unique_filename}")
+                return jsonify({'error': 'Audio file not found in storage'}), 404
         else:
             logger.error(f"Recording {recording_id} has no blob_name or unique_filename")
             return jsonify({'error': 'Recording has no associated audio file'}), 400

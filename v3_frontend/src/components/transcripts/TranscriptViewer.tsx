@@ -1,14 +1,18 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { makeStyles, Text, Spinner, tokens, Button, Tooltip } from '@fluentui/react-components';
 import { Copy24Regular, Chat24Regular, Delete24Regular } from '@fluentui/react-icons';
-import type { Recording, Transcription } from '../../types';
+import type { Recording, Transcription, Participant } from '../../types';
 import { TranscriptEntry } from './TranscriptEntry';
 import { ChatDrawer } from './ChatDrawer';
+import { AudioPlayer, AudioPlayerHandle } from './AudioPlayer';
+import { useTranscriptParser } from './useTranscriptParser';
 import type { ChatMessage } from '../../services/chatService';
 import { formatDate, formatTime, formatDuration } from '../../utils/dateUtils';
 import { formatSpeakersList } from '../../utils/formatters';
 import { showToast } from '../../utils/toast';
 import { recordingsService } from '../../services/recordingsService';
+import { participantsService } from '../../services/participantsService';
+import { transcriptionsService } from '../../services/transcriptionsService';
 
 const useStyles = makeStyles({
   viewContainer: {
@@ -113,13 +117,81 @@ interface TranscriptViewerProps {
 export function TranscriptViewer({ transcription, recording, loading }: TranscriptViewerProps) {
   const styles = useStyles();
   const [isChatOpen, setIsChatOpen] = useState(false);
-  const [chatDrawerWidth] = useState(40); // percentage
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]); // Persist chat messages across re-renders
+  const [chatDrawerWidth] = useState(40);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [speakerMappings, setSpeakerMappings] = useState<Record<string, string>>({});
+  const [highlightedIndex, setHighlightedIndex] = useState<number | null>(null);
+  const [participants, setParticipants] = useState<Participant[]>([]);
 
-  // Reset chat messages when transcription changes
+  const audioPlayerRef = useRef<AudioPlayerHandle>(null);
+  const entryRefs = useRef<(HTMLDivElement | null)[]>([]);
+
+  // Use the transcript parser hook
+  const { entries: transcriptEntries, speakerIndexMap, hasTimestamps } = useTranscriptParser(
+    transcription,
+    speakerMappings
+  );
+
+  // Reset state when transcription changes
   useEffect(() => {
     setChatMessages([]);
+    // Reset speaker mappings - initialize from transcription's speaker_mapping if available
+    if (transcription?.speaker_mapping) {
+      const initialMappings: Record<string, string> = {};
+      for (const [label, mapping] of Object.entries(transcription.speaker_mapping)) {
+        if (mapping.displayName || mapping.name) {
+          initialMappings[label] = mapping.displayName || mapping.name;
+        }
+      }
+      setSpeakerMappings(initialMappings);
+    } else {
+      setSpeakerMappings({});
+    }
   }, [transcription?.id]);
+
+  // Fetch participants on mount
+  useEffect(() => {
+    const fetchParticipants = async () => {
+      try {
+        const data = await participantsService.getParticipants();
+        setParticipants(data);
+      } catch (err) {
+        console.error('[Participants] Failed to fetch participants:', err);
+      }
+    };
+    fetchParticipants();
+  }, []);
+
+  // Load audio URL when recording changes
+  useEffect(() => {
+    if (recording?.id) {
+      recordingsService.getRecordingAudioUrl(recording.id)
+        .then(({ audio_url }) => {
+          setAudioUrl(audio_url);
+        })
+        .catch(err => {
+          console.error('[Audio] Failed to get audio URL:', err);
+        });
+    }
+  }, [recording?.id]);
+
+  // Handle scrolling to and highlighting transcript entries
+  useEffect(() => {
+    if (highlightedIndex === null) return;
+
+    const targetEntry = entryRefs.current[highlightedIndex];
+    if (targetEntry) {
+      targetEntry.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    // Clear the highlight after a delay
+    const timer = setTimeout(() => {
+      setHighlightedIndex(null);
+    }, 2000);
+
+    return () => clearTimeout(timer);
+  }, [highlightedIndex]);
 
   const handleCopyTranscript = async () => {
     if (!transcription?.diarized_transcript && !transcription?.text) {
@@ -146,8 +218,6 @@ export function TranscriptViewer({ transcription, recording, loading }: Transcri
     try {
       await recordingsService.deleteRecording(recording.id);
       showToast.success('Recording deleted successfully');
-
-      // Dispatch a custom event to notify the parent to refresh the list
       window.dispatchEvent(new CustomEvent('recordingDeleted', {
         detail: { recordingId: recording.id }
       }));
@@ -156,6 +226,87 @@ export function TranscriptViewer({ transcription, recording, loading }: Transcri
       showToast.error('Failed to delete recording');
     }
   };
+
+  const handlePlayFromTime = (timeMs: number) => {
+    audioPlayerRef.current?.seekTo(timeMs);
+  };
+
+  const handleSpeakerRename = useCallback(async (speakerLabel: string, newName: string) => {
+    if (!transcription) {
+      showToast.error('No transcription available');
+      return;
+    }
+
+    console.log(`[Speaker] Renaming "${speakerLabel}" to "${newName}"`);
+
+    // Optimistically update local state
+    setSpeakerMappings(prev => ({
+      ...prev,
+      [speakerLabel]: newName,
+    }));
+
+    try {
+      // Find or create participant with this name
+      const participant = await participantsService.findOrCreateParticipant(newName);
+      console.log(`[Speaker] Using participant ${participant.id} (${participant.displayName})`);
+
+      // Sync local state with the actual displayName from the service
+      setSpeakerMappings(prev => ({
+        ...prev,
+        [speakerLabel]: participant.displayName,
+      }));
+
+      // Update participant list if this is a new participant
+      setParticipants(prev => {
+        const exists = prev.some(p => p.id === participant.id);
+        if (!exists) {
+          return [...prev, participant];
+        }
+        return prev;
+      });
+
+      // Call backend to persist the speaker mapping
+      await transcriptionsService.updateSpeaker(
+        transcription.id,
+        speakerLabel,
+        participant.id,
+        true // manuallyVerified
+      );
+
+      showToast.success(`Speaker renamed to ${participant.displayName}`);
+    } catch (err) {
+      console.error('[Speaker] Failed to save speaker mapping:', err);
+      showToast.error('Failed to save speaker assignment');
+
+      // Revert optimistic update on error
+      setSpeakerMappings(prev => {
+        const updated = { ...prev };
+        delete updated[speakerLabel];
+        return updated;
+      });
+    }
+  }, [transcription]);
+
+  const handleRefClick = (transcriptIndex: number) => {
+    setHighlightedIndex(transcriptIndex);
+  };
+
+  // Get full name for a speaker label by looking up participant
+  const getFullName = useCallback((speakerLabel: string): string | undefined => {
+    const mapping = transcription?.speaker_mapping?.[speakerLabel];
+    if (!mapping?.participantId) return undefined;
+
+    const participant = participants.find(p => p.id === mapping.participantId);
+    if (!participant) return undefined;
+
+    // Combine first and last name, falling back gracefully
+    const nameParts = [participant.firstName, participant.lastName].filter(Boolean);
+    if (nameParts.length > 0) {
+      return nameParts.join(' ');
+    }
+    // Fallback to displayName if no first/last name
+    return participant.displayName;
+  }, [transcription?.speaker_mapping, participants]);
 
   if (loading) {
     return (
@@ -176,70 +327,6 @@ export function TranscriptViewer({ transcription, recording, loading }: Transcri
       </div>
     );
   }
-
-  // Parse the diarized transcript into entries
-  const transcriptEntries: Array<{ speaker: string; text: string }> = [];
-
-  if (transcription.diarized_transcript) {
-    // Split by double newlines to get paragraphs
-    const paragraphs = transcription.diarized_transcript.split('\n\n').filter(p => p.trim());
-
-    paragraphs.forEach((paragraph) => {
-      // Each paragraph should be "Speaker X: text"
-      const match = paragraph.match(/^(.+?):\s*(.+)$/s); // 's' flag allows . to match newlines
-      if (match) {
-        const speakerLabel = match[1].trim();
-
-        // Map speaker label to actual name if speaker_mapping exists
-        let displayName = speakerLabel;
-        if (transcription.speaker_mapping && transcription.speaker_mapping[speakerLabel]) {
-          displayName = transcription.speaker_mapping[speakerLabel].displayName || speakerLabel;
-        }
-
-        transcriptEntries.push({
-          speaker: displayName,
-          text: match[2].trim(),
-        });
-      }
-    });
-  }
-
-  // Fallback: if no diarized transcript, try plain text
-  if (transcriptEntries.length === 0 && transcription.text) {
-    // Split into paragraphs and show as plain text
-    const paragraphs = transcription.text.split('\n\n').filter(p => p.trim());
-    paragraphs.forEach((para) => {
-      transcriptEntries.push({
-        speaker: 'Speaker',
-        text: para.trim(),
-      });
-    });
-  }
-
-  // Build speaker index map based on order of first appearance
-  const speakerIndexMap = new Map<string, number>();
-  transcriptEntries.forEach((entry) => {
-    if (!speakerIndexMap.has(entry.speaker)) {
-      speakerIndexMap.set(entry.speaker, speakerIndexMap.size);
-    }
-  });
-
-  const handleRefClick = (transcriptIndex: number) => {
-    // Scroll to the transcript entry - use data attribute instead of CSS class
-    const transcriptArea = document.querySelector('[data-transcript-area]');
-    if (transcriptArea) {
-      const entries = transcriptArea.querySelectorAll('[data-transcript-entry]');
-      const targetEntry = entries[transcriptIndex] as HTMLElement;
-      if (targetEntry) {
-        targetEntry.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        // Highlight temporarily
-        targetEntry.style.backgroundColor = '#fff3cd';
-        setTimeout(() => {
-          targetEntry.style.backgroundColor = '';
-        }, 2000);
-      }
-    }
-  };
 
   return (
     <div className={styles.viewContainer}>
@@ -304,14 +391,37 @@ export function TranscriptViewer({ transcription, recording, loading }: Transcri
           )}
         </div>
 
-        <div className={styles.transcriptArea} data-transcript-area>
+        {/* Audio player - only show if we have audio and timestamps */}
+        {audioUrl && hasTimestamps && (
+          <AudioPlayer ref={audioPlayerRef} audioUrl={audioUrl} />
+        )}
+
+        <div className={styles.transcriptArea}>
           {transcriptEntries.length > 0 ? (
             transcriptEntries.map((entry, index) => (
-              <div key={index} data-transcript-entry>
+              <div
+                key={index}
+                ref={el => { entryRefs.current[index] = el; }}
+                style={{
+                  backgroundColor: highlightedIndex === index ? '#fff3cd' : 'transparent',
+                  transition: 'background-color 0.3s',
+                }}
+              >
                 <TranscriptEntry
-                  speaker={entry.speaker}
+                  speaker={entry.displayName}
+                  speakerLabel={entry.speakerLabel}
+                  fullName={getFullName(entry.speakerLabel)}
                   text={entry.text}
-                  speakerIndex={speakerIndexMap.get(entry.speaker) ?? 0}
+                  speakerIndex={speakerIndexMap.get(entry.speakerLabel) ?? 0}
+                  startTimeMs={entry.startTimeMs}
+                  hasTimestamp={entry.startTimeMs > 0}
+                  onPlayFromTime={handlePlayFromTime}
+                  onSpeakerRename={handleSpeakerRename}
+                  knownSpeakers={participants.map(p =>
+                    p.firstName && p.lastName
+                      ? `${p.firstName} ${p.lastName}`
+                      : p.displayName
+                  )}
                 />
               </div>
             ))
@@ -327,7 +437,7 @@ export function TranscriptViewer({ transcription, recording, loading }: Transcri
         <div className={styles.chatDrawerContainer} style={{ width: `${chatDrawerWidth}%` }}>
           <ChatDrawer
             transcriptionIds={[transcription.id]}
-            transcriptEntries={transcriptEntries}
+            transcriptEntries={transcriptEntries.map(e => ({ speaker: e.displayName, text: e.text }))}
             messages={chatMessages}
             onMessagesChange={setChatMessages}
             onClose={() => setIsChatOpen(false)}
