@@ -22,6 +22,7 @@ import {
   Pin24Filled,
   SignOut20Regular,
   Person24Regular,
+  People24Regular,
 } from '@fluentui/react-icons';
 import { useIsAuthenticated, useMsal } from '@azure/msal-react';
 import { LAYOUT } from '../../config/styles';
@@ -211,21 +212,22 @@ const useStyles = makeStyles({
 });
 
 interface NavItem {
-  id: 'transcripts' | 'logs' | 'search' | 'settings';
+  id: 'transcripts' | 'people' | 'logs' | 'search' | 'settings';
   icon: React.ReactElement;
   label: string;
 }
 
 const navItems: NavItem[] = [
   { id: 'transcripts', icon: <DocumentText24Regular />, label: 'Transcripts' },
+  { id: 'people', icon: <People24Regular />, label: 'People' },
   { id: 'logs', icon: <TaskListLtr24Regular />, label: 'Job Logs' },
   { id: 'search', icon: <Search24Regular />, label: 'Search' },
   { id: 'settings', icon: <Settings24Regular />, label: 'Settings' },
 ];
 
 interface NavigationRailProps {
-  activeView: 'transcripts' | 'logs' | 'search' | 'settings';
-  onViewChange: (view: 'transcripts' | 'logs' | 'search' | 'settings') => void;
+  activeView: 'transcripts' | 'people' | 'logs' | 'search' | 'settings';
+  onViewChange: (view: 'transcripts' | 'people' | 'logs' | 'search' | 'settings') => void;
 }
 
 export function NavigationRail({ activeView, onViewChange }: NavigationRailProps) {
