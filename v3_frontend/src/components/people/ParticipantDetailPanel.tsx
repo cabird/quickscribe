@@ -4,7 +4,7 @@ import {
   Text,
   tokens,
   Spinner,
-  Persona,
+  Avatar,
   Badge,
   Card,
   CardHeader,
@@ -32,9 +32,35 @@ import {
   Save20Regular,
   Dismiss20Regular,
   Person20Regular,
+  Key20Regular,
 } from '@fluentui/react-icons';
 import type { Participant, Recording, UpdateParticipantRequest } from '../../types';
 import { formatDate } from '../../utils/dateUtils';
+
+/**
+ * Get initials from first and last name.
+ * Falls back to displayName if names aren't available.
+ */
+function getInitials(participant: Participant): string {
+  const first = participant.firstName?.trim();
+  const last = participant.lastName?.trim();
+
+  if (first && last) {
+    return `${first[0]}${last[0]}`.toUpperCase();
+  }
+  if (first) {
+    return first[0].toUpperCase();
+  }
+  if (last) {
+    return last[0].toUpperCase();
+  }
+  // Fallback to displayName initials (first two words)
+  const words = participant.displayName.trim().split(/\s+/);
+  if (words.length >= 2) {
+    return `${words[0][0]}${words[1][0]}`.toUpperCase();
+  }
+  return words[0]?.[0]?.toUpperCase() || '?';
+}
 
 const useStyles = makeStyles({
   container: {
@@ -141,6 +167,12 @@ const useStyles = makeStyles({
     fontSize: '14px',
     color: '#9CA3AF',
     fontStyle: 'italic',
+  },
+  infoValueMono: {
+    fontSize: '12px',
+    color: '#6B7280',
+    fontFamily: 'monospace',
+    userSelect: 'all',
   },
   notesBox: {
     backgroundColor: tokens.colorNeutralBackground2,
@@ -471,10 +503,11 @@ export function ParticipantDetailPanel({
         <div className={styles.scrollContainer}>
           {/* Header with Edit Actions */}
           <div className={styles.header}>
-            <Persona
-              size="huge"
-              name={editForm.displayName || participant.displayName}
-              avatar={{ color: 'colorful' }}
+            <Avatar
+              size={72}
+              name={participant.displayName}
+              initials={getInitials(participant)}
+              color="colorful"
             />
             <div className={styles.headerInfo}>
               <Input
@@ -663,12 +696,13 @@ export function ParticipantDetailPanel({
   return (
     <div className={styles.container}>
       <div className={styles.scrollContainer}>
-        {/* Header with Persona */}
+        {/* Header with Avatar */}
         <div className={styles.header}>
-          <Persona
-            size="huge"
+          <Avatar
+            size={72}
             name={participant.displayName}
-            avatar={{ color: 'colorful' }}
+            initials={getInitials(participant)}
+            color="colorful"
           />
           <div className={styles.headerInfo}>
             <div className={styles.nameRow}>
@@ -750,6 +784,15 @@ export function ParticipantDetailPanel({
               </Text>
               <Text className={styles.infoValue}>
                 {formatDate(participant.lastSeen)}
+              </Text>
+            </div>
+            <div className={styles.infoItem}>
+              <Text className={styles.infoLabel}>
+                <Key20Regular />
+                ID
+              </Text>
+              <Text className={styles.infoValueMono}>
+                {participant.id}
               </Text>
             </div>
           </div>

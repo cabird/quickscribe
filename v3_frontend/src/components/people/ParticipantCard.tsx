@@ -11,6 +11,47 @@ import type { Participant } from '../../types';
 import { formatDate } from '../../utils/dateUtils';
 import { APP_COLORS } from '../../config/styles';
 
+/**
+ * Get initials from first and last name.
+ * Falls back to displayName if names aren't available.
+ */
+function getInitials(participant: Participant): string {
+  const first = participant.firstName?.trim();
+  const last = participant.lastName?.trim();
+
+  if (first && last) {
+    return `${first[0]}${last[0]}`.toUpperCase();
+  }
+  if (first) {
+    return first[0].toUpperCase();
+  }
+  if (last) {
+    return last[0].toUpperCase();
+  }
+  // Fallback to displayName initials (first two words)
+  const words = participant.displayName.trim().split(/\s+/);
+  if (words.length >= 2) {
+    return `${words[0][0]}${words[1][0]}`.toUpperCase();
+  }
+  return words[0]?.[0]?.toUpperCase() || '?';
+}
+
+/**
+ * Get full name if different from display name.
+ */
+function getFullName(participant: Participant): string | null {
+  const first = participant.firstName?.trim();
+  const last = participant.lastName?.trim();
+
+  if (first && last) {
+    const fullName = `${first} ${last}`;
+    if (fullName !== participant.displayName) {
+      return fullName;
+    }
+  }
+  return null;
+}
+
 const useStyles = makeStyles({
   card: {
     position: 'relative',
@@ -71,6 +112,14 @@ const useStyles = makeStyles({
     textOverflow: 'ellipsis',
     whiteSpace: 'nowrap',
   },
+  fullName: {
+    fontSize: '12px',
+    color: tokens.colorNeutralForeground2,
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+    fontStyle: 'italic',
+  },
 });
 
 interface ParticipantCardProps {
@@ -82,8 +131,11 @@ interface ParticipantCardProps {
 export function ParticipantCard({ participant, isSelected, onClick }: ParticipantCardProps) {
   const styles = useStyles();
 
-  // Build secondary text: role or organization
-  const secondaryText = participant.role || participant.organization || undefined;
+  const initials = getInitials(participant);
+  const fullName = getFullName(participant);
+
+  // Build secondary text: full name if available, otherwise role or organization
+  const secondaryText = fullName || participant.role || participant.organization || undefined;
 
   return (
     <div
@@ -97,7 +149,7 @@ export function ParticipantCard({ participant, isSelected, onClick }: Participan
         name={participant.displayName}
         secondaryText={secondaryText}
         presence={participant.isUser ? { status: 'available' } : undefined}
-        avatar={{ color: 'colorful' }}
+        avatar={{ color: 'colorful', initials }}
         size="medium"
       />
 
@@ -115,7 +167,8 @@ export function ParticipantCard({ participant, isSelected, onClick }: Participan
           <Text size={200}>Last seen: {formatDate(participant.lastSeen)}</Text>
         </div>
 
-        {participant.organization && participant.organization !== secondaryText && (
+        {/* Show organization if we have it and it wasn't used as secondaryText */}
+        {participant.organization && fullName && (
           <Text className={styles.groupText}>{participant.organization}</Text>
         )}
       </div>
