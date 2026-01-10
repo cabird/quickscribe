@@ -153,7 +153,7 @@ class ParticipantHandler:
             List of Participant objects
         """
         try:
-            query = "SELECT * FROM c WHERE c.userId = @user_id ORDER BY c.displayName"
+            query = "SELECT * FROM c WHERE c.type = 'participant' AND c.userId = @user_id ORDER BY c.displayName"
             parameters = [{"name": "@user_id", "value": user_id}]
             
             items = list(self.container.query_items(
@@ -251,8 +251,9 @@ class ParticipantHandler:
             if fuzzy:
                 # Use CONTAINS for fuzzy matching
                 query = """
-                SELECT * FROM c 
-                WHERE c.userId = @user_id 
+                SELECT * FROM c
+                WHERE c.type = 'participant'
+                AND c.userId = @user_id
                 AND (
                     CONTAINS(LOWER(c.displayName), LOWER(@name))
                     OR CONTAINS(LOWER(c.firstName), LOWER(@name))
@@ -264,8 +265,9 @@ class ParticipantHandler:
             else:
                 # Exact matching
                 query = """
-                SELECT * FROM c 
-                WHERE c.userId = @user_id 
+                SELECT * FROM c
+                WHERE c.type = 'participant'
+                AND c.userId = @user_id
                 AND (
                     LOWER(c.displayName) = LOWER(@name)
                     OR LOWER(c.firstName) = LOWER(@name)

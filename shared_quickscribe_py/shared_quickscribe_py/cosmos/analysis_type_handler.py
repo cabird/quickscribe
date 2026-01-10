@@ -44,14 +44,14 @@ class AnalysisTypeHandler:
         """Get all analysis types available to a user (built-in + user's custom types)."""
         try:
             # Query for built-in types (global partition)
-            builtin_query = "SELECT * FROM c WHERE c.partitionKey = 'global' AND c.isActive = true"
+            builtin_query = "SELECT * FROM c WHERE c.type = 'analysis_type' AND c.partitionKey = 'global' AND c.isActive = true"
             builtin_types = list(self.container.query_items(
                 query=builtin_query,
                 partition_key="global"
             ))
-            
+
             # Query for user's custom types
-            custom_query = "SELECT * FROM c WHERE c.partitionKey = @user_id AND c.isActive = true"
+            custom_query = "SELECT * FROM c WHERE c.type = 'analysis_type' AND c.partitionKey = @user_id AND c.isActive = true"
             custom_params = [{"name": "@user_id", "value": user_id}]
             custom_types = list(self.container.query_items(
                 query=custom_query,
@@ -177,7 +177,7 @@ class AnalysisTypeHandler:
     def get_builtin_analysis_types(self) -> List[AnalysisType]:
         """Get all built-in analysis types."""
         try:
-            query = "SELECT * FROM c WHERE c.partitionKey = 'global' AND c.isBuiltIn = true AND c.isActive = true"
+            query = "SELECT * FROM c WHERE c.type = 'analysis_type' AND c.partitionKey = 'global' AND c.isBuiltIn = true AND c.isActive = true"
             items = list(self.container.query_items(
                 query=query,
                 partition_key="global"
@@ -232,7 +232,7 @@ class AnalysisTypeHandler:
         """Get all analysis types from all users (built-in + all custom types)."""
         try:
             # Query for all analysis types across all partitions
-            query = "SELECT * FROM c WHERE IS_DEFINED(c.isBuiltIn)"
+            query = "SELECT * FROM c WHERE c.type = 'analysis_type'"
             items = list(self.container.query_items(
                 query=query,
                 enable_cross_partition_query=True
@@ -256,7 +256,7 @@ class AnalysisTypeHandler:
         """Check if an analysis type name is already taken by this user."""
         try:
             # Check in user's custom types
-            custom_query = "SELECT * FROM c WHERE c.partitionKey = @user_id AND c.name = @name"
+            custom_query = "SELECT * FROM c WHERE c.type = 'analysis_type' AND c.partitionKey = @user_id AND c.name = @name"
             custom_params = [
                 {"name": "@user_id", "value": user_id},
                 {"name": "@name", "value": name}
@@ -266,9 +266,9 @@ class AnalysisTypeHandler:
                 parameters=custom_params,
                 partition_key=user_id
             ))
-            
+
             # Check in built-in types (global namespace)
-            builtin_query = "SELECT * FROM c WHERE c.partitionKey = 'global' AND c.name = @name"
+            builtin_query = "SELECT * FROM c WHERE c.type = 'analysis_type' AND c.partitionKey = 'global' AND c.name = @name"
             builtin_params = [{"name": "@name", "value": name}]
             builtin_results = list(self.container.query_items(
                 query=builtin_query,

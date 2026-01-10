@@ -65,10 +65,10 @@ def create_sync_progress_handler():
     return SyncProgressHandler(cosmos_client, config.COSMOS_DB_NAME)
 
 def create_analysis_type_handler():
-    return AnalysisTypeHandler(config.COSMOS_URL, config.COSMOS_KEY, config.COSMOS_DB_NAME, 'analysis_types')
+    return AnalysisTypeHandler(config.COSMOS_URL, config.COSMOS_KEY, config.COSMOS_DB_NAME, config.COSMOS_CONTAINER_NAME)
 
 def create_participant_handler():
-    return ParticipantHandler(config.COSMOS_URL, config.COSMOS_KEY, config.COSMOS_DB_NAME, 'participants')
+    return ParticipantHandler(config.COSMOS_URL, config.COSMOS_KEY, config.COSMOS_DB_NAME, config.COSMOS_CONTAINER_NAME)
 
 def create_job_execution_handler():
     return JobExecutionHandler(config.COSMOS_URL, config.COSMOS_KEY, config.COSMOS_DB_NAME, config.COSMOS_CONTAINER_NAME)
