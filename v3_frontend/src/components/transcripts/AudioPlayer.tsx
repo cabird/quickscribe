@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useImperativeHandle, forwardRef } from 'react';
-import { makeStyles, Button, tokens } from '@fluentui/react-components';
-import { Play24Regular, Pause24Regular } from '@fluentui/react-icons';
+import { makeStyles, Button, tokens, Tooltip } from '@fluentui/react-components';
+import { Play24Regular, Pause24Regular, Speaker224Regular, SpeakerMute24Regular } from '@fluentui/react-icons';
 
 const useStyles = makeStyles({
   container: {
@@ -36,14 +36,53 @@ const useStyles = makeStyles({
     borderRadius: '2px',
     transition: 'width 0.1s',
   },
+  volumeContainer: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '4px',
+    marginLeft: '8px',
+  },
+  volumeButton: {
+    minWidth: '32px',
+    width: '32px',
+    height: '32px',
+  },
+  volumeSlider: {
+    width: '80px',
+    height: '4px',
+    appearance: 'none',
+    backgroundColor: tokens.colorNeutralBackground5,
+    borderRadius: '2px',
+    cursor: 'pointer',
+    '::-webkit-slider-thumb': {
+      appearance: 'none',
+      width: '12px',
+      height: '12px',
+      borderRadius: '50%',
+      backgroundColor: tokens.colorBrandBackground,
+      cursor: 'pointer',
+    },
+    '::-moz-range-thumb': {
+      width: '12px',
+      height: '12px',
+      borderRadius: '50%',
+      backgroundColor: tokens.colorBrandBackground,
+      cursor: 'pointer',
+      border: 'none',
+    },
+  },
 });
 
 export interface AudioPlayerHandle {
   seekTo: (timeMs: number) => void;
+  pause: () => void;
+  getIsPlaying: () => boolean;
+  getCurrentTimeMs: () => number;
 }
 
 interface AudioPlayerProps {
   audioUrl: string;
+  onPlayStateChange?: (isPlaying: boolean, currentTimeMs: number) => void;
 }
 
 function formatTime(seconds: number): string {
@@ -54,14 +93,16 @@ function formatTime(seconds: number): string {
 }
 
 export const AudioPlayer = forwardRef<AudioPlayerHandle, AudioPlayerProps>(
-  function AudioPlayer({ audioUrl }, ref) {
+  function AudioPlayer({ audioUrl, onPlayStateChange }, ref) {
     const styles = useStyles();
     const audioRef = useRef<HTMLAudioElement | null>(null);
     const [isPlaying, setIsPlaying] = useState(false);
     const [currentTime, setCurrentTime] = useState(0);
     const [duration, setDuration] = useState(0);
+    const [volume, setVolume] = useState(1);
+    const [isMuted, setIsMuted] = useState(false);
 
-    // Expose seekTo method to parent
+    // Expose methods to parent
     useImperativeHandle(ref, () => ({
       seekTo: (timeMs: number) => {
         const audio = audioRef.current;
@@ -76,6 +117,14 @@ export const AudioPlayer = forwardRef<AudioPlayerHandle, AudioPlayerProps>(
           console.error('[AudioPlayer] Playback failed:', err);
         });
       },
+      pause: () => {
+        const audio = audioRef.current;
+        if (audio) {
+          audio.pause();
+        }
+      },
+      getIsPlaying: () => isPlaying,
+      getCurrentTimeMs: () => currentTime * 1000,
     }));
 
     // Audio event handlers
@@ -83,11 +132,25 @@ export const AudioPlayer = forwardRef<AudioPlayerHandle, AudioPlayerProps>(
       const audio = audioRef.current;
       if (!audio) return;
 
-      const handleTimeUpdate = () => setCurrentTime(audio.currentTime);
+      const handleTimeUpdate = () => {
+        setCurrentTime(audio.currentTime);
+        if (onPlayStateChange && !audio.paused) {
+          onPlayStateChange(true, audio.currentTime * 1000);
+        }
+      };
       const handleDurationChange = () => setDuration(audio.duration);
-      const handleEnded = () => setIsPlaying(false);
-      const handlePlay = () => setIsPlaying(true);
-      const handlePause = () => setIsPlaying(false);
+      const handleEnded = () => {
+        setIsPlaying(false);
+        onPlayStateChange?.(false, audio.currentTime * 1000);
+      };
+      const handlePlay = () => {
+        setIsPlaying(true);
+        onPlayStateChange?.(true, audio.currentTime * 1000);
+      };
+      const handlePause = () => {
+        setIsPlaying(false);
+        onPlayStateChange?.(false, audio.currentTime * 1000);
+      };
 
       audio.addEventListener('timeupdate', handleTimeUpdate);
       audio.addEventListener('durationchange', handleDurationChange);
@@ -102,7 +165,7 @@ export const AudioPlayer = forwardRef<AudioPlayerHandle, AudioPlayerProps>(
         audio.removeEventListener('play', handlePlay);
         audio.removeEventListener('pause', handlePause);
       };
-    }, [audioUrl]);
+    }, [audioUrl, onPlayStateChange]);
 
     const handleTogglePlayPause = () => {
       const audio = audioRef.current;
@@ -125,6 +188,30 @@ export const AudioPlayer = forwardRef<AudioPlayerHandle, AudioPlayerProps>(
       audio.currentTime = percentage * duration;
     };
 
+    const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const newVolume = parseFloat(e.target.value);
+      setVolume(newVolume);
+      if (audioRef.current) {
+        audioRef.current.volume = newVolume;
+        if (newVolume > 0 && isMuted) {
+          setIsMuted(false);
+        }
+      }
+    };
+
+    const handleToggleMute = () => {
+      const audio = audioRef.current;
+      if (!audio) return;
+
+      if (isMuted) {
+        audio.volume = volume;
+        setIsMuted(false);
+      } else {
+        audio.volume = 0;
+        setIsMuted(true);
+      }
+    };
+
     return (
       <div className={styles.container}>
         <audio ref={audioRef} src={audioUrl} preload="metadata" />
@@ -141,6 +228,26 @@ export const AudioPlayer = forwardRef<AudioPlayerHandle, AudioPlayerProps>(
           <div
             className={styles.progressFill}
             style={{ width: `${duration ? (currentTime / duration) * 100 : 0}%` }}
+          />
+        </div>
+        <div className={styles.volumeContainer}>
+          <Tooltip content={isMuted ? 'Unmute' : 'Mute'} relationship="label">
+            <Button
+              appearance="subtle"
+              className={styles.volumeButton}
+              icon={isMuted || volume === 0 ? <SpeakerMute24Regular /> : <Speaker224Regular />}
+              onClick={handleToggleMute}
+            />
+          </Tooltip>
+          <input
+            type="range"
+            min="0"
+            max="1"
+            step="0.01"
+            value={isMuted ? 0 : volume}
+            onChange={handleVolumeChange}
+            className={styles.volumeSlider}
+            aria-label="Volume"
           />
         </div>
       </div>

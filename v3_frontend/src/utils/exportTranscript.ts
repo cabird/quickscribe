@@ -1,4 +1,5 @@
 import type { Recording, Transcription } from '../types';
+import { getSpeakerNamesFromMapping } from './formatters';
 
 export function exportTranscriptToFile(
   recording: Recording,
@@ -25,10 +26,8 @@ export function exportTranscriptToFile(
     const minutes = Math.floor((recording.duration % 3600) / 60);
     content += `Duration: ${hours > 0 ? `${hours}h ` : ''}${minutes}m\n`;
   }
-  if (recording.participants && recording.participants.length > 0) {
-    const speakerNames = recording.participants.map((p: any) =>
-      typeof p === 'string' ? p : p.displayName || p.name
-    );
+  const speakerNames = getSpeakerNamesFromMapping(transcription.speaker_mapping);
+  if (speakerNames.length > 0) {
     content += `Participants: ${speakerNames.join(', ')}\n`;
   }
   if (recording.description) {

@@ -28,6 +28,9 @@ setup(
         "python-dotenv>=1.0.0",
         "mutagen>=1.47.0",  # For audio file metadata
         "tiktoken>=0.5.0",  # For accurate token counting
+
+        # CLI tools
+        "typer[all]>=0.9.0",  # CLI framework with rich support
     ],
     python_requires=">=3.11",
 )

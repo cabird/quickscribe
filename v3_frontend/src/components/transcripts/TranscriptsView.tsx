@@ -1,5 +1,6 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
-import { makeStyles } from '@fluentui/react-components';
+import { makeStyles, Button } from '@fluentui/react-components';
+import { ArrowLeft20Regular } from '@fluentui/react-icons';
 import { TopActionBar } from '../layout/TopActionBar';
 import { RecordingsList } from './RecordingsList';
 import { TranscriptViewer } from './TranscriptViewer';
@@ -8,6 +9,7 @@ import { useRecordings } from '../../hooks/useRecordings';
 import { useTranscription } from '../../hooks/useTranscription';
 import { exportTranscriptToFile } from '../../utils/exportTranscript';
 import { showToast } from '../../utils/toast';
+import { useIsMobile } from '../../hooks/useIsMobile';
 
 const useStyles = makeStyles({
   container: {
@@ -22,6 +24,26 @@ const useStyles = makeStyles({
     overflow: 'hidden',
     minHeight: 0,
   },
+  mobileBackBar: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    padding: '8px 12px',
+    borderBottom: '1px solid #e0e0e0',
+    flexShrink: 0,
+  },
+  mobileBackTitle: {
+    fontSize: '14px',
+    fontWeight: 600,
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+    flex: 1,
+  },
+  mobileFullWidth: {
+    width: '100%',
+    flex: 1,
+  },
 });
 
 interface TranscriptsViewProps {
@@ -33,6 +55,7 @@ interface TranscriptsViewProps {
 
 export function TranscriptsView({ navigateToRecordingId, onNavigationComplete }: TranscriptsViewProps = {}) {
   const styles = useStyles();
+  const isMobile = useIsMobile();
   const [selectedRecordingId, setSelectedRecordingId] = useState<string | null>(null);
   const [checkedRecordingIds, setCheckedRecordingIds] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState('');
@@ -180,6 +203,69 @@ export function TranscriptsView({ navigateToRecordingId, onNavigationComplete }:
     };
   }, [selectedRecordingId, checkedRecordingIds, refetch]);
 
+  const handleMobileBack = useCallback(() => {
+    setSelectedRecordingId(null);
+  }, []);
+
+  // Mobile: show either list or detail, not both
+  if (isMobile) {
+    const showDetail = selectedRecordingId !== null;
+
+    return (
+      <div className={styles.container}>
+        {showDetail ? (
+          <>
+            <div className={styles.mobileBackBar}>
+              <Button
+                appearance="subtle"
+                icon={<ArrowLeft20Regular />}
+                onClick={handleMobileBack}
+              >
+                Back
+              </Button>
+              <span className={styles.mobileBackTitle}>
+                {selectedRecording?.title || 'Transcript'}
+              </span>
+            </div>
+            <TranscriptViewer
+              transcription={transcription}
+              recording={selectedRecording || null}
+              loading={transcriptionLoading}
+            />
+          </>
+        ) : (
+          <>
+            <TopActionBar
+              searchQuery={searchQuery}
+              onSearchChange={setSearchQuery}
+              searchType={searchType}
+              onSearchTypeChange={setSearchType}
+              dateRange={dateRange}
+              onDateRangeChange={setDateRange}
+              onExport={handleExport}
+              onRefresh={refetch}
+              selectedCount={checkedRecordingIds.size}
+              selectedTokenCount={selectedTokenCount}
+              onClearSelection={handleClearSelection}
+              onChatWithSelected={handleChatWithSelected}
+              isMobile
+            />
+            <RecordingsList
+              recordings={filteredRecordings}
+              selectedRecordingId={selectedRecordingId}
+              onRecordingSelect={setSelectedRecordingId}
+              checkedRecordingIds={checkedRecordingIds}
+              onCheckChange={handleCheckChange}
+              loading={recordingsLoading}
+              width={100}
+            />
+          </>
+        )}
+      </div>
+    );
+  }
+
+  // Desktop: side-by-side list + detail
   return (
     <div className={styles.container}>
       <TopActionBar

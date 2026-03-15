@@ -5,9 +5,13 @@ Database Consistency Checker for QuickScribe
 This script performs comprehensive consistency checks on the QuickScribe database,
 including referential integrity, data validation, and business rule enforcement.
 
+NOTE: As of Jan 2026, recording.participants is DEPRECATED. Speaker mappings
+are now stored only in transcription.speaker_mapping. Many checks in this script
+that reference recording.participants are obsolete and should be updated.
+
 Usage:
     python db_consistency_checker.py [options]
-    
+
 Options:
     --fix           Attempt to fix issues where possible (use with caution)
     --check TYPE    Run specific check type (integrity, quality, migration, etc.)

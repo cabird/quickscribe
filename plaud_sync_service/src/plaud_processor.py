@@ -298,7 +298,7 @@ class PlaudProcessor:
 
             # Step 4: Add custom fields to recording
             recording.type = "recording"  # Required for queries to find this document
-            recording.unique_filename = f"{recording.id}.mp3"
+            recording.unique_filename = f"{user.id}/{recording.id}.mp3"
             recording.upload_timestamp = datetime.now(UTC).isoformat()
             recording.plaudMetadata = PlaudMetadata(**plaud_recording.to_metadata())
             recording.testRunId = self.test_run_id
@@ -401,7 +401,7 @@ class PlaudProcessor:
 
                     # Step 4: Add custom fields including chunkGroupId
                     chunk_recording.type = "recording"  # Required for queries to find this document
-                    chunk_recording.unique_filename = f"{chunk_recording.id}.mp3"
+                    chunk_recording.unique_filename = f"{user.id}/{chunk_recording.id}.mp3"
                     chunk_recording.upload_timestamp = datetime.now(UTC).isoformat()
                     chunk_recording.plaudMetadata = PlaudMetadata(**plaud_recording.to_metadata())
                     chunk_recording.testRunId = self.test_run_id

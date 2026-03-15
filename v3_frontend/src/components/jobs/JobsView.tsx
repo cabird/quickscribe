@@ -1,5 +1,6 @@
 import { useState, useMemo, useCallback } from 'react';
-import { makeStyles } from '@fluentui/react-components';
+import { makeStyles, Button } from '@fluentui/react-components';
+import { ArrowLeft20Regular } from '@fluentui/react-icons';
 import { JobsFilterBar } from './JobsFilterBar';
 import { JobsList } from './JobsList';
 import { JobViewer } from './JobViewer';
@@ -8,6 +9,7 @@ import { useJobs } from '../../hooks/useJobs';
 import { useJobDetails } from '../../hooks/useJobDetails';
 import { jobsService } from '../../services/jobsService';
 import { showToast } from '../../utils/toast';
+import { useIsMobile } from '../../hooks/useIsMobile';
 
 const useStyles = makeStyles({
   container: {
@@ -22,10 +24,27 @@ const useStyles = makeStyles({
     overflow: 'hidden',
     minHeight: 0,
   },
+  mobileBackBar: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    padding: '8px 12px',
+    borderBottom: '1px solid #e0e0e0',
+    flexShrink: 0,
+  },
+  mobileBackTitle: {
+    fontSize: '14px',
+    fontWeight: 600,
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+    flex: 1,
+  },
 });
 
 export function JobsView() {
   const styles = useStyles();
+  const isMobile = useIsMobile();
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [listPanelWidth, setListPanelWidth] = useState(35); // percentage
 
@@ -91,6 +110,63 @@ export function JobsView() {
     }
   }, [refetch]);
 
+  const handleMobileBack = useCallback(() => {
+    setSelectedJobId(null);
+  }, []);
+
+  // Mobile: single-panel navigation
+  if (isMobile) {
+    const showDetail = selectedJobId !== null;
+
+    return (
+      <div className={styles.container}>
+        {showDetail ? (
+          <>
+            <div className={styles.mobileBackBar}>
+              <Button
+                appearance="subtle"
+                icon={<ArrowLeft20Regular />}
+                onClick={handleMobileBack}
+              >
+                Back
+              </Button>
+              <span className={styles.mobileBackTitle}>
+                Job Details
+              </span>
+            </div>
+            <JobViewer job={jobDetails} loading={jobLoading} />
+          </>
+        ) : (
+          <>
+            <JobsFilterBar
+              minDuration={minDuration}
+              hasActivity={hasActivity}
+              status={status}
+              triggerSource={triggerSource}
+              onMinDurationChange={setMinDuration}
+              onHasActivityChange={setHasActivity}
+              onStatusChange={setStatus}
+              onTriggerSourceChange={setTriggerSource}
+              onRefresh={refetch}
+              onTriggerSync={handleTriggerSync}
+              isSyncing={isSyncing}
+            />
+            <JobsList
+              jobs={jobs}
+              selectedJobId={selectedJobId}
+              onJobSelect={setSelectedJobId}
+              loading={loading}
+              hasMore={hasMore}
+              onLoadMore={loadMore}
+              width={100}
+            />
+          </>
+        )}
+      </div>
+    );
+  }
+
+  // Desktop: side-by-side list + detail
   return (
     <div className={styles.container}>
       <JobsFilterBar

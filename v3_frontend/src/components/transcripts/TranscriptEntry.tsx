@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { makeStyles, tokens, Tooltip } from '@fluentui/react-components';
-import { Play16Regular, Edit16Regular } from '@fluentui/react-icons';
+import { Play16Regular, Pause16Regular, Edit16Regular } from '@fluentui/react-icons';
 import { SpeakerDropdown } from './SpeakerDropdown';
 
 // 6 distinct speaker colors - border and name colors
@@ -79,8 +79,12 @@ interface TranscriptEntryProps {
   time?: string;
   speakerIndex: number;
   startTimeMs?: number;
+  endTimeMs?: number;
   hasTimestamp?: boolean;
+  isAudioPlaying?: boolean;  // Whether audio is currently playing
+  currentTimeMs?: number;    // Current playback position in ms
   onPlayFromTime?: (timeMs: number) => void;
+  onPause?: () => void;
   onSpeakerRename?: (speakerLabel: string, newName: string) => void;
   knownSpeakers?: string[];
 }
@@ -93,8 +97,12 @@ export function TranscriptEntry({
   time,
   speakerIndex,
   startTimeMs = 0,
+  endTimeMs = 0,
   hasTimestamp = false,
+  isAudioPlaying = false,
+  currentTimeMs = 0,
   onPlayFromTime,
+  onPause,
   onSpeakerRename,
   knownSpeakers = [],
 }: TranscriptEntryProps) {
@@ -104,13 +112,21 @@ export function TranscriptEntry({
   const [isHovered, setIsHovered] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
+  // Check if this entry is currently being played
+  const isThisEntryPlaying = isAudioPlaying &&
+    currentTimeMs >= startTimeMs &&
+    (endTimeMs === 0 || currentTimeMs < endTimeMs);
+
   // Memoize callback to prevent SpeakerDropdown useEffect from re-running on every render
   const handleDropdownClose = useCallback(() => {
     setIsDropdownOpen(false);
   }, []);
 
-  const handlePlayClick = () => {
-    if (hasTimestamp && onPlayFromTime) {
+  const handlePlayPauseClick = () => {
+    if (isThisEntryPlaying && onPause) {
+      console.log(`[TranscriptEntry] Pause clicked for "${speakerLabel}"`);
+      onPause();
+    } else if (hasTimestamp && onPlayFromTime) {
       console.log(`[TranscriptEntry] Play clicked for "${speakerLabel}" at ${startTimeMs}ms`);
       onPlayFromTime(startTimeMs);
     }
@@ -159,9 +175,9 @@ export function TranscriptEntry({
           {/* Hover icons */}
           <div className={`${styles.hoverIcons} ${(isHovered || isDropdownOpen) ? styles.hoverIconsVisible : ''}`}>
             {hasTimestamp && onPlayFromTime && (
-              <Tooltip content="Play from here" relationship="label">
-                <div className={styles.iconButton} onClick={handlePlayClick}>
-                  <Play16Regular />
+              <Tooltip content={isThisEntryPlaying ? 'Pause' : 'Play from here'} relationship="label">
+                <div className={styles.iconButton} onClick={handlePlayPauseClick}>
+                  {isThisEntryPlaying ? <Pause16Regular /> : <Play16Regular />}
                 </div>
               </Tooltip>
             )}

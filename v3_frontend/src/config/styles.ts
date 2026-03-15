@@ -29,4 +29,6 @@ export const LAYOUT = {
   navRailWidth: 96,
   navRailExpandedWidth: 240,
   listPanelWidthPercent: 35,
+  mobileBreakpoint: 768,
+  mobileBottomBarHeight: 56,
 } as const;

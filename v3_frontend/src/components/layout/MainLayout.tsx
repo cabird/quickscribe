@@ -6,6 +6,7 @@ import { PeopleView } from '../people/PeopleView';
 import { JobsView } from '../jobs/JobsView';
 import { SearchPlaceholder } from '../search/SearchPlaceholder';
 import { SettingsView } from '../settings/SettingsView';
+import { useIsMobile } from '../../hooks/useIsMobile';
 
 const useStyles = makeStyles({
   container: {
@@ -13,6 +14,9 @@ const useStyles = makeStyles({
     flex: 1,
     width: '100%',
     overflow: 'hidden',
+  },
+  containerMobile: {
+    flexDirection: 'column',
   },
   mainContent: {
     flex: 1,
@@ -25,6 +29,7 @@ const useStyles = makeStyles({
 
 export function MainLayout() {
   const styles = useStyles();
+  const isMobile = useIsMobile();
   const [activeView, setActiveView] = useState<'transcripts' | 'people' | 'logs' | 'search' | 'settings'>('transcripts');
   const [pendingRecordingId, setPendingRecordingId] = useState<string | null>(null);
 
@@ -49,8 +54,9 @@ export function MainLayout() {
   }, []);
 
   return (
-    <div className={styles.container}>
-      <NavigationRail activeView={activeView} onViewChange={setActiveView} />
+    <div className={`${styles.container} ${isMobile ? styles.containerMobile : ''}`}>
+      {/* On desktop, sidebar is first (left). On mobile, content is first (top). */}
+      {!isMobile && <NavigationRail activeView={activeView} onViewChange={setActiveView} />}
       <div className={styles.mainContent}>
         {activeView === 'transcripts' && (
           <TranscriptsView
@@ -63,6 +69,7 @@ export function MainLayout() {
         {activeView === 'search' && <SearchPlaceholder />}
         {activeView === 'settings' && <SettingsView />}
       </div>
+      {isMobile && <NavigationRail activeView={activeView} onViewChange={setActiveView} />}
     </div>
   );
 }

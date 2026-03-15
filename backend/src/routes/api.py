@@ -1,10 +1,10 @@
 # api.py
 from flask import Blueprint, request, jsonify, url_for
-from shared_quickscribe_py.cosmos import get_user_handler, get_recording_handler, get_transcription_handler, get_deleted_items_handler
+from shared_quickscribe_py.cosmos import get_user_handler, get_recording_handler, get_transcription_handler, get_deleted_items_handler, get_participant_handler
 from user_util import get_current_user, require_auth
 from shared_quickscribe_py.cosmos import User, Recording, Transcription, TranscodingStatus, TranscriptionStatus, Tag
 from util import get_recording_duration_in_seconds
-from ai_postprocessing import postprocess_recording_full, update_transcription_speaker_data, update_recording_participants, update_transcription_speaker_data_with_participants, update_recording_participants_with_participants
+from ai_postprocessing import postprocess_recording_full, update_transcription_speaker_data, update_transcription_speaker_data_with_participants
 import re
 import uuid
 import os
@@ -25,6 +25,55 @@ api_bp = Blueprint('api', __name__)
 def validate_hex_color(color: str) -> bool:
     """Validate that a string is a valid hex color code."""
     return bool(re.match(r'^#[0-9A-Fa-f]{6}$', color))
+
+
+def enrich_transcription_with_participants(transcription: Transcription, user_id: str) -> dict:
+    """
+    Enrich a transcription's speaker_mapping with participant displayNames.
+
+    This resolves participantId references to actual displayNames at query time,
+    providing a single source of truth for participant names.
+
+    Args:
+        transcription: The transcription object to enrich
+        user_id: The user ID for fetching participants
+
+    Returns:
+        Transcription data dict with enriched speaker_mapping
+    """
+    transcription_data = transcription.model_dump()
+
+    if not transcription.speaker_mapping:
+        return transcription_data
+
+    # Fetch all participants for this user
+    participant_handler = get_participant_handler()
+    participants = participant_handler.get_participants_for_user(user_id)
+    participant_map = {p.id: p for p in participants}
+
+    # Enrich each speaker mapping entry with displayName from participant lookup
+    enriched_mapping = {}
+    for speaker_label, mapping in transcription.speaker_mapping.items():
+        # Convert mapping to dict if it's a Pydantic model
+        if hasattr(mapping, 'model_dump'):
+            mapping_dict = mapping.model_dump()
+        else:
+            mapping_dict = dict(mapping) if mapping else {}
+
+        # Look up participant and add displayName
+        participant_id = mapping_dict.get('participantId')
+        if participant_id and participant_id in participant_map:
+            participant = participant_map[participant_id]
+            mapping_dict['displayName'] = participant.displayName
+        else:
+            # No participant linked or not found - displayName will be None
+            mapping_dict['displayName'] = None
+
+        enriched_mapping[speaker_label] = mapping_dict
+
+    transcription_data['speaker_mapping'] = enriched_mapping
+    return transcription_data
+
 
 @api_bp.route('/get_api_version', methods=['GET'])
 def get_api_version():
@@ -209,11 +258,61 @@ def get_recording_audio_url(recording_id):
 @require_auth
 def list_recordings():
     recording_handler = get_recording_handler()
+    transcription_handler = get_transcription_handler()
+    participant_handler = get_participant_handler()
     user = get_current_user()
     recordings = recording_handler.get_all_recordings(user.id)
 
     logger.info(f"list_recordings: found {len(recordings)} recordings for user {user.id}")
-    recording_list = [recording.model_dump() for recording in recordings]
+
+    # Collect transcription IDs to batch fetch
+    transcription_ids = [r.transcription_id for r in recordings if r.transcription_id]
+
+    # Batch fetch transcriptions and build speaker names map
+    speaker_names_map = {}  # transcription_id -> list of speaker names
+    if transcription_ids:
+        transcriptions = transcription_handler.get_transcriptions_by_ids(transcription_ids)
+
+        # Collect all participant IDs we need to look up
+        all_participant_ids = set()
+        for t in transcriptions:
+            if t.speaker_mapping:
+                for mapping in t.speaker_mapping.values():
+                    if hasattr(mapping, 'participantId') and mapping.participantId:
+                        all_participant_ids.add(mapping.participantId)
+                    elif isinstance(mapping, dict) and mapping.get('participantId'):
+                        all_participant_ids.add(mapping['participantId'])
+
+        # Batch fetch all user's participants and filter
+        participants_map = {}
+        if all_participant_ids:
+            all_participants = participant_handler.get_participants_for_user(user.id)
+            for p in all_participants:
+                if p.id in all_participant_ids:
+                    participants_map[p.id] = p.displayName
+
+        # Build speaker names for each transcription
+        for t in transcriptions:
+            names = []
+            if t.speaker_mapping:
+                for mapping in t.speaker_mapping.values():
+                    pid = None
+                    if hasattr(mapping, 'participantId'):
+                        pid = mapping.participantId
+                    elif isinstance(mapping, dict):
+                        pid = mapping.get('participantId')
+                    if pid and pid in participants_map:
+                        names.append(participants_map[pid])
+            speaker_names_map[t.id] = names
+
+    # Build response with enriched speaker_names
+    recording_list = []
+    for recording in recordings:
+        rec_dict = recording.model_dump()
+        if recording.transcription_id and recording.transcription_id in speaker_names_map:
+            rec_dict['speaker_names'] = speaker_names_map[recording.transcription_id]
+        recording_list.append(rec_dict)
+
     logger.info(f"list_recordings done")
 
     return jsonify(recording_list), 200
@@ -222,11 +321,22 @@ def list_recordings():
 @api_bp.route('/transcription/<transcription_id>', methods=['GET'])
 @require_auth
 def get_transcription_by_id(transcription_id):
+    current_user = get_current_user()
+    if not current_user:
+        return jsonify({'error': 'User not authenticated'}), 401
+
     transcription_handler = get_transcription_handler()
     transcription = transcription_handler.get_transcription(transcription_id)
-    if transcription:
-        return jsonify(transcription.model_dump()), 200
-    return jsonify({'error': 'Transcription not found'}), 404
+    if not transcription:
+        return jsonify({'error': 'Transcription not found'}), 404
+
+    # Verify ownership
+    if transcription.user_id != current_user.id:
+        return jsonify({'error': 'Transcription does not belong to current user'}), 403
+
+    # Enrich speaker_mapping with participant displayNames
+    enriched_data = enrich_transcription_with_participants(transcription, current_user.id)
+    return jsonify(enriched_data), 200
 
 # Route to get all transcriptions for a user
 @api_bp.route('/user/<user_id>/transcriptions', methods=['GET'])
@@ -723,8 +833,8 @@ def manual_postprocess_recording(recording_id):
 def update_speakers(recording_id):
     """
     Update speaker names for a recording.
-    Accepts a mapping of speaker labels to names and updates both the transcription
-    speaker mapping and the recording participants list.
+    Accepts a mapping of speaker labels to names and updates the transcription
+    speaker mapping (single source of truth for speaker data).
     """
     logger.info(f"Update speakers requested for recording {recording_id}")
     
@@ -787,18 +897,16 @@ def update_speakers(recording_id):
         if not recording.transcription_id:
             return jsonify({'error': 'Recording has not been transcribed yet'}), 400
             
-        # Update transcription and recording with participant-aware data
+        # Update transcription speaker mapping (single source of truth)
         try:
             # Handle both old and new format
             if all(isinstance(data, str) for data in speaker_mapping.values()):
                 # Old format: just speaker names
                 speaker_results = update_transcription_speaker_data(
-                    recording.transcription_id, 
-                    speaker_mapping, 
+                    recording.transcription_id,
+                    speaker_mapping,
                     reasoning="User edited"
                 )
-                participants = list(speaker_mapping.values())
-                update_recording_participants(recording_id, participants)
             else:
                 # New format: participant-aware updates
                 speaker_results = update_transcription_speaker_data_with_participants(
@@ -806,7 +914,6 @@ def update_speakers(recording_id):
                     speaker_mapping,
                     reasoning="User edited"
                 )
-                update_recording_participants_with_participants(recording_id, speaker_mapping)
             
             # Fetch updated data for response
             updated_recording = recording_handler.get_recording(recording_id)
@@ -899,42 +1006,34 @@ def update_single_speaker(transcription_id):
                 logger.warning(f"Unknown speaker data type for {label}: {type(data)}")
                 merged_mapping[label] = {}
         
-        # Create updated speaker data for this specific speaker
+        # Create normalized speaker data (no denormalized name/displayName/reasoning)
         speaker_data = {
             'participantId': participant_id,
-            'displayName': participant.displayName,
-            'name': participant.displayName,  # Keep for backward compatibility
-            'reasoning': 'Manual assignment by user',
             'confidence': 1.0,
             'manuallyVerified': manually_verified
         }
-        
+
         # Update the specific speaker
         merged_mapping[speaker_label] = speaker_data
         logger.info(f"Updated speaker {speaker_label}, merged mapping now has {len(merged_mapping)} speakers")
-        
+
         # Update transcription with the merged speaker mapping
         update_transcription_speaker_data_with_participants(
             transcription_id,
             merged_mapping,
             reasoning="Manual assignment by user"
         )
-        
-        # Also update the recording's participants if needed
-        recording_handler = get_recording_handler()
-        recording = recording_handler.get_recording(transcription.recording_id)
-        if recording:
-            # Update just this speaker in the recording's participants
-            single_speaker_update = {speaker_label: speaker_data}
-            update_recording_participants_with_participants(
-                transcription.recording_id,
-                single_speaker_update
-            )
-        
+
+        # Return enriched data for immediate frontend feedback
+        enriched_speaker_data = {
+            **speaker_data,
+            'displayName': participant.displayName  # Enriched for response only
+        }
+
         return jsonify({
             'success': True,
             'message': f'Speaker {speaker_label} assigned to {participant.displayName}',
-            'speaker_data': speaker_data
+            'speaker_data': enriched_speaker_data
         }), 200
         
     except Exception as e:

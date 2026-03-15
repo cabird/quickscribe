@@ -152,11 +152,11 @@ export const participantsService = {
     }
 
     // No match found, create new participant
-    // displayName = firstName only (shown in UI)
-    // firstName/lastName stored separately (for full name tooltip)
+    // displayName = the full name as entered (for consistent matching)
+    // firstName/lastName stored separately (for structured data)
     if (lastName) {
       return participantsService.createParticipant({
-        displayName: firstName,  // First name only for UI display
+        displayName: trimmedName,  // Full name for consistent matching
         firstName,
         lastName,
       });
@@ -164,7 +164,7 @@ export const participantsService = {
 
     // Single name - use as displayName and firstName
     return participantsService.createParticipant({
-      displayName: firstName,
+      displayName: trimmedName,
       firstName,
     });
   },

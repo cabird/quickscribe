@@ -9,10 +9,12 @@ src/auth.py
 src/blob_util.py
 src/config.py
 src/frontend-dist/assets
+src/frontend-dist/assets/index-2hoA3xYY.js
 src/frontend-dist/assets/index-Uv9gkJv4.css
-src/frontend-dist/assets/index-gTNoqNnK.js
 src/frontend-dist/favicon.png
 src/frontend-dist/index.html
+src/frontend-dist/quickscribe-icon-full.png
+src/frontend-dist/quickscribe-icon-orig.png
 src/frontend-dist/quickscribe-icon.png
 src/frontend-dist/vite.svg
 src/llms.py

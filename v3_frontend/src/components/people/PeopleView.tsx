@@ -1,6 +1,7 @@
 import { useState, useCallback, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { makeStyles } from '@fluentui/react-components';
+import { makeStyles, Button } from '@fluentui/react-components';
+import { ArrowLeft20Regular } from '@fluentui/react-icons';
 import { PeopleActionBar } from './PeopleActionBar';
 import { PeopleList } from './PeopleList';
 import { ParticipantDetailPanel } from './ParticipantDetailPanel';
@@ -13,6 +14,7 @@ import { useParticipantDetails } from '../../hooks/useParticipantDetails';
 import { usePeopleList, type SortBy, type SortOrder } from '../../hooks/usePeopleList';
 import { participantsService } from '../../services/participantsService';
 import { showToast } from '../../utils/toast';
+import { useIsMobile } from '../../hooks/useIsMobile';
 import type { UpdateParticipantRequest, CreateParticipantRequest, Participant } from '../../types';
 
 const useStyles = makeStyles({
@@ -28,10 +30,27 @@ const useStyles = makeStyles({
     overflow: 'hidden',
     minHeight: 0,
   },
+  mobileBackBar: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    padding: '8px 12px',
+    borderBottom: '1px solid #e0e0e0',
+    flexShrink: 0,
+  },
+  mobileBackTitle: {
+    fontSize: '14px',
+    fontWeight: 600,
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+    flex: 1,
+  },
 });
 
 export function PeopleView() {
   const styles = useStyles();
+  const isMobile = useIsMobile();
 
   // URL-synced selection state
   const [searchParams, setSearchParams] = useSearchParams();
@@ -284,6 +303,112 @@ export function PeopleView() {
     }
   }, [selectedParticipant, checkedParticipantIds, refetch, refetchDetails]);
 
+  const handleMobileBack = useCallback(() => {
+    setSelectedParticipantId(null);
+  }, [setSelectedParticipantId]);
+
+  const dialogs = (
+    <>
+      {/* Add Person Dialog */}
+      <AddParticipantDialog
+        open={addDialogOpen}
+        onOpenChange={setAddDialogOpen}
+        onSave={handleAddParticipant}
+        saving={saving}
+      />
+
+      {/* Delete Confirmation Dialog */}
+      <DeleteConfirmDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        participant={deleteTarget?.participant || null}
+        isBulk={deleteTarget?.isBulk || false}
+        bulkCount={checkedParticipantIds.size}
+        onConfirm={handleConfirmDelete}
+        saving={saving}
+      />
+
+      {/* Merge Participant Dialog */}
+      <MergeParticipantDialog
+        open={mergeDialogOpen}
+        onOpenChange={setMergeDialogOpen}
+        primaryParticipant={selectedParticipant}
+        participants={participants}
+        onConfirm={handleConfirmMerge}
+        saving={saving}
+      />
+    </>
+  );
+
+  // Mobile: single-panel navigation
+  if (isMobile) {
+    const showDetail = selectedParticipantId !== null;
+
+    return (
+      <div className={styles.container}>
+        {showDetail ? (
+          <>
+            <div className={styles.mobileBackBar}>
+              <Button
+                appearance="subtle"
+                icon={<ArrowLeft20Regular />}
+                onClick={handleMobileBack}
+              >
+                Back
+              </Button>
+              <span className={styles.mobileBackTitle}>
+                {selectedParticipant?.displayName || 'Person'}
+              </span>
+            </div>
+            <ParticipantDetailPanel
+              participant={selectedParticipant}
+              recordings={participantRecordings}
+              totalRecordings={totalRecordings}
+              loading={detailsLoading}
+              onRecordingClick={handleRecordingClick}
+              onSave={handleSaveParticipant}
+              existingMeParticipant={existingMeParticipant}
+              saving={saving}
+              onDelete={handleDeleteClick}
+              onMerge={handleMergeClick}
+            />
+          </>
+        ) : (
+          <>
+            <PeopleActionBar
+              searchQuery={searchQuery}
+              onSearchChange={setSearchQuery}
+              sortBy={sortBy}
+              onSortByChange={setSortBy}
+              sortOrder={sortOrder}
+              onSortOrderChange={setSortOrder}
+              groupFilter={groupFilter}
+              onGroupFilterChange={setGroupFilter}
+              uniqueGroups={uniqueGroups}
+              onRefresh={refetch}
+              onAddPerson={() => setAddDialogOpen(true)}
+              selectedCount={checkedParticipantIds.size}
+              onClearSelections={handleClearSelections}
+              onDeleteSelected={handleBulkDeleteClick}
+            />
+            <PeopleList
+              participants={filteredParticipants}
+              selectedParticipantId={selectedParticipantId}
+              onParticipantSelect={setSelectedParticipantId}
+              loading={loading}
+              width={100}
+              totalCount={participants.length}
+              checkedParticipantIds={checkedParticipantIds}
+              onCheckChange={handleCheckChange}
+            />
+          </>
+        )}
+        {dialogs}
+      </div>
+    );
+  }
+
+  // Desktop: side-by-side list + detail
   return (
     <div className={styles.container}>
       <PeopleActionBar
@@ -327,35 +452,7 @@ export function PeopleView() {
           onMerge={handleMergeClick}
         />
       </div>
-
-      {/* Add Person Dialog */}
-      <AddParticipantDialog
-        open={addDialogOpen}
-        onOpenChange={setAddDialogOpen}
-        onSave={handleAddParticipant}
-        saving={saving}
-      />
-
-      {/* Delete Confirmation Dialog */}
-      <DeleteConfirmDialog
-        open={deleteDialogOpen}
-        onOpenChange={setDeleteDialogOpen}
-        participant={deleteTarget?.participant || null}
-        isBulk={deleteTarget?.isBulk || false}
-        bulkCount={checkedParticipantIds.size}
-        onConfirm={handleConfirmDelete}
-        saving={saving}
-      />
-
-      {/* Merge Participant Dialog */}
-      <MergeParticipantDialog
-        open={mergeDialogOpen}
-        onOpenChange={setMergeDialogOpen}
-        primaryParticipant={selectedParticipant}
-        participants={participants}
-        onConfirm={handleConfirmMerge}
-        saving={saving}
-      />
+      {dialogs}
     </div>
   );
 }

@@ -238,56 +238,113 @@ class ParticipantHandler:
     def find_participants_by_name(self, user_id: str, name: str, fuzzy: bool = True) -> List[Participant]:
         """
         Find participants by name or alias.
-        
+
         Args:
             user_id: ID of the user
-            name: Name to search for
+            name: Name to search for (can be single word or "FirstName LastName")
             fuzzy: Whether to use fuzzy matching (contains)
-            
+
         Returns:
             List of matching Participant objects
         """
         try:
+            # Split multi-word names into parts for better matching
+            name_parts = name.strip().split()
+
             if fuzzy:
-                # Use CONTAINS for fuzzy matching
-                query = """
-                SELECT * FROM c
-                WHERE c.type = 'participant'
-                AND c.userId = @user_id
-                AND (
-                    CONTAINS(LOWER(c.displayName), LOWER(@name))
-                    OR CONTAINS(LOWER(c.firstName), LOWER(@name))
-                    OR CONTAINS(LOWER(c.lastName), LOWER(@name))
-                    OR EXISTS(SELECT VALUE alias FROM alias IN c.aliases WHERE CONTAINS(LOWER(alias), LOWER(@name)))
-                )
-                ORDER BY c.displayName
-                """
+                if len(name_parts) == 1:
+                    # Single word: search in all name fields
+                    query = """
+                    SELECT * FROM c
+                    WHERE c.type = 'participant'
+                    AND c.userId = @user_id
+                    AND (
+                        CONTAINS(LOWER(c.displayName), LOWER(@name))
+                        OR CONTAINS(LOWER(c.firstName), LOWER(@name))
+                        OR CONTAINS(LOWER(c.lastName), LOWER(@name))
+                        OR EXISTS(SELECT VALUE alias FROM alias IN c.aliases WHERE CONTAINS(LOWER(alias), LOWER(@name)))
+                    )
+                    ORDER BY c.displayName
+                    """
+                    parameters = [
+                        {"name": "@user_id", "value": user_id},
+                        {"name": "@name", "value": name}
+                    ]
+                else:
+                    # Multi-word name (e.g., "Carmen Badea"): match firstName+lastName combo
+                    # or check if first word matches firstName and last word matches lastName
+                    first_part = name_parts[0]
+                    last_part = name_parts[-1]
+                    query = """
+                    SELECT * FROM c
+                    WHERE c.type = 'participant'
+                    AND c.userId = @user_id
+                    AND (
+                        -- Match full name in displayName
+                        CONTAINS(LOWER(c.displayName), LOWER(@full_name))
+                        -- Match first word in firstName AND last word in lastName
+                        OR (CONTAINS(LOWER(c.firstName), LOWER(@first_part)) AND CONTAINS(LOWER(c.lastName), LOWER(@last_part)))
+                        -- Match firstName+lastName concatenated
+                        OR LOWER(CONCAT(c.firstName, ' ', c.lastName)) = LOWER(@full_name)
+                        -- Also check aliases for full match
+                        OR EXISTS(SELECT VALUE alias FROM alias IN c.aliases WHERE CONTAINS(LOWER(alias), LOWER(@full_name)))
+                    )
+                    ORDER BY c.displayName
+                    """
+                    parameters = [
+                        {"name": "@user_id", "value": user_id},
+                        {"name": "@full_name", "value": name},
+                        {"name": "@first_part", "value": first_part},
+                        {"name": "@last_part", "value": last_part}
+                    ]
             else:
                 # Exact matching
-                query = """
-                SELECT * FROM c
-                WHERE c.type = 'participant'
-                AND c.userId = @user_id
-                AND (
-                    LOWER(c.displayName) = LOWER(@name)
-                    OR LOWER(c.firstName) = LOWER(@name)
-                    OR LOWER(c.lastName) = LOWER(@name)
-                    OR EXISTS(SELECT VALUE alias FROM alias IN c.aliases WHERE LOWER(alias) = LOWER(@name))
-                )
-                ORDER BY c.displayName
-                """
-            
-            parameters = [
-                {"name": "@user_id", "value": user_id},
-                {"name": "@name", "value": name}
-            ]
-            
+                if len(name_parts) == 1:
+                    query = """
+                    SELECT * FROM c
+                    WHERE c.type = 'participant'
+                    AND c.userId = @user_id
+                    AND (
+                        LOWER(c.displayName) = LOWER(@name)
+                        OR LOWER(c.firstName) = LOWER(@name)
+                        OR LOWER(c.lastName) = LOWER(@name)
+                        OR EXISTS(SELECT VALUE alias FROM alias IN c.aliases WHERE LOWER(alias) = LOWER(@name))
+                    )
+                    ORDER BY c.displayName
+                    """
+                    parameters = [
+                        {"name": "@user_id", "value": user_id},
+                        {"name": "@name", "value": name}
+                    ]
+                else:
+                    # Multi-word exact match
+                    first_part = name_parts[0]
+                    last_part = name_parts[-1]
+                    query = """
+                    SELECT * FROM c
+                    WHERE c.type = 'participant'
+                    AND c.userId = @user_id
+                    AND (
+                        LOWER(c.displayName) = LOWER(@full_name)
+                        OR (LOWER(c.firstName) = LOWER(@first_part) AND LOWER(c.lastName) = LOWER(@last_part))
+                        OR LOWER(CONCAT(c.firstName, ' ', c.lastName)) = LOWER(@full_name)
+                        OR EXISTS(SELECT VALUE alias FROM alias IN c.aliases WHERE LOWER(alias) = LOWER(@full_name))
+                    )
+                    ORDER BY c.displayName
+                    """
+                    parameters = [
+                        {"name": "@user_id", "value": user_id},
+                        {"name": "@full_name", "value": name},
+                        {"name": "@first_part", "value": first_part},
+                        {"name": "@last_part", "value": last_part}
+                    ]
+
             items = list(self.container.query_items(
                 query=query,
                 parameters=parameters,
                 partition_key=user_id
             ))
-            
+
             return [Participant(**item) for item in items]
             
         except Exception as e:

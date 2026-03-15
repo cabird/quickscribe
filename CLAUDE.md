@@ -1,26 +1,16 @@
 # CLAUDE.md
 
-<!-- Last updated for commit: 0b5c14dba1691c16fd9cfef10ae6bccfd3490170 -->
-
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Quick Reference
 
-📋 For a comprehensive understanding of the codebase structure, see [`DIRECTORY_MAPPING.md`](./DIRECTORY_MAPPING.md). This document provides detailed summaries of every major file and directory, making it easy to understand the project architecture and locate specific functionality.
-
-📝 For current development priorities and implementation plans, see [`TODOs`](./TODOs). This file contains prioritized tasks with detailed implementation steps for ongoing development work.
-
-🎨 For the new frontend architecture and implementation details, see [`frontend_new/ARCHITECTURE.md`](./frontend_new/ARCHITECTURE.md). This document provides comprehensive technical details about the modern React frontend, including component architecture, state management, and integration patterns.
-
-🚀 For new frontend setup and usage instructions, see [`frontend_new/README.md`](./frontend_new/README.md). This covers installation, development workflow, and deployment procedures for the new frontend.
-
-⚙️ For backend architecture and implementation details, see [`backend/ARCHITECTURE.md`](./backend/ARCHITECTURE.md). This document provides comprehensive technical details about the Flask API server, database handlers, Azure services integration, and microservices communication patterns.
-
-🔧 For backend setup and usage instructions, see [`backend/README.md`](./backend/README.md). This covers installation, configuration, testing, and deployment procedures for the backend API server.
-
-🐳 For transcoder container architecture and implementation details, see [`transcoder_container/ARCHITECTURE.md`](./transcoder_container/ARCHITECTURE.md). This document provides comprehensive technical details about the containerized audio processing service, queue-based processing, and Azure Container Apps deployment.
-
-📦 For transcoder container setup and usage instructions, see [`transcoder_container/README.md`](./transcoder_container/README.md). This covers building, configuration, testing, and deployment procedures for the audio processing microservice.
+| Resource | Location | Description |
+|----------|----------|-------------|
+| **Backend Docs** | [`backend/SYSTEM_DESCRIPTION.md`](./backend/SYSTEM_DESCRIPTION.md) | Flask API architecture, routes, database handlers |
+| **Frontend Docs** | [`v3_frontend/SYSTEM_DESCRIPTION.md`](./v3_frontend/SYSTEM_DESCRIPTION.md) | React/TypeScript architecture, components, services |
+| **Plaud Sync Docs** | [`plaud_sync_service/SYSTEM_DESCRIPTION.md`](./plaud_sync_service/SYSTEM_DESCRIPTION.md) | Container Apps Job, transcription polling, sync workflow |
+| **Shared Library Docs** | [`shared_quickscribe_py/SYSTEM_DESCRIPTION.md`](./shared_quickscribe_py/SYSTEM_DESCRIPTION.md) | Shared models, handlers, Azure services |
+| **Development TODOs** | [`TODOs`](./TODOs) | Current development priorities |
 
 ## General Instructions
 
@@ -30,336 +20,376 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Potential alternatives or trade-offs
 - Questions for clarification
 
-**Confirmation Process**: After presenting the plan and resolving any questions, explicitly ask for confirmation before proceeding with implementation. This ensures alignment and prevents unnecessary rework.
+**Confirmation Process**: After presenting the plan and resolving any questions, explicitly ask for confirmation before proceeding with implementation.
 
+---
 
-## Overview
+## Project Overview
 
-QuickScribe is a full-stack audio transcription application with three main components:
-- **Backend**: Flask API server with Azure integrations (`/backend/`)
-- **Frontend**: Modern React/TypeScript web app (`/frontend_new/`)
-- **Transcoder**: Containerized audio processing service (`/transcoder_container/`)
+QuickScribe is a full-stack audio transcription application with the following components:
+
+| Component | Directory | Technology | Purpose |
+|-----------|-----------|------------|---------|
+| **Backend** | `backend/` | Flask 3.0 / Python 3.11 | REST API, authentication, AI features |
+| **Frontend** | `v3_frontend/` | React 18 / TypeScript / Vite | Web application UI |
+| **Plaud Sync** | `plaud_sync_service/` | Python / Container Apps Job | Scheduled Plaud device sync & transcription |
+| **Shared Library** | `shared_quickscribe_py/` | Python package | Shared models, handlers, Azure clients |
+| **Shared Models** | `shared/Models.ts` | TypeScript | Source of truth for data models |
+
+### Architecture Overview
+
+```
+┌─────────────────┐     ┌─────────────────────┐     ┌────────────────────┐
+│   v3_frontend   │────▶│      backend        │◀────│  plaud_sync_service│
+│   (React SPA)   │     │   (Flask API)       │     │  (Container Job)   │
+└─────────────────┘     └─────────┬───────────┘     └─────────┬──────────┘
+                                  │                           │
+                    ┌─────────────▼───────────────────────────▼──────────┐
+                    │              shared_quickscribe_py                  │
+                    │  (CosmosDB handlers, Azure services, Plaud client) │
+                    └─────────────────────────────────────────────────────┘
+                                           │
+               ┌───────────────────────────┼───────────────────────────┐
+               ▼                           ▼                           ▼
+        ┌──────────────┐          ┌──────────────┐          ┌──────────────┐
+        │ Azure CosmosDB│          │ Azure Blob   │          │ Azure Speech │
+        │ (Data store)  │          │ Storage      │          │ Services     │
+        └──────────────┘          └──────────────┘          └──────────────┘
+```
+
+---
 
 ## Key Commands
 
-#### AI Post-Processing
-```bash
-# Test AI post-processing on completed recordings
-curl -X POST http://localhost:5000/api/recording/<recording_id>/postprocess
+### Root Makefile Commands (Recommended)
 
-# Check llms.py async infrastructure
-python -c "import backend.llms; print('Async LLM infrastructure ready')"
+```bash
+# Show all available commands
+make help
+
+# Build all components (models + frontend)
+make build
+
+# Run full dev environment (frontend dev server + backend)
+make run-dev
+
+# Run backend locally (serves built frontend)
+make run-local
+
+# Build all Docker containers
+make build-containers
+
+# Deploy to Azure
+make deploy-azure        # Both backend and plaud service
+make deploy-backend      # Backend only
+make deploy-plaud        # Plaud sync service only
+
+# Version management
+make bump-version        # Bump all versions
+make bump-version-backend
+make bump-version-plaud
 ```
 
 ### Backend Development
-```bash
-# IMPORTANT: Always use the virtual environment for backend operations
-cd backend && source venv/bin/activate
 
-# Build shared models from TypeScript definitions
+```bash
+cd backend
+source venv/bin/activate  # IMPORTANT: Always activate venv
+
+# Run development server
+make local_run
+# OR: cd src && python app.py
+
+# Build Python models from TypeScript
 make build
 
-# Run Flask development server
-python app.py
-
-# Run tests (requires virtual environment)
+# Run tests
 python run_tests.py unit
-python run_tests.py fast
+python run_tests.py integration
+python run_tests.py fast    # Quick tests (excludes slow)
+python run_tests.py all     # Full suite with coverage
 
-# Deploy to Azure production
-make deploy_azure
-
-# Deploy to test slot
-make deploy_to_test
-
-# Bump version
-make bump_version
+# Docker operations
+make build_container
+make deploy_local
+make compose_up
 ```
 
 ### Frontend Development
+
 ```bash
-cd frontend_new
+cd v3_frontend
 
-# Install dependencies
-npm install
-
-# Start development server
-npm run dev
-
-# Build for production
-npm run build
-
-# Run tests
-npm test
-
-# Type checking
-npm run typecheck
-
-# Linting
-npm run lint
+npm install              # Install dependencies
+npm run dev              # Start dev server (port 3000)
+npm run build            # Production build
+npm run sync-models      # Sync from /shared/Models.ts
+npm run lint             # ESLint
+npm run format           # Prettier
+npm run deploy:build-and-copy  # Build and deploy to backend
 ```
 
-### Transcoder Container
+### Plaud Sync Service
+
 ```bash
-cd transcoder_container
+cd plaud_sync_service
 
-# Build Docker image
-make build
+# Build and deploy
+make build               # Build Docker image
+make azure-deploy        # Deploy to Azure Container Apps
 
-# Run locally
-make run
-
-# Deploy to Azure Container Apps
-make azure-deploy
-
-# Bump version and deploy
-make bump-deploy
-
-# View logs
-make logs
+# Test scripts
+python scripts/test_plaud_sync.py --max-recordings 5
+python scripts/cleanup_test_run.py --latest
+python scripts/view_jobs.py
+python scripts/clear_locks.py
 ```
 
-## Architecture
+---
 
-### Microservices Communication
-1. **Web API** → **Azure Storage Queue** → **Transcoder Service**
-2. **Transcoder** processes audio files from blob storage
-3. **Transcoder** → **Callback API** → **CosmosDB** update
+## Shared Models Workflow
 
-### Shared Models
-- Models shared amongst the backend, transcoding container, and frontend are stored in <repo>/shared/Models.ts
-- Generated Python models in `backend/db_handlers/models.py` (includes new `description` field for recordings)
-- Build with `make build` in backend directory (requires virtual environment: `source venv/bin/activate`)
-- TypeScript models in `frontend_new/src/types/index.ts`
+Models are defined in TypeScript and generated for Python/Frontend:
 
-#### Model Synchronization Workflow
-1. Edit `shared/Models.ts` 
-2. Run `make build` in backend directory
-3. Frontend models are automatically synchronized via `npm run sync-models` (runs before dev/build)
-4. Update frontend components to handle optional fields safely
+```
+shared/Models.ts (Source of Truth)
+        │
+        ├──▶ make build (in backend/)
+        │    └──▶ shared_quickscribe_py/cosmos/models.py (Python)
+        │
+        └──▶ npm run sync-models (in v3_frontend/)
+             └──▶ v3_frontend/src/types/models.ts (TypeScript copy)
+```
 
-### Database Structure
-- **CosmosDB** containers: `recordings`, `users`, `transcripts`
-- Partition keys: `userId` for recordings/transcripts, `id` for users
-- Handlers in `backend/src/db_handlers/`
+**Workflow when changing models:**
+1. Edit `shared/Models.ts`
+2. Run `make build` in `backend/` directory
+3. Run `npm run dev` or `npm run sync-models` in `v3_frontend/`
+4. Update handlers if new fields need special processing
 
-### Authentication Flow
-- Azure AD authentication via MSAL
-- Frontend acquires token → Backend validates with Azure
-- User info stored in CosmosDB on first login
+---
 
-### Queue Processing
-- Audio files uploaded to Azure Blob Storage
-- Message sent to `audio-processing-queue`
-- Transcoder picks up message, processes file
-- Status updates via callback to `/api/transcoder/callback`
-- Automatic AI post-processing triggered on completion (title, description, speakers)
+## Database (CosmosDB)
 
-## Environment Configuration
+### Containers
 
-### Backend (.env)
-Critical variables:
-- `AZURE_COSMOS_ENDPOINT`, `AZURE_COSMOS_KEY`
-- `AZURE_STORAGE_CONNECTION_STRING`
-- `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET`, `AZURE_TENANT_ID`
-- `ASSEMBLYAI_API_KEY`, `OPENAI_API_KEY`
-- `CALLBACK_URL` (for transcoder callbacks)
+| Container | Partition Key | Purpose |
+|-----------|---------------|---------|
+| `recordings` | `userId` | Audio recording metadata |
+| `users` | `id` | User profiles, Plaud settings |
+| `transcriptions` | `userId` | Transcript text, speaker diarization |
+| `job_executions` | `partitionKey` | Plaud sync job logs |
+| `deleted_items` | `userId` | Soft-delete tracking |
 
-### Frontend (.env)
-- `VITE_API_URL` (backend URL)
-- `VITE_AZURE_CLIENT_ID` (for MSAL)
+### Handler Pattern
 
-### Transcoder (.env)
-- `AZURE_STORAGE_CONNECTION_STRING`
-- `AZURE_STORAGE_QUEUE_NAME`
-- `CALLBACK_URL`, `CALLBACK_API_KEY`
-
-## Testing Strategy
-
-### Frontend Testing
-- Unit tests with Vitest: `npm test`
-- Component testing with React Testing Library
-- Run specific test: `npm test <filename>`
-
-### Backend Testing
-- **Pytest Framework**: Comprehensive test suite with unit, integration, and E2E tests
-- **Test Categories**:
-  - `python run_tests.py unit` - Unit tests for individual components
-  - `python run_tests.py integration` - API endpoint and service integration tests  
-  - `python run_tests.py e2e` - Complete workflow tests
-  - `python run_tests.py fast` - Quick tests (excludes slow tests)
-  - `python run_tests.py all` - Full test suite with coverage
-- **Test Structure**: `tests/{unit,integration,e2e}/` with shared fixtures in `conftest.py`
-- **Coverage**: Current coverage at 41%, target goal of 70%
-- **Mock Strategy**: Tests use proper mock patching at route import level to prevent database hits
-- **Requirements**: Tests require virtual environment activation (`source venv/bin/activate`)
-- **Legacy Scripts**: Standalone test scripts in `/scripts/` directory (being migrated)
-
-## Deployment Process
-
-### Production Deployment
-1. Frontend: `npm run build` → assets served by backend static file handler
-2. Backend: `make deploy_azure` → deploys to App Service
-3. Transcoder: `make azure-deploy` → deploys to Container Apps
-
-### Version Management
-- API version in `backend/src/api_version.py`
-- Transcoder version in `transcoder_container/app_version.py`
-- Bump with respective `make bump_version` commands
-
-## Key Implementation Details
-
-### Audio Processing Flow
-1. User uploads/records audio → stored in blob container
-2. Queue message created with blob reference
-3. Transcoder downloads, converts to MP3, uploads result
-4. Callback updates recording status in CosmosDB
-5. Frontend polls for status updates
-
-### Transcription Services
-- **Azure Speech Services**: Default transcription provider
-- **AssemblyAI**: Alternative provider with speaker diarization
-- Service selection in `backend/src/services/transcription_service.py`
-
-### Plaud Device Integration
-- Sync endpoint: `/plaud/sync/start`
-- Downloads recordings from Plaud API
-- Creates recording entries in CosmosDB
-- Queues for transcription processing
-
-## Pydantic Model Architecture
-
-### Extended Models with Serialization
-The codebase uses extended Pydantic models in `backend/db_handlers/user_handler.py` that override base models from `backend/db_handlers/models.py` to add proper datetime handling:
+Handlers are in `shared_quickscribe_py/cosmos/`:
 
 ```python
-class PlaudSettings(models.PlaudSettings):
-    # Override datetime fields to use actual datetime objects
-    activeSyncStarted: Optional[datetime] = None
-    lastSyncTimestamp: Optional[datetime] = None
-    
-    @field_validator('activeSyncStarted', 'lastSyncTimestamp', mode='before')
-    @classmethod
-    def parse_datetime(cls, v):
-        # Handles ISO strings from CosmosDB → datetime objects
-    
-    @field_serializer('activeSyncStarted', 'lastSyncTimestamp')
-    def serialize_datetime(self, value) -> Optional[str]:
-        # Handles datetime objects → ISO strings for storage
+from shared_quickscribe_py.cosmos import get_recording_handler, Recording
+
+handler = get_recording_handler()  # Flask request-scoped
+recording = handler.get_recording(recording_id, user_id)
+handler.save_recording(recording)
 ```
 
-**Best Practice**: Use `user_handler.save_user(user)` instead of manual dictionary conversion. Routes should work with model objects directly:
+---
+
+## API Routes (Backend)
+
+| Blueprint | Prefix | File | Purpose |
+|-----------|--------|------|---------|
+| `api_bp` | `/api` | `routes/api.py` | Core CRUD, uploads, tags |
+| `ai_bp` | `/api/ai` | `routes/ai_routes.py` | AI analysis, chat, speaker inference |
+| `local_bp` | `/api/local` | `routes/local_routes.py` | Local dev utilities |
+| `admin_bp` | `/api/admin` | `routes/admin.py` | Admin operations |
+| `participant_bp` | `/api/participants` | `routes/participant_routes.py` | Participant management |
+
+### Key Endpoints
+
+**Recordings**
+- `GET /api/recordings` - List user's recordings
+- `GET /api/recording/<id>` - Get recording details
+- `POST /api/upload` - Upload audio file
+- `PUT /api/recording/<id>` - Update recording
+- `GET /api/recording/<id>/audio-url` - Get streaming URL
+
+**AI Features**
+- `POST /api/ai/chat` - Chat with transcript context
+- `GET /api/ai/infer_speaker_names/<id>` - AI speaker inference
+- `POST /api/recording/<id>/postprocess` - Trigger AI post-processing
+
+---
+
+## Authentication
+
+- **Azure AD** authentication via MSAL
+- Frontend acquires token → Backend validates JWT
+- Token validation in `backend/src/auth.py`
+- JWKS caching with 24-hour TTL
+
+**Frontend auth toggle:**
+- `VITE_AUTH_ENABLED=true` for production
+- `VITE_AUTH_ENABLED=false` for local development without auth
+
+---
+
+## Plaud Sync Service Architecture
+
+Runs as **Azure Container Apps Job** (not HTTP server):
+
+```
+Cron Schedule → Container Start → JobExecutor → Exit
+                                       │
+                    ┌──────────────────┼──────────────────┐
+                    ▼                  ▼                  ▼
+           TranscriptionPoller   PlaudProcessor    LoggingHandler
+           (poll Azure Speech)   (download/upload)  (CosmosDB logs)
+```
+
+**Key Features:**
+- Concurrent job prevention via CosmosDB locks
+- Automatic chunking for large files (>300MB or >2 hours)
+- Deleted items blocking (prevents re-syncing deleted recordings)
+- AI post-processing (title, description generation)
+
+---
+
+## Configuration
+
+### Feature Flags (shared_quickscribe_py/config/settings.py)
+
 ```python
-# Good:
-user.plaudSettings.activeSyncToken = sync_token
-user.plaudSettings.activeSyncStarted = datetime.now(UTC)
-user_handler.save_user(user)
+from shared_quickscribe_py.config import get_settings
 
-# Avoid:
-plaud_dict = user.plaudSettings.model_dump()
-plaud_dict['activeSyncToken'] = sync_token
-user_handler.update_user(user_id, plaudSettingsDict=plaud_dict)
+settings = get_settings()
+if settings.ai_enabled:
+    # Azure OpenAI available
+if settings.plaud_enabled:
+    # Plaud integration available
 ```
 
-## Testing Strategy
+Available flags: `ai_enabled`, `cosmos_enabled`, `blob_storage_enabled`, `speech_services_enabled`, `plaud_enabled`, `azure_ad_auth_enabled`, `assemblyai_enabled`
 
-### CosmosDB Serialization Testing
-Use `scripts/test_cosmosdb_serialization.py` to validate complete database round-trips:
-- Tests all datetime field serialization/deserialization
-- Validates field modifications persist through save/retrieve cycles
-- Ensures None values handled correctly
-- Verifies legacy method compatibility
+### Environment Variables
 
-Run with: `scripts/.venv/bin/python scripts/test_cosmosdb_serialization.py`
-
-### Model-Only Testing  
-Use `scripts/test_user_models.py` for faster Pydantic validation without database:
-- Field validator testing
-- Serialization format verification
-- Edge case handling
-
-### Testing the backend
-
-Look in <repo>/docker-compose.yml to see how the local setup runs.  Write tests against the 
-backend assuming it's running locally.  Look in backend/routes/api.py for a set of
-local endpoints to handle things like loggin in locally, managing test users, etc.
-The routes have "local" in their names.
-
-## Local Development Patterns
-
-### Hot Reloading
-Backend configured for hot reloading in `startup.sh`:
+**Backend (.env)**
 ```bash
-export FLASK_APP=app.py
-export FLASK_DEBUG=1
-export FLASK_ENV=development
-python -m flask run --host=0.0.0.0 --port=$PORT --debug --reload
+AZURE_COSMOS_ENDPOINT=...
+AZURE_COSMOS_KEY=...
+AZURE_STORAGE_CONNECTION_STRING=...
+AZURE_OPENAI_API_ENDPOINT=...
+AZURE_OPENAI_API_KEY=...
+AZURE_CLIENT_ID=...  # Azure AD
 ```
 
-### Virtual Environment Usage
-Scripts require the virtual environment: `scripts/.venv/bin/python script_name.py`
+**Frontend (.env)**
+```bash
+VITE_API_URL=                     # Empty for production
+VITE_AUTH_ENABLED=true
+VITE_AZURE_CLIENT_ID=...
+VITE_AZURE_TENANT_ID=...
+```
 
-### Route Structure
-- Main API routes: `/api/*` 
-- Plaud-specific routes: `/plaud/*` (not under `/api/plaud`)
-- AI routes: `/api/ai/*` (in `backend/routes/ai_routes.py`)
-- Static file exclusions in `app.py` catch-all route include `"plaud/"`
+---
 
-#### AI Route Architecture
-- All AI operations go under `/api/ai/` prefix
-- File: `backend/routes/ai_routes.py` with `ai_bp` blueprint
-- Register in `app.py`: `app.register_blueprint(ai_bp, url_prefix='/api/ai')`
-- Speaker inference uses `transcription_id` not `recording_id`
+## Common Patterns
 
-## Common Issues & Solutions
+### Pydantic Model Usage
 
-### Pydantic Dictionary Access
-❌ **Don't**: `user.plaudSettings['field'] = value` (treats model as dict)
-✅ **Do**: `user.plaudSettings.field = value` (uses model fields)
-
-### DateTime Serialization
-❌ **Don't**: Manual `.isoformat()` conversion in routes
-✅ **Do**: Let Pydantic field serializers handle it automatically
-
-### User Updates
-❌ **Don't**: `update_user(user_id, plaudSettingsDict=dict)` 
-✅ **Do**: `save_user(user)` for clean model-based API
-
-### Plaud File Extensions
-Plaud devices create `.opus` files that are actually MP3 format. Handle in transcoder:
 ```python
-if extension == 'opus':
-    extension = 'mp3'
+# Good: Use model attributes directly
+user.plaudSettings.enableSync = True
+handler.save_user(user)
+
+# Bad: Don't treat models as dicts
+user.plaudSettings['enableSync'] = True  # ❌
 ```
 
-### Database Migration & Backward Compatibility
-When adding required fields to models, use the extended Recording class in `recording_handler.py` to provide defaults in `__init__()` for missing fields:
-```python
-def __init__(self, **data):
-    # Handle migration: provide defaults for missing required fields
-    if 'title' not in data or data['title'] is None:
-        data['title'] = data.get('original_filename', 'Unknown')
-    if 'recorded_timestamp' not in data or data['recorded_timestamp'] is None:
-        data['recorded_timestamp'] = data.get('upload_timestamp', datetime.now(UTC).isoformat())
-    super().__init__(**data)
+### Frontend Styling (Fluent UI)
+
+```typescript
+import { makeStyles, mergeClasses, tokens } from '@fluentui/react-components';
+
+const useStyles = makeStyles({
+  container: { padding: tokens.spacingHorizontalM },
+});
+
+// Good: Use mergeClasses
+className={mergeClasses(styles.container, isActive && styles.active)}
+
+// Bad: Don't use template literals
+className={`${styles.container} ${styles.active}`}  // ❌
 ```
-- Make new fields optional in `Models.ts` initially, then migrate existing data
-- Pattern: `data['new_field'] = data.get('fallback_field', default_value)`
 
-### Frontend Component State Management
+### Safe Field Access
 
-#### Recording Card Update Mechanism
-- RecordingCard components dispatch `'recordingUpdated'` CustomEvents
-- RecordingCardsPage listens for these events to update state in-place:
-```javascript
-window.dispatchEvent(new CustomEvent('recordingUpdated', { 
-    detail: { recording: updatedRecording } 
-}));
+```typescript
+// Always provide fallbacks for optional fields
+{recording.title || recording.original_filename}
+{field && <Component />}
+recording?.description
 ```
-- Prevents need for full page reloads after transcription actions
 
-#### Safe Field Access Patterns
-- Always provide fallbacks: `{recording.title || recording.original_filename}`
-- Conditional rendering for optional fields: `{field && <Component />}`
-- Use TypeScript optional fields (`field?: type`) during migrations
-- Handle both prop updates and internal state changes in components
+---
+
+## Development Workflows
+
+### Local Development
+
+```bash
+# Terminal 1: Backend
+cd backend && source venv/bin/activate && make local_run
+
+# Terminal 2: Frontend
+cd v3_frontend && npm run dev
+
+# Frontend at http://localhost:3000 (proxies to backend at 5050)
+```
+
+### Full Stack with Docker
+
+```bash
+make build              # Build all components
+make build-containers   # Build Docker images
+make run-local-container  # Run in Docker
+```
+
+### Testing
+
+```bash
+# Backend tests
+cd backend && source venv/bin/activate
+python run_tests.py fast
+
+# Plaud sync test with cleanup
+cd plaud_sync_service
+python scripts/test_plaud_sync.py --max-recordings 3
+python scripts/cleanup_test_run.py --latest
+```
+
+---
+
+## Known Quirks
+
+1. **Plaud `.opus` files**: Actually MP3 format - handled automatically
+2. **Frontend port**: Dev server on 3000, proxies `/api` and `/plaud` to backend on 5050
+3. **Virtual environment**: Backend and scripts require `source venv/bin/activate`
+4. **Model sync**: Frontend models auto-sync on `npm run dev` / `npm run build`
+5. **Azure Speech API**: Uses v3.2 endpoint with custom client in `plaud_sync_service/azure_speech/`
+
+---
+
+## File Locations Reference
+
+| What | Where |
+|------|-------|
+| TypeScript models (source) | `shared/Models.ts` |
+| Python models (generated) | `shared_quickscribe_py/cosmos/models.py` |
+| Frontend models (synced) | `v3_frontend/src/types/models.ts` |
+| Database handlers | `shared_quickscribe_py/cosmos/*_handler.py` |
+| Backend routes | `backend/src/routes/*.py` |
+| LLM prompts | `backend/prompts.yaml`, `plaud_sync_service/src/prompts.yaml` |
+| API version | `backend/src/api_version.py` |
+| Frontend components | `v3_frontend/src/components/` |
+| Frontend services | `v3_frontend/src/services/` |

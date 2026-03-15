@@ -13,7 +13,7 @@ from shared_quickscribe_py.cosmos import (
     JobExecutionHandler, ManualReviewItemHandler, DeletedItemsHandler,
     Recording, User, JobExecution, JobExecutionStats, ManualReviewItem
 )
-from shared_quickscribe_py.cosmos.models import Status10 as JobStatus
+from shared_quickscribe_py.cosmos.models import Status11 as JobStatus
 from shared_quickscribe_py.azure_services import BlobStorageClient
 from shared_quickscribe_py.plaud import PlaudClient
 

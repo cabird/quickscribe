@@ -162,10 +162,10 @@ export function RecordingCard({ recording, isSelected, isChecked, onCheckChange,
         </div>
       )}
 
-      {recording.participants && recording.participants.length > 0 && (
+      {recording.speaker_names && recording.speaker_names.length > 0 && (
         <div className={styles.metaRow}>
           <People20Regular className={styles.icon} />
-          <Text>{formatSpeakersList(recording.participants)}</Text>
+          <Text>{formatSpeakersList(recording.speaker_names)}</Text>
         </div>
       )}
 

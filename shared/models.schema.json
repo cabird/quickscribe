@@ -630,6 +630,48 @@
             ],
             "type": "object"
         },
+        "GetParticipantRecordingsResponse": {
+            "properties": {
+                "count": {
+                    "type": "number"
+                },
+                "data": {
+                    "items": {
+                        "$ref": "#/definitions/Recording"
+                    },
+                    "type": "array"
+                },
+                "error": {
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "status": {
+                    "enum": [
+                        "error",
+                        "success"
+                    ],
+                    "type": "string"
+                },
+                "total": {
+                    "type": "number"
+                }
+            },
+            "propertyOrder": [
+                "total",
+                "status",
+                "data",
+                "count",
+                "message",
+                "error"
+            ],
+            "required": [
+                "status",
+                "total"
+            ],
+            "type": "object"
+        },
         "GetParticipantResponse": {
             "properties": {
                 "count": {
@@ -1730,14 +1772,10 @@
                             }
                         },
                         "propertyOrder": [
-                            "name",
-                            "displayName",
-                            "reasoning",
                             "participantId",
                             "confidence",
-                            "manuallyVerified"
-                        ],
-                        "required": [
+                            "manuallyVerified",
+                            "displayName",
                             "name",
                             "reasoning"
                         ],
@@ -1882,6 +1920,9 @@
                 "firstName": {
                     "type": "string"
                 },
+                "isUser": {
+                    "type": "boolean"
+                },
                 "lastName": {
                     "type": "string"
                 },
@@ -1907,7 +1948,8 @@
                 "organization",
                 "relationshipToUser",
                 "notes",
-                "aliases"
+                "aliases",
+                "isUser"
             ],
             "type": "object"
         },

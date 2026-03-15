@@ -1,8 +1,18 @@
-import type { RecordingParticipant } from '../types';
+import type { RecordingParticipant, SpeakerMapping } from '../types';
 
 export function truncateText(text: string, maxLength: number): string {
   if (text.length <= maxLength) return text;
   return text.substring(0, maxLength) + '...';
+}
+
+/**
+ * Extract speaker display names from a transcription's speaker_mapping
+ */
+export function getSpeakerNamesFromMapping(speakerMapping?: SpeakerMapping): string[] {
+  if (!speakerMapping) return [];
+  return Object.values(speakerMapping)
+    .map(mapping => mapping.displayName)
+    .filter((name): name is string => !!name);
 }
 
 /**

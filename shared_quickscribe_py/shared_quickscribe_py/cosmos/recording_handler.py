@@ -124,7 +124,39 @@ class RecordingHandler:
         logger.info("Querying all recordings")
         recordings = [Recording(**filter_cosmos_fields(rec)) for rec in recordings]
         logger.info(f"Found {len(recordings)} recordings")
-        return recordings   
+        return recordings
+
+    def get_recordings_by_ids(self, recording_ids: List[str]) -> List[Recording]:
+        """
+        Get multiple recordings by their IDs in a single query.
+
+        :param recording_ids: List of recording IDs to fetch.
+        :return: List of Recording model instances (order not guaranteed).
+        """
+        if not recording_ids:
+            return []
+
+        # CosmosDB IN clause has a limit, so chunk if needed
+        chunk_size = 100
+        all_recordings = []
+
+        for i in range(0, len(recording_ids), chunk_size):
+            chunk = recording_ids[i:i + chunk_size]
+            # Build parameterized IN clause
+            params = [{"name": f"@id{j}", "value": rid} for j, rid in enumerate(chunk)]
+            id_placeholders = ", ".join(f"@id{j}" for j in range(len(chunk)))
+
+            query = f"SELECT * FROM c WHERE c.partitionKey = 'recording' AND c.id IN ({id_placeholders})"
+
+            items = list(self.container.query_items(
+                query=query,
+                parameters=params,
+                partition_key="recording"
+            ))
+            all_recordings.extend([Recording(**filter_cosmos_fields(item)) for item in items])
+
+        logger.info(f"Fetched {len(all_recordings)} recordings by IDs")
+        return all_recordings
 
     def get_user_plaud_ids(self, user_id: str) -> List[str]:
         """Get all Plaud IDs that have been synced for a user."""

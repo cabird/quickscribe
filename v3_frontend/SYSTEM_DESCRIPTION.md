@@ -1,5 +1,5 @@
 # System Description
-**Git commit:** 798b46476c2d52dc8c006a9bbfdf98d8c1623415
+**Git commit:** 5b007ef08f5714d19faf318994f63082d90698fd
 
 ## 1. Repository Structure
 
@@ -15,73 +15,67 @@ v3_frontend/
 │   ├── tech_guidance.md
 │   └── fluent_ui_mock.jsx
 ├── public/                     # Static assets
-│   └── vite.svg
+│   ├── favicon.png
+│   ├── quickscribe-icon.png
+│   ├── quickscribe-icon-full.png
+│   └── quickscribe-icon-orig.png
 ├── scripts/                    # Build and automation scripts
 │   └── sync-models.js          # Auto-sync TypeScript models from /shared
 ├── src/                        # Application source code
+│   ├── auth/                   # Authentication module (NEW)
+│   │   └── msalInstance.ts     # Azure AD MSAL client initialization
 │   ├── components/             # React UI components
-│   │   ├── jobs/               # Job monitoring views (JobsList, JobCard, JobViewer)
-│   │   ├── layout/             # Core layout (MainLayout, NavigationRail, TopActionBar, ResizableSplitter)
+│   │   ├── auth/               # Authentication components (NEW)
+│   │   │   └── AuthButton.tsx  # Login/logout user menu
+│   │   ├── jobs/               # Job monitoring views
+│   │   ├── layout/             # Core layout (MainLayout, NavigationRail, TopActionBar)
 │   │   ├── logs/               # Placeholder for future logging UI
 │   │   ├── search/             # Placeholder for search functionality
-│   │   └── transcripts/        # Recording and transcript views (RecordingCard, TranscriptViewer, ChatDrawer)
+│   │   ├── settings/           # User settings (NEW)
+│   │   │   └── SettingsView.tsx
+│   │   └── transcripts/        # Recording and transcript views (enhanced)
+│   │       ├── AudioPlayer.tsx         # Audio playback with seek (NEW)
+│   │       ├── SpeakerDropdown.tsx     # Speaker selection/creation (NEW)
+│   │       └── useTranscriptParser.ts  # Transcript parsing hook (NEW)
 │   ├── config/                 # Application configuration
+│   │   ├── authConfig.ts       # MSAL/Azure AD configuration (NEW)
 │   │   ├── constants.ts
 │   │   └── styles.ts
 │   ├── hooks/                  # Custom React hooks
-│   │   ├── useJobDetails.ts
-│   │   ├── useJobs.ts
-│   │   ├── useRecordings.ts
-│   │   └── useTranscription.ts
 │   ├── services/               # API client and service layers
-│   │   ├── api.ts              # Axios API client with interceptors
-│   │   ├── chatService.ts      # Chat/conversation API
-│   │   ├── jobsService.ts      # Job monitoring API
-│   │   ├── recordingsService.ts
-│   │   ├── transcriptionsService.ts
-│   │   └── versionService.ts
+│   │   ├── api.ts              # Axios API client with MSAL auth (ENHANCED)
+│   │   ├── participantsService.ts  # Participant CRUD operations (NEW)
+│   │   ├── userService.ts      # Current user and settings API (NEW)
+│   │   └── ...                 # Other services
 │   ├── styles/                 # Global CSS
-│   │   └── globals.css
 │   ├── theme/                  # Fluent UI theme customization
-│   │   └── customTheme.ts
 │   ├── types/                  # TypeScript type definitions
-│   │   ├── api.ts              # API-specific types
-│   │   ├── index.ts            # Exported type definitions
-│   │   └── models.ts           # Auto-generated from /shared/Models.ts
-│   ├── utils/                  # Utility functions
-│   │   ├── chatUtils.ts
-│   │   ├── dateUtils.ts
-│   │   ├── exportTranscript.ts
-│   │   ├── formatters.ts
-│   │   └── toast.ts
-│   ├── App.tsx                 # Root application component
-│   └── main.tsx                # Application entry point
+│   └── utils/                  # Utility functions
+├── ADDING_AUTH.md              # Authentication implementation guide (NEW)
+├── AUTH_IMPLEMENTATION.md      # Detailed auth architecture (NEW)
 ├── API_CONFIGURATION.md
 ├── DEPLOYMENT.md
 ├── README.md
-├── deploy.sh
 ├── index.html                  # Vite HTML template
 ├── package.json
-├── package-lock.json
-├── tsconfig.json               # TypeScript compiler config
-├── tsconfig.node.json
 └── vite.config.ts              # Vite build configuration
 ```
 
 ## 2. Languages, Size & Composition
 
 - **Primary Language**: TypeScript (React/TSX)
-- **File Count**: 43 TypeScript/TSX source files
-- **Total Lines of Code**: ~3,484 lines (excluding node_modules)
+- **File Count**: 54 TypeScript/TSX source files
+- **Total Lines of Code**: ~5,663 lines (excluding node_modules)
 - **Configuration**: JSON (package.json, tsconfig.json)
 - **Build Tool**: Vite 7.2.2
 - **Styling**: CSS + Fluent UI makeStyles API
 
 **File Distribution**:
-- Components: 20 TSX files
-- Services: 6 TypeScript modules
-- Hooks: 4 custom React hooks
+- Components: 24 TSX files (including new auth, settings, audio player)
+- Services: 8 TypeScript modules (added participants, user services)
+- Hooks: 5 custom React hooks (added useTranscriptParser)
 - Utils: 5 utility modules
+- Auth: 2 TypeScript modules (MSAL instance, auth config)
 - Configuration & Build: 7 files
 
 ## 3. Key Components and Modules
@@ -89,13 +83,27 @@ v3_frontend/
 ### Core Application Structure
 
 **Entry Points**:
-- `main.tsx` - React root rendering with StrictMode
+- `main.tsx` - React root rendering with StrictMode, conditional MsalProvider wrapping
 - `App.tsx` - Root component with FluentProvider, theme, and toast container
+
+**Authentication System** (`src/auth/`, `src/config/authConfig.ts`, `src/components/auth/`):
+- `msalInstance.ts` - Azure AD MSAL PublicClientApplication initialization
+  - Handles redirect promise on app load
+  - Event callbacks for login/logout/token events
+  - Active account management
+- `authConfig.ts` - MSAL configuration
+  - `msalConfig` - Client ID, tenant, redirect URI, cache settings
+  - `loginRequest` - Required OAuth scopes (user_impersonation)
+  - `authEnabled` flag - Toggle authentication on/off via env var
+- `AuthButton.tsx` - User authentication UI component
+  - Shows "Sign In" button when not authenticated
+  - Shows user avatar/menu with logout when authenticated
+  - Only renders when `authEnabled=true`
 
 **Layout System** (`src/components/layout/`):
 - `MainLayout.tsx` - Top-level layout with navigation and view switching
-- `NavigationRail.tsx` - Left sidebar navigation (transcripts/logs/search views)
-- `TopActionBar.tsx` - Top action bar with controls
+- `NavigationRail.tsx` - Left sidebar navigation (transcripts/jobs/settings views)
+- `TopActionBar.tsx` - Top action bar with controls and AuthButton
 - `ResizableSplitter.tsx` - Drag-to-resize panel divider
 
 ### Feature Modules
@@ -105,10 +113,22 @@ v3_frontend/
 - `RecordingsList.tsx` - List of recording cards with filtering
 - `RecordingCard.tsx` - Individual recording card with metadata and actions
 - `TranscriptViewer.tsx` - Full transcript display with speaker diarization
-- `TranscriptEntry.tsx` - Individual transcript segment display
+- `TranscriptEntry.tsx` - Individual transcript segment with speaker renaming
 - `ChatDrawer.tsx` - AI chat interface for recordings
 - `ChatMessage.tsx` - Individual chat message component
 - `ChatInput.tsx` - Chat input with send functionality
+- `AudioPlayer.tsx` - **NEW** Audio playback component with play/pause, seek, progress bar
+  - Exposes `seekTo(timeMs)` via ref for click-to-seek from transcript
+- `SpeakerDropdown.tsx` - **NEW** Dropdown for selecting/creating speakers
+  - Typeahead search with keyboard navigation
+  - Inline "Add new" option for creating participants
+- `useTranscriptParser.ts` - **NEW** Hook for parsing transcript data
+
+**Settings View** (`src/components/settings/`) - **NEW**:
+- `SettingsView.tsx` - User settings and preferences
+  - Profile card (name, email, role, Azure AD ID)
+  - Plaud Integration settings (enable sync toggle, bearer token input)
+  - Save changes with toast feedback
 
 **Jobs View** (`src/components/jobs/`):
 - `JobsView.tsx` - Job monitoring view with list and details
@@ -125,10 +145,15 @@ v3_frontend/
 ### Service Layer (`src/services/`)
 
 **API Client**:
-- `api.ts` - Axios instance with interceptors, base URL configuration
+- `api.ts` - Axios instance with MSAL token acquisition
   - Development: proxies through Vite dev server
   - Production: uses relative URLs (served by Flask backend)
-  - Interceptors for auth (placeholder) and error handling
+  - Request interceptor: acquires Azure AD access token via MSAL
+    - Silent acquisition with cached/refresh tokens
+    - Falls back to interactive popup if silent fails
+    - Redirects to login if no accounts exist
+  - Response interceptor: handles 401 with login redirect
+  - `authEnabled` flag controls whether auth is applied
 
 **Domain Services**:
 - `recordingsService.ts` - Recording CRUD operations
@@ -136,6 +161,14 @@ v3_frontend/
 - `jobsService.ts` - Job monitoring and filtering
 - `chatService.ts` - AI chat conversation API
 - `versionService.ts` - API version checking
+- `userService.ts` - **NEW** Current user profile and settings
+  - `getCurrentUser()` - Fetch authenticated user's profile
+  - `updatePlaudSettings()` - Update Plaud integration settings
+- `participantsService.ts` - **NEW** Participant management
+  - `getParticipants()` - List all user's participants
+  - `createParticipant()` - Create new participant
+  - `searchParticipants()` - Fuzzy search by name
+  - `findOrCreateParticipant()` - Helper for speaker assignment
 
 ### Custom Hooks (`src/hooks/`)
 
@@ -194,6 +227,10 @@ v3_frontend/
 - `react-router-dom@7.9.6` - Client-side routing
 - `vite@7.2.2` - Build tool and dev server
 
+**Authentication** (NEW):
+- `@azure/msal-browser@4.26.1` - Microsoft Authentication Library for SPAs
+- `@azure/msal-react@3.0.21` - React hooks and components for MSAL
+
 **UI Library**:
 - `@fluentui/react-components@9.72.7` - Microsoft Fluent UI v9
 - `@fluentui/react-icons@2.0.314` - Fluent UI icons
@@ -231,34 +268,48 @@ v3_frontend/
 ### Application Flow
 
 **Initialization**:
-1. `main.tsx` renders `<App />` into `#root` element
-2. `App.tsx` wraps application in FluentProvider (theme) and ToastContainer
-3. `MainLayout.tsx` manages view state (transcripts/logs/search)
+1. `main.tsx` conditionally wraps `<App />` in `<MsalProvider>` based on `authEnabled`
+2. MSAL instance initializes and handles any pending redirect responses
+3. `App.tsx` wraps application in FluentProvider (theme) and ToastContainer
+4. `MainLayout.tsx` manages view state (transcripts/jobs/settings)
+
+**Authentication Flow** (when `authEnabled=true`):
+1. App startup: MSAL instance initializes, processes redirect promise
+2. First API call: `api.ts` interceptor calls `getAccessToken()`
+3. If no accounts exist: triggers `loginRedirect()` to Azure AD
+4. If accounts exist: attempts `acquireTokenSilent()` with cached tokens
+5. On token failure: falls back to `acquireTokenPopup()`, then redirect
+6. Token added to Authorization header as `Bearer <token>`
+7. Backend validates JWT token against Azure AD
 
 **View Routing**:
 - No traditional routing library usage in MainLayout
 - View switching via state: `activeView` state controls which view renders
-- Views: `TranscriptsView`, `JobsView`, `SearchPlaceholder`
+- Views: `TranscriptsView`, `JobsView`, `SettingsView`, `SearchPlaceholder`
 
 **Data Flow Pattern**:
 1. Custom hooks (useRecordings, useJobs, useTranscription) fetch data via services
 2. Services use `apiClient` (Axios instance) to call backend APIs
-3. Components receive data from hooks, render UI
-4. User actions trigger service calls, state updates via hooks
+3. API client automatically acquires and attaches auth tokens
+4. Components receive data from hooks, render UI
+5. User actions trigger service calls, state updates via hooks
 
 **API Communication**:
 - **Development Mode**:
   - Frontend runs on `localhost:3000`
   - Vite proxy forwards `/api`, `/plaud`, `/az_transcription` to `localhost:5050`
+  - Set `VITE_AUTH_ENABLED=false` for no-auth development
 - **Production Mode**:
   - Frontend served as static files by Flask backend
   - Uses relative URLs (empty `VITE_API_URL`)
+  - Set `VITE_AUTH_ENABLED=true` for full Azure AD authentication
   - All requests go to same origin
 
 **State Management**:
 - React hooks (useState, useEffect) - no external state library
 - Component-local state for UI interactions
 - Custom hooks for data fetching and caching
+- MSAL manages authentication state in localStorage
 
 ### Three-Column Layout (TranscriptsView)
 
@@ -274,13 +325,19 @@ v3_frontend/
 - `GET /api/recordings` - List all recordings
 - `GET /api/recording/<id>` - Get recording details
 - `GET /api/transcription/<id>` - Get transcription with segments
-- `GET /api/recording/<id>/audio-url` - Get audio playback URL (planned)
+- `GET /api/recording/<id>/audio-url` - Get audio playback URL
 - `GET /api/jobs` - List jobs (with filters)
 - `GET /api/jobs/<id>` - Get job details with logs
 - `POST /api/chat` - Chat with AI about recordings
+- `GET /api/me` - Get current user profile (NEW)
+- `PUT /api/me/plaud-settings` - Update Plaud settings (NEW)
+- `GET /api/participants` - List user's participants (NEW)
+- `POST /api/participants` - Create participant (NEW)
+- `GET /api/participants/search` - Search participants by name (NEW)
 
 **Error Handling**:
 - API client interceptor logs errors to console
+- 401 responses trigger automatic login redirect (when auth enabled)
 - Individual services handle error display (toasts)
 - No automatic retry logic
 
@@ -341,18 +398,6 @@ npm run format    # Prettier format
 
 ## 7. Known Limitations / TODOs
 
-### Code-Level TODOs
-
-**Authentication** (`src/services/api.ts:21`):
-```typescript
-// TODO: Add Azure AD token when auth is implemented
-```
-- Azure AD authentication deferred to Phase 2
-- Request interceptor has placeholder for Bearer token
-
-**Documentation** (`docs/IMPLEMENTATION_PLAN.md:276`):
-- Same TODO mentioned in implementation plan
-
 ### Feature Gaps (from README.md)
 
 **Phase 1 Complete** ✅:
@@ -363,29 +408,30 @@ npm run format    # Prettier format
 - Three-panel Outlook-style layout
 - Jobs monitoring view
 
-**Phase 2 Planned**:
+**Phase 2 Complete** ✅:
+- Azure AD authentication (MSAL integration)
+- User settings view with Plaud integration
+- Audio playback with click-to-seek from transcript
+
+**Phase 3 Complete** ✅:
+- Speaker identification UI (SpeakerDropdown)
+- Participant management (participantsService)
+- Speaker assignment workflow (inline renaming in TranscriptEntry)
+
+**Remaining Planned**:
 - Tag management and filtering
 - Advanced full-text search
 - Service logs view
 - RAG semantic search
-- Azure AD authentication
-
-**Phase 3 Planned**:
-- Speaker identification UI
-- Participant management
-- Speaker assignment workflow
-
-**Phase 4 Planned**:
-- Audio playback with transcript sync
-- Click-to-seek timestamps
-- Playback controls
 
 ### Current State
 
-- **No authentication** - open API access
-- **No state persistence** - all state in memory
+- **Authentication implemented** - Azure AD via MSAL (toggle with `VITE_AUTH_ENABLED`)
+- **Audio playback implemented** - AudioPlayer with seek, integrated with transcript
+- **Speaker management implemented** - Create/search participants, assign to transcript entries
+- **Settings view implemented** - User profile and Plaud integration settings
+- **No state persistence** - all state in memory (except MSAL tokens in localStorage)
 - **Placeholder views** - Logs and Search not implemented
-- **No audio playback** - audio URL endpoint exists but no player
 - **No tag management** - tags displayed but not editable
 - **Limited error handling** - basic console logging, toast for user errors
 
@@ -398,6 +444,14 @@ npm run format    # Prettier format
 - Do NOT edit `src/types/models.ts` directly (auto-generated file)
 - Changes to shared models require backend rebuild: `cd ../backend && make build`
 
+**Authentication Considerations**:
+- Authentication is controlled by `VITE_AUTH_ENABLED` environment variable
+- For local development without auth: set `VITE_AUTH_ENABLED=false`
+- For testing auth flow: set `VITE_AUTH_ENABLED=true` with valid Azure AD config
+- MSAL instance is a singleton - access via `src/auth/msalInstance.ts`
+- Use `useIsAuthenticated()` and `useMsal()` hooks from `@azure/msal-react`
+- API client automatically handles token acquisition - no manual token handling needed
+
 **Component Development**:
 - Use Fluent UI v9 components from `@fluentui/react-components`
 - Follow makeStyles pattern for styling (see existing components)
@@ -409,6 +463,7 @@ npm run format    # Prettier format
 - Create custom hook for data fetching patterns
 - Use toast notifications for user feedback (`src/utils/toast.ts`)
 - Handle loading/error states in components
+- API client handles auth automatically - just make requests
 
 **Type Safety**:
 - Leverage TypeScript strict mode
@@ -474,8 +529,10 @@ export function MyComponent() {
 - Vite handles code splitting automatically
 
 **Environment Variables**:
-- Development: `VITE_API_URL=http://localhost:5050` (or use proxy)
-- Production: `VITE_API_URL=` (empty, uses relative URLs)
+- `VITE_API_URL` - Backend API URL (empty for production, `http://localhost:5050` for dev without proxy)
+- `VITE_AUTH_ENABLED` - Enable Azure AD authentication (`true`/`false`)
+- `VITE_AZURE_CLIENT_ID` - Azure AD application (client) ID
+- `VITE_AZURE_TENANT_ID` - Azure AD tenant ID (or `common` for multi-tenant)
 - Add `.env.development` and `.env.production` files as needed
 
 ### Architecture Recommendations

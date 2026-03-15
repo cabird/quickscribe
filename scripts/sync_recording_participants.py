@@ -1,8 +1,20 @@
 #!/usr/bin/env python3
 """
-Script to sync recording participants from transcription speaker mappings.
-This fixes recordings where participants were replaced instead of merged.
+DEPRECATED: This script is no longer needed.
+
+Recording.participants has been removed from the data model.
+Speaker mappings are now stored only in transcription.speaker_mapping.
+
+This script was used to sync recording participants from transcription speaker mappings.
+It is kept for historical reference only.
 """
+
+import sys
+print("ERROR: This script is deprecated. Recording.participants is no longer used.")
+print("Speaker mappings are stored only in transcription.speaker_mapping.")
+sys.exit(1)
+
+# Original code below (not executed) ---
 
 import sys
 import os

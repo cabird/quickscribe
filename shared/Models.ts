@@ -98,7 +98,7 @@ export interface Recording {
     description?: string; // AI-generated description (1-2 sentences about recording content)
     recorded_timestamp?: string; // ISO timestamp when the recording was actually made
     duration?: number; // Duration of the recording in seconds (may be unknown)
-    participants?: string[] | RecordingParticipant[]; // LEGACY: string[] for backward compatibility, NEW: RecordingParticipant[] for enhanced participant tracking
+    participants?: string[] | RecordingParticipant[]; // DEPRECATED: Do not use. Speaker mappings are now stored in transcription.speaker_mapping only.
     
     // Transcription related fields
     transcription_status?: "not_started" | "in_progress" | "completed" | "failed"; // Transcription status with specific values
@@ -133,6 +133,9 @@ export interface Recording {
     is_dummy_recording?: boolean; // Indicates if this is a dummy recording for testing
     testRunId?: string; // Test run identifier for cleanup purposes (only set during test runs)
     chunkGroupId?: string; // UUID linking all chunks from the same original recording (only set for chunked recordings)
+
+    // Enriched fields (API response only, not stored in database)
+    speaker_names?: string[]; // Speaker display names enriched from transcription.speaker_mapping
 }
 
 // Progress tracking for Plaud sync operations
@@ -300,6 +303,24 @@ export interface AnalysisResult {
     responseTokens?: number; // Number of tokens in the response
 }
 
+// Speaker mapping entry for a single speaker label
+export interface SpeakerMappingEntry {
+    participantId?: string;     // References Participant.id (primary link)
+    confidence?: number;        // AI confidence in identification (0-1)
+    manuallyVerified?: boolean; // User confirmed this mapping
+    displayName?: string;       // Enriched from Participant at query time (not stored)
+    // Legacy fields (read-only, not written to new data)
+    name?: string;              // @deprecated - use displayName from enrichment
+    reasoning?: string;         // @deprecated - AI debug artifact, no longer stored
+}
+
+// Speaker mapping: links speaker labels to participants
+// Storage: only participantId, confidence, manuallyVerified are stored
+// API Response: displayName is enriched at query time from Participant lookup
+export type SpeakerMapping = {
+    [speakerLabel: string]: SpeakerMappingEntry;
+};
+
 // Represents a transcription entity
 export interface Transcription {
     id: string; // Unique identifier for the transcription
@@ -315,17 +336,8 @@ export interface Transcription {
     partitionKey: string;
     testRunId?: string; // Test run identifier for cleanup purposes (only set during test runs)
 
-     // Detailed speaker mapping with inferred name and reasoning for each speaker
-     speaker_mapping?: {
-        [speakerLabel: string]: {
-            name: string; // Inferred name or label for the speaker (kept for backward compatibility)
-            displayName?: string; // How the speaker should be displayed (optional for backward compatibility)
-            reasoning: string; // Concise reasoning for the inferred label
-            participantId?: string; // References Participant.id when linked
-            confidence?: number; // AI confidence in identification (0-1)
-            manuallyVerified?: boolean; // User confirmed this mapping
-        };
-    };
+    // Speaker mapping: links speaker labels to participants
+    speaker_mapping?: SpeakerMapping;
 
     // AI-generated analysis results for this transcription
     analysisResults?: AnalysisResult[];

@@ -502,28 +502,35 @@ def get_participant_recordings(participant_id: str):
                 'error': 'Participant not found'
             }), 404
 
-        # Get recordings where this participant appears
-        from shared_quickscribe_py.cosmos import get_recording_handler
+        # Get recordings where this participant appears via transcription.speaker_mapping
+        from shared_quickscribe_py.cosmos import get_recording_handler, get_transcription_handler
         recording_handler = get_recording_handler()
+        transcription_handler = get_transcription_handler()
 
-        # Query recordings for the user that have this participant in their participants array
-        # The participants field can be either a list of strings or a list of RecordingParticipant objects
-        # We need to check for both cases
-        all_recordings = recording_handler.get_all_recordings(user_id=user_id)
+        # Get only recording_id and speaker_mapping (optimized - no transcript text)
+        speaker_mappings = transcription_handler.get_speaker_mappings_for_user(user_id)
 
-        # Filter recordings where this participant appears
-        matching_recordings = []
-        for recording in all_recordings:
-            if recording.participants:
-                for p in recording.participants:
-                    # Check if it's a RecordingParticipant object (has participantId)
-                    if hasattr(p, 'participantId') and p.participantId == participant_id:
-                        matching_recordings.append(recording)
-                        break
-                    # Check if it's a dict with participantId
-                    elif isinstance(p, dict) and p.get('participantId') == participant_id:
-                        matching_recordings.append(recording)
-                        break
+        # Find recording IDs where this participant appears in speaker_mapping
+        matching_recording_ids = set()
+        for item in speaker_mappings:
+            speaker_mapping = item.get('speaker_mapping') or {}
+            for speaker_label, mapping in speaker_mapping.items():
+                # Handle both dict and SpeakerMapping Pydantic object
+                if isinstance(mapping, dict):
+                    pid = mapping.get('participantId')
+                elif hasattr(mapping, 'participantId'):
+                    pid = mapping.participantId
+                else:
+                    continue
+                if pid == participant_id:
+                    matching_recording_ids.add(item.get('recording_id'))
+                    break
+
+        # Get all matching recordings in a single batch query
+        matching_recordings = recording_handler.get_recordings_by_ids(list(matching_recording_ids))
+
+        # Sort by recorded_timestamp descending (most recent first)
+        matching_recordings.sort(key=lambda r: r.recorded_timestamp or '', reverse=True)
 
         # Get total count before pagination
         total = len(matching_recordings)

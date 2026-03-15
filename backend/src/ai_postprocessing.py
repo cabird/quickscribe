@@ -245,11 +245,8 @@ def update_speaker_names(transcription_id: str, transcript_text: str, recording_
             # Get participant info for this speaker
             participant_info = participant_suggestions.get(speaker_id, {})
             
-            # Create enhanced SpeakerMapping with participant data
+            # Create normalized SpeakerMapping (no denormalized name/displayName/reasoning)
             formatted_speaker_mapping[speaker_id] = SpeakerMapping(
-                name=speaker_data["name"],
-                displayName=participant_info.get("displayName", speaker_data["name"]),
-                reasoning=speaker_data["reasoning"],
                 participantId=participant_info.get("participantId"),
                 confidence=participant_info.get("confidence"),
                 manuallyVerified=participant_info.get("manuallyVerified", False)
@@ -276,16 +273,10 @@ def update_speaker_names(transcription_id: str, transcript_text: str, recording_
         if transcription:
             transcription.speaker_mapping = formatted_speaker_mapping
             transcription_handler.update_transcription(transcription)
-            
-            # Update recording with participant data (new format)
-            if recording_participants:
-                recording.participants = recording_participants
-                if 'recording_handler' not in locals():
-                    recording_handler = get_recording_handler()
-                recording_handler.update_recording(recording)
-                logger.info(f"Updated recording {recording_id} with {len(recording_participants)} participant links")
-            
-            # Extract participant names for backward compatibility
+
+            # Note: We no longer store participants on recordings - only in transcription.speaker_mapping
+
+            # Extract participant names for backward compatibility in response
             participant_names = [p.displayName for p in recording_participants]
             if not participant_names:
                 # Fallback to speaker names if no participants linked
@@ -574,113 +565,61 @@ def postprocess_recording_full(recording_id: str) -> Dict[str, any]:
 def update_transcription_speaker_data_with_participants(transcription_id: str, speaker_mapping: dict, reasoning: str = "User edited") -> dict:
     """
     Update transcription speaker mapping with participant data.
-    
+
     Args:
         transcription_id: ID of the transcription to update
         speaker_mapping: Dict of speaker label -> participant data
-        reasoning: Reason for the update
-        
+        reasoning: Unused, kept for backward compatibility
+
     Returns:
         Results dict with update status
     """
     from shared_quickscribe_py.cosmos.models import SpeakerMapping
-    
+
     transcription_handler = get_transcription_handler()
     transcription = transcription_handler.get_transcription(transcription_id)
-    
+
     if not transcription:
         return {'error': f'Transcription {transcription_id} not found'}
-    
-    # Update speaker mapping with participant data
+
+    # Update speaker mapping with normalized data (no denormalized name/displayName/reasoning)
     updated_mapping = {}
     for speaker_label, participant_data in speaker_mapping.items():
         if isinstance(participant_data, dict):
             participant_id = participant_data.get('participantId')
-            display_name = participant_data.get('displayName')
-            
-            # Create enhanced SpeakerMapping
+
+            # Create normalized SpeakerMapping
             speaker_mapping_obj = SpeakerMapping(
-                name=display_name,
-                displayName=display_name,
-                reasoning=reasoning,
                 participantId=participant_id,
                 confidence=1.0,
                 manuallyVerified=True
             )
             updated_mapping[speaker_label] = speaker_mapping_obj
-    
+
     if updated_mapping:
         transcription.speaker_mapping = updated_mapping
         transcription_handler.update_transcription(transcription)
         logger.info(f"Updated transcription {transcription_id} speaker mapping with participant links")
-    
+
     return {'success': True, 'updated_speakers': len(updated_mapping)}
 
 
 def update_recording_participants(recording_id: str, participants: list[str]) -> None:
     """
-    Update recording participants list (old format).
-    
-    Args:
-        recording_id: ID of the recording to update
-        participants: List of participant names
+    DEPRECATED: Recording participants are no longer used.
+    Speaker mappings are stored only in transcription.speaker_mapping.
+    This function is kept for backward compatibility but does nothing.
     """
-    recording_handler = get_recording_handler()
-    recording = recording_handler.get_recording(recording_id)
-    if recording:
-        recording.participants = participants
-        recording_handler.update_recording(recording)
-        logger.info(f"Updated recording {recording_id} with participants: {participants}")
+    logger.warning(f"update_recording_participants called for {recording_id} but is deprecated - no action taken")
 
 
 def update_recording_participants_with_participants(recording_id: str, speaker_mapping: dict) -> None:
     """
-    Update recording participants with full participant data.
-    
-    Args:
-        recording_id: ID of the recording to update
-        speaker_mapping: Dict of speaker label -> participant data
+    DEPRECATED: Recording participants are no longer used.
+    Speaker mappings are stored only in transcription.speaker_mapping.
+    This function is kept for backward compatibility but does nothing.
     """
-    from shared_quickscribe_py.cosmos.models import RecordingParticipant
-    
-    recording_handler = get_recording_handler()
-    recording = recording_handler.get_recording(recording_id)
-    if not recording:
-        return
-    
-    # Get existing participants and create a map by speaker label
-    existing_participants = recording.participants or []
-    participants_by_label = {p.speakerLabel: p for p in existing_participants if p.speakerLabel}
-    
-    # Update or add participants from speaker mapping
-    for speaker_label, participant_data in speaker_mapping.items():
-        if isinstance(participant_data, dict):
-            participant_id = participant_data.get('participantId')
-            display_name = participant_data.get('displayName')
-            
-            if participant_id and display_name:
-                recording_participant = RecordingParticipant(
-                    participantId=participant_id,
-                    displayName=display_name,
-                    speakerLabel=speaker_label,
-                    confidence=1.0,  # High confidence for manually assigned
-                    manuallyVerified=True
-                )
-                # Replace or add this participant
-                participants_by_label[speaker_label] = recording_participant
-    
-    # Convert back to list, maintaining all participants
-    merged_participants = list(participants_by_label.values())
-    
-    # Also keep any participants without speaker labels (e.g., manually added participants)
-    for p in existing_participants:
-        if not p.speakerLabel and p not in merged_participants:
-            merged_participants.append(p)
-    
-    if merged_participants:
-        recording.participants = merged_participants
-        recording_handler.update_recording(recording)
-        logger.info(f"Updated recording {recording_id} participants: {len(existing_participants)} existing, {len(merged_participants)} after merge")
+    logger.warning(f"update_recording_participants_with_participants called for {recording_id} but is deprecated - no action taken")
 
 
 def update_diarized_transcript_with_names(diarized_transcript: str, speaker_mapping: dict) -> str:
@@ -702,38 +641,45 @@ def update_diarized_transcript_with_names(diarized_transcript: str, speaker_mapp
 
 def update_transcription_speaker_data(transcription_id: str, speaker_mapping: dict, reasoning: str = "User edited") -> dict:
     """
-    Update transcription with new speaker mapping and transcript.
-    
+    Update transcription with new speaker mapping (legacy format - names only).
+
+    DEPRECATED: Use update_transcription_speaker_data_with_participants instead.
+    This function stores speaker mappings without participant links.
+
     Args:
         transcription_id: ID of transcription to update
-        speaker_mapping: Dict mapping speaker labels to names
-        reasoning: Reasoning for the mapping
-        
+        speaker_mapping: Dict mapping speaker labels to names (legacy format)
+        reasoning: Unused, kept for backward compatibility
+
     Returns:
         Dict with updated speaker mapping and transcript
     """
     from shared_quickscribe_py.cosmos.models import SpeakerMapping
-    
+
+    logger.warning(f"Using deprecated update_transcription_speaker_data for {transcription_id}. "
+                   "Speaker names without participant links will not be stored.")
+
     transcription_handler = get_transcription_handler()
     transcription = transcription_handler.get_transcription(transcription_id)
-    
+
     if not transcription:
         raise ValueError(f"Transcription {transcription_id} not found")
-    
-    # Convert to proper SpeakerMapping objects
+
+    # Create normalized SpeakerMapping objects (no participantId means no linked participant)
     formatted_speaker_mapping = {}
     for speaker_label, speaker_name in speaker_mapping.items():
         formatted_speaker_mapping[speaker_label] = SpeakerMapping(
-            name=speaker_name,
-            reasoning=reasoning
+            participantId=None,
+            confidence=None,
+            manuallyVerified=False
         )
-    
+
     # Update transcription with speaker mapping only - leave diarized transcript unchanged
     transcription.speaker_mapping = formatted_speaker_mapping
     transcription_handler.update_transcription(transcription)
-    
-    logger.info(f"Updated transcription {transcription_id} with speaker mapping: {speaker_mapping}")
-    
+
+    logger.info(f"Updated transcription {transcription_id} with speaker mapping (no participant links)")
+
     return {
         'speaker_mapping': {k: v.model_dump() for k, v in formatted_speaker_mapping.items()},
         'participants': list(speaker_mapping.values())

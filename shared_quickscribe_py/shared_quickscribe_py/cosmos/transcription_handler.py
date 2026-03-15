@@ -113,6 +113,30 @@ class TranscriptionHandler:
             print(f"Error retrieving transcription: {e}")
             return None
 
+    def get_transcriptions_by_ids(self, transcription_ids: List[str]) -> List[Transcription]:
+        """
+        Retrieve multiple transcriptions by their IDs in a single query.
+
+        :param transcription_ids: List of transcription IDs.
+        :return: List of Transcription model instances.
+        """
+        if not transcription_ids:
+            return []
+
+        # Build parameterized query for the IDs
+        id_params = [{"name": f"@id{i}", "value": tid} for i, tid in enumerate(transcription_ids)]
+        id_placeholders = ", ".join(p["name"] for p in id_params)
+
+        query = f"SELECT * FROM c WHERE c.partitionKey = 'transcription' AND c.id IN ({id_placeholders})"
+
+        items = list(self.container.query_items(
+            query=query,
+            parameters=id_params,
+            enable_cross_partition_query=True
+        ))
+
+        return [Transcription(**filter_cosmos_fields(item)) for item in items]
+
     def update_transcription(self, transcription: Transcription) -> Transcription:
         """
         Update an existing transcription in Cosmos DB and return the updated Transcription model.
@@ -169,15 +193,46 @@ class TranscriptionHandler:
     def get_all_transcriptions(self) -> List[Transcription]:
         """
         Get all transcriptions from all users.
-        
+
         :return: List of Transcription model instances.
         """
         query = "SELECT * FROM c WHERE c.partitionKey = 'transcription'"
         items = list(self.container.query_items(
-            query=query, 
+            query=query,
             enable_cross_partition_query=True
         ))
         return [Transcription(**filter_cosmos_fields(item)) for item in items]
+
+    def get_transcriptions_for_user(self, user_id: str) -> List[Transcription]:
+        """
+        Get all transcriptions for a specific user.
+
+        :param user_id: The user ID to filter by.
+        :return: List of Transcription model instances for the user.
+        """
+        query = "SELECT * FROM c WHERE c.partitionKey = 'transcription' AND c.user_id = @user_id"
+        items = list(self.container.query_items(
+            query=query,
+            parameters=[{"name": "@user_id", "value": user_id}],
+            enable_cross_partition_query=True
+        ))
+        return [Transcription(**filter_cosmos_fields(item)) for item in items]
+
+    def get_speaker_mappings_for_user(self, user_id: str) -> List[Dict]:
+        """
+        Get only recording_id and speaker_mapping for all transcriptions for a user.
+        This is optimized for participant lookups - avoids fetching full transcript text.
+
+        :param user_id: The user ID to filter by.
+        :return: List of dicts with 'recording_id' and 'speaker_mapping' keys.
+        """
+        query = "SELECT c.recording_id, c.speaker_mapping FROM c WHERE c.partitionKey = 'transcription' AND c.user_id = @user_id"
+        items = list(self.container.query_items(
+            query=query,
+            parameters=[{"name": "@user_id", "value": user_id}],
+            enable_cross_partition_query=True
+        ))
+        return items
     
     @staticmethod
     def transform_transcript_with_speaker_names(transcript_text: str, speaker_mapping: Optional[Dict[str, SpeakerMapping]]) -> str:
