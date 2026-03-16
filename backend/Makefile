@@ -84,7 +84,7 @@ build_container:
 	find $(TEMP_DIR) -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
 
 	@echo "Building Docker image..."
-	docker build -t $(IMAGE_NAME):$(VERSION) -t $(IMAGE_NAME):latest $(TEMP_DIR)
+	DOCKER_BUILDKIT=0 docker build --network=host -t $(IMAGE_NAME):$(VERSION) -t $(IMAGE_NAME):latest $(TEMP_DIR)
 
 	@echo "Cleaning up temporary files..."
 	rm -rf $(TEMP_DIR)
