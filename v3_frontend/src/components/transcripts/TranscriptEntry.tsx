@@ -2,6 +2,8 @@ import { useState, useCallback } from 'react';
 import { makeStyles, tokens, Tooltip } from '@fluentui/react-components';
 import { Play16Regular, Pause16Regular, Edit16Regular } from '@fluentui/react-icons';
 import { SpeakerDropdown } from './SpeakerDropdown';
+import { SpeakerConfidenceBadge } from './SpeakerConfidenceBadge';
+import type { TopCandidate } from '../../types';
 
 // 6 distinct speaker colors - border and name colors
 const SPEAKER_COLORS = [
@@ -87,6 +89,16 @@ interface TranscriptEntryProps {
   onPause?: () => void;
   onSpeakerRename?: (speakerLabel: string, newName: string) => void;
   knownSpeakers?: string[];
+  // Speaker identification props
+  identificationStatus?: 'auto' | 'suggest' | 'unknown' | 'dismissed';
+  confidence?: number;
+  suggestedName?: string;
+  topCandidates?: TopCandidate[];
+  useForTraining?: boolean;
+  onAcceptSuggestion?: (speakerLabel: string) => void;
+  onRejectSuggestion?: (speakerLabel: string) => void;
+  onSelectCandidate?: (speakerLabel: string, participantId: string) => void;
+  onToggleTraining?: (speakerLabel: string) => void;
 }
 
 export function TranscriptEntry({
@@ -105,6 +117,15 @@ export function TranscriptEntry({
   onPause,
   onSpeakerRename,
   knownSpeakers = [],
+  identificationStatus,
+  confidence,
+  suggestedName,
+  topCandidates,
+  useForTraining,
+  onAcceptSuggestion,
+  onRejectSuggestion,
+  onSelectCandidate,
+  onToggleTraining,
 }: TranscriptEntryProps) {
   const styles = useStyles();
   const colors = SPEAKER_COLORS[speakerIndex % 6];
@@ -170,6 +191,21 @@ export function TranscriptEntry({
             >
               {speaker}
             </div>
+          )}
+
+          {/* Speaker identification badge */}
+          {identificationStatus && (
+            <SpeakerConfidenceBadge
+              identificationStatus={identificationStatus}
+              similarity={confidence}
+              suggestedName={suggestedName}
+              topCandidates={topCandidates}
+              useForTraining={useForTraining}
+              onAcceptSuggestion={onAcceptSuggestion ? () => onAcceptSuggestion(speakerLabel) : undefined}
+              onRejectSuggestion={onRejectSuggestion ? () => onRejectSuggestion(speakerLabel) : undefined}
+              onSelectCandidate={onSelectCandidate ? (pid) => onSelectCandidate(speakerLabel, pid) : undefined}
+              onToggleTraining={onToggleTraining ? () => onToggleTraining(speakerLabel) : undefined}
+            />
           )}
 
           {/* Hover icons */}

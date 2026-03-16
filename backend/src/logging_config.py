@@ -140,6 +140,13 @@ def setup_logger(module_name, app_version=API_VERSION):
     console_handler = logging.StreamHandler(sys.stdout)
     console_handler.setFormatter(JSONFormatter())
     logger.addHandler(console_handler)
+
+    # Also log to a file for easy tailing
+    log_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'logs')
+    os.makedirs(log_dir, exist_ok=True)
+    file_handler = logging.FileHandler(os.path.join(log_dir, 'backend.log'))
+    file_handler.setFormatter(logging.Formatter('%(asctime)s %(levelname)s %(name)s: %(message)s'))
+    logger.addHandler(file_handler)
     
     # Set log level from environment
     log_level = os.environ.get('LOG_LEVEL', 'INFO').upper()

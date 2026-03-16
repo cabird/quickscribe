@@ -368,6 +368,22 @@ class Tag(BaseModel):
     name: str
 
 
+class IdentificationHistoryEntry(BaseModel):
+    timestamp: str  # ISO timestamp
+    action: str  # "auto_assigned", "accepted", "rejected", "dismissed", "training_approved", "training_revoked", "manual_assigned", "reidentified"
+    participantId: Optional[str] = None  # who was assigned/suggested
+    displayName: Optional[str] = None  # display name at time of action
+    similarity: Optional[float] = None  # similarity score at time of action
+    candidatesPresented: Optional[List[dict]] = None  # top candidates shown to user
+    source: Optional[str] = None  # "worker", "user_inline", "user_review_queue"
+
+
+class TopCandidate(BaseModel):
+    participantId: str
+    displayName: Optional[str] = None
+    similarity: float
+
+
 class SpeakerMapping(BaseModel):
     confidence: Optional[float] = None
     displayName: Optional[str] = None
@@ -375,6 +391,16 @@ class SpeakerMapping(BaseModel):
     name: Optional[str] = None
     participantId: Optional[str] = None
     reasoning: Optional[str] = None
+    # Speaker identification fields
+    identificationStatus: Optional[str] = None  # "auto", "suggest", "unknown", "dismissed", or None
+    similarity: Optional[float] = None  # cosine similarity score
+    suggestedParticipantId: Optional[str] = None  # top candidate for "suggest" status
+    suggestedDisplayName: Optional[str] = None  # enriched at query time
+    topCandidates: Optional[List[TopCandidate]] = None  # top N matches for quick-pick UI
+    identifiedAt: Optional[str] = None  # ISO timestamp
+    embedding: Optional[List[float]] = None  # 192-dim centroid (excluded from API responses)
+    useForTraining: Optional[bool] = None  # User explicitly approved this embedding for voice profile training
+    identificationHistory: Optional[List[IdentificationHistoryEntry]] = None  # Audit trail of all actions
 
 
 class Transcription(BaseModel):
@@ -562,6 +588,8 @@ class Recording(BaseModel):
     unique_filename: str
     upload_timestamp: Optional[str] = None
     user_id: str
+    # Speaker identification
+    speaker_identification_status: Optional[str] = None  # "not_started", "processing", "completed", "needs_review", "failed"
 
 
 class GetParticipantRecordingsResponse(BaseModel):

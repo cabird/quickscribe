@@ -582,19 +582,23 @@ def update_transcription_speaker_data_with_participants(transcription_id: str, s
     if not transcription:
         return {'error': f'Transcription {transcription_id} not found'}
 
-    # Update speaker mapping with normalized data (no denormalized name/displayName/reasoning)
+    # Update speaker mapping, preserving all existing fields (embedding, history, etc.)
     updated_mapping = {}
     for speaker_label, participant_data in speaker_mapping.items():
         if isinstance(participant_data, dict):
-            participant_id = participant_data.get('participantId')
-
-            # Create normalized SpeakerMapping
-            speaker_mapping_obj = SpeakerMapping(
-                participantId=participant_id,
+            # Preserve all fields from the incoming data — don't strip down to just 3 fields
+            updated_mapping[speaker_label] = SpeakerMapping(**{
+                k: v for k, v in participant_data.items()
+                if k in SpeakerMapping.model_fields
+            })
+        elif isinstance(participant_data, SpeakerMapping):
+            updated_mapping[speaker_label] = participant_data
+        else:
+            # Legacy string format — create minimal mapping
+            updated_mapping[speaker_label] = SpeakerMapping(
                 confidence=1.0,
                 manuallyVerified=True
             )
-            updated_mapping[speaker_label] = speaker_mapping_obj
 
     if updated_mapping:
         transcription.speaker_mapping = updated_mapping

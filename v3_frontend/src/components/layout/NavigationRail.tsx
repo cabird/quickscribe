@@ -23,11 +23,13 @@ import {
   SignOut20Regular,
   Person24Regular,
   People24Regular,
+  PersonVoice24Regular,
   DocumentText20Regular,
   TaskListLtr20Regular,
   Search20Regular,
   Settings20Regular,
   People20Regular,
+  PersonVoice20Regular,
 } from '@fluentui/react-icons';
 import { useIsAuthenticated, useMsal } from '@azure/msal-react';
 import { LAYOUT } from '../../config/styles';
@@ -254,8 +256,10 @@ const useStyles = makeStyles({
   },
 });
 
+type ViewId = 'transcripts' | 'people' | 'reviews' | 'logs' | 'search' | 'settings';
+
 interface NavItem {
-  id: 'transcripts' | 'people' | 'logs' | 'search' | 'settings';
+  id: ViewId;
   icon: React.ReactElement;
   mobileIcon: React.ReactElement;
   label: string;
@@ -264,14 +268,15 @@ interface NavItem {
 const navItems: NavItem[] = [
   { id: 'transcripts', icon: <DocumentText24Regular />, mobileIcon: <DocumentText20Regular />, label: 'Transcripts' },
   { id: 'people', icon: <People24Regular />, mobileIcon: <People20Regular />, label: 'People' },
+  { id: 'reviews', icon: <PersonVoice24Regular />, mobileIcon: <PersonVoice20Regular />, label: 'Reviews' },
   { id: 'logs', icon: <TaskListLtr24Regular />, mobileIcon: <TaskListLtr20Regular />, label: 'Jobs' },
   { id: 'search', icon: <Search24Regular />, mobileIcon: <Search20Regular />, label: 'Search' },
   { id: 'settings', icon: <Settings24Regular />, mobileIcon: <Settings20Regular />, label: 'Settings' },
 ];
 
 interface NavigationRailProps {
-  activeView: 'transcripts' | 'people' | 'logs' | 'search' | 'settings';
-  onViewChange: (view: 'transcripts' | 'people' | 'logs' | 'search' | 'settings') => void;
+  activeView: ViewId;
+  onViewChange: (view: ViewId) => void;
 }
 
 export function NavigationRail({ activeView, onViewChange }: NavigationRailProps) {

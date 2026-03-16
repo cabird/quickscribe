@@ -1,0 +1,13 @@
+# Azure SDK components
+azure-cosmos>=4.5.0
+azure-storage-blob>=12.19.0
+azure-identity>=1.15.0
+
+# ML dependencies
+torch>=2.0.0
+torchaudio>=2.0.0
+speechbrain>=1.0.0
+numpy>=1.24.0
+
+# Configuration
+PyYAML>=6.0

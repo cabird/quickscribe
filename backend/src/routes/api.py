@@ -69,6 +69,22 @@ def enrich_transcription_with_participants(transcription: Transcription, user_id
             # No participant linked or not found - displayName will be None
             mapping_dict['displayName'] = None
 
+        # Enrich suggestedParticipantId with suggestedDisplayName
+        suggested_id = mapping_dict.get('suggestedParticipantId')
+        if suggested_id and suggested_id in participant_map:
+            mapping_dict['suggestedDisplayName'] = participant_map[suggested_id].displayName
+
+        # Enrich topCandidates displayNames
+        top_candidates = mapping_dict.get('topCandidates')
+        if top_candidates:
+            for candidate in top_candidates:
+                cid = candidate.get('participantId')
+                if cid and cid in participant_map:
+                    candidate['displayName'] = participant_map[cid].displayName
+
+        # Strip embedding from API response (large, internal-only)
+        mapping_dict.pop('embedding', None)
+
         enriched_mapping[speaker_label] = mapping_dict
 
     transcription_data['speaker_mapping'] = enriched_mapping
@@ -257,33 +273,37 @@ def get_recording_audio_url(recording_id):
 @api_bp.route('/recordings', methods=['GET'])
 @require_auth
 def list_recordings():
+    import time
+    t0 = time.time()
+
     recording_handler = get_recording_handler()
     transcription_handler = get_transcription_handler()
     participant_handler = get_participant_handler()
     user = get_current_user()
-    recordings = recording_handler.get_all_recordings(user.id)
+    recordings = recording_handler.get_recording_summaries(user.id)
 
-    logger.info(f"list_recordings: found {len(recordings)} recordings for user {user.id}")
+    t1 = time.time()
+    logger.info(f"list_recordings: fetched {len(recordings)} recordings in {t1-t0:.2f}s")
 
-    # Collect transcription IDs to batch fetch
-    transcription_ids = [r.transcription_id for r in recordings if r.transcription_id]
+    # Build speaker names map using optimized query (avoids fetching full transcript text)
+    speaker_names_map = {}  # recording_id -> list of speaker names
+    speaker_mapping_rows = transcription_handler.get_speaker_mappings_for_user(user.id)
 
-    # Batch fetch transcriptions and build speaker names map
-    speaker_names_map = {}  # transcription_id -> list of speaker names
-    if transcription_ids:
-        transcriptions = transcription_handler.get_transcriptions_by_ids(transcription_ids)
+    t2 = time.time()
+    logger.info(f"list_recordings: fetched speaker mappings in {t2-t1:.2f}s")
 
+    if speaker_mapping_rows:
         # Collect all participant IDs we need to look up
         all_participant_ids = set()
-        for t in transcriptions:
-            if t.speaker_mapping:
-                for mapping in t.speaker_mapping.values():
-                    if hasattr(mapping, 'participantId') and mapping.participantId:
-                        all_participant_ids.add(mapping.participantId)
-                    elif isinstance(mapping, dict) and mapping.get('participantId'):
-                        all_participant_ids.add(mapping['participantId'])
+        for row in speaker_mapping_rows:
+            sm = row.get('speaker_mapping')
+            if sm:
+                for mapping in sm.values():
+                    pid = mapping.get('participantId') if isinstance(mapping, dict) else getattr(mapping, 'participantId', None)
+                    if pid:
+                        all_participant_ids.add(pid)
 
-        # Batch fetch all user's participants and filter
+        # Batch fetch all user's participants and build lookup
         participants_map = {}
         if all_participant_ids:
             all_participants = participant_handler.get_participants_for_user(user.id)
@@ -291,29 +311,31 @@ def list_recordings():
                 if p.id in all_participant_ids:
                     participants_map[p.id] = p.displayName
 
-        # Build speaker names for each transcription
-        for t in transcriptions:
+        t3 = time.time()
+        logger.info(f"list_recordings: fetched {len(participants_map)} participants in {t3-t2:.2f}s")
+
+        # Build speaker names for each recording
+        for row in speaker_mapping_rows:
+            recording_id = row.get('recording_id')
+            sm = row.get('speaker_mapping')
+            if not recording_id or not sm:
+                continue
             names = []
-            if t.speaker_mapping:
-                for mapping in t.speaker_mapping.values():
-                    pid = None
-                    if hasattr(mapping, 'participantId'):
-                        pid = mapping.participantId
-                    elif isinstance(mapping, dict):
-                        pid = mapping.get('participantId')
-                    if pid and pid in participants_map:
-                        names.append(participants_map[pid])
-            speaker_names_map[t.id] = names
+            for mapping in sm.values():
+                pid = mapping.get('participantId') if isinstance(mapping, dict) else getattr(mapping, 'participantId', None)
+                if pid and pid in participants_map:
+                    names.append(participants_map[pid])
+            speaker_names_map[recording_id] = names
 
     # Build response with enriched speaker_names
     recording_list = []
-    for recording in recordings:
-        rec_dict = recording.model_dump()
-        if recording.transcription_id and recording.transcription_id in speaker_names_map:
-            rec_dict['speaker_names'] = speaker_names_map[recording.transcription_id]
-        recording_list.append(rec_dict)
+    for rec in recordings:
+        if rec.get('id') and rec.get('id') in speaker_names_map:
+            rec['speaker_names'] = speaker_names_map[rec['id']]
+        recording_list.append(rec)
 
-    logger.info(f"list_recordings done")
+    t_end = time.time()
+    logger.info(f"list_recordings: total {t_end-t0:.2f}s")
 
     return jsonify(recording_list), 200
 
@@ -1201,14 +1223,14 @@ def remove_tag_from_recording(recording_id, tag_id):
     current_user = get_current_user()
     if not current_user:
         return jsonify({'error': 'User not authenticated'}), 401
-    
+
     try:
         # First verify the recording belongs to the user
         recording_handler = get_recording_handler()
         recording = recording_handler.get_recording(recording_id)
         if not recording or recording.user_id != current_user.id:
             return jsonify({'error': 'Recording not found'}), 404
-        
+
         # Remove tag from recording
         updated_recording = recording_handler.remove_tags_from_recording(recording_id, [tag_id])
         if updated_recording:
@@ -1218,3 +1240,832 @@ def remove_tag_from_recording(recording_id, tag_id):
     except Exception as e:
         logger.error(f"Error removing tag from recording: {e}")
         return jsonify({'error': str(e)}), 500
+
+
+# =============================================================================
+# Speaker Identification Review Endpoints
+# =============================================================================
+
+def _append_history(speaker_dict: dict, action: str, source: str,
+                    participant_id: str = None, display_name: str = None,
+                    similarity: float = None, candidates: list = None) -> None:
+    """Append an entry to identificationHistory on a speaker mapping dict."""
+    history = speaker_dict.get('identificationHistory') or []
+    entry = {
+        'timestamp': datetime.now(UTC).isoformat(),
+        'action': action,
+        'source': source,
+    }
+    if participant_id:
+        entry['participantId'] = participant_id
+    if display_name:
+        entry['displayName'] = display_name
+    if similarity is not None:
+        entry['similarity'] = similarity
+    if candidates:
+        entry['candidatesPresented'] = candidates
+    history.append(entry)
+    speaker_dict['identificationHistory'] = history
+
+
+@api_bp.route('/speaker-audit', methods=['GET'])
+@require_auth
+def get_speaker_audit_log():
+    """
+    Get the audit trail of all speaker identification actions across recordings.
+    Returns flattened list of history entries enriched with recording/speaker context.
+
+    Query params:
+        limit: Max results (default 100)
+        offset: Pagination offset (default 0)
+    """
+    current_user = get_current_user()
+    if not current_user:
+        return jsonify({'error': 'User not authenticated'}), 401
+
+    try:
+        limit = min(int(request.args.get('limit', 100)), 200)
+        offset = int(request.args.get('offset', 0))
+
+        recording_handler = get_recording_handler()
+        transcription_handler = get_transcription_handler()
+
+        # Get all recordings with completed speaker identification
+        query = """
+        SELECT * FROM c
+        WHERE c.type = 'recording'
+        AND c.user_id = @user_id
+        AND c.transcription_status = 'completed'
+        AND IS_DEFINED(c.speaker_identification_status)
+        AND c.speaker_identification_status != null
+        ORDER BY c.recorded_timestamp DESC
+        """
+        parameters = [{"name": "@user_id", "value": current_user.id}]
+
+        items = list(recording_handler.container.query_items(
+            query=query, parameters=parameters,
+            enable_cross_partition_query=True
+        ))
+
+        # Flatten history entries across all recordings/speakers
+        audit_entries = []
+        for item in items:
+            recording = Recording(**item)
+            if not recording.transcription_id:
+                continue
+
+            transcription = transcription_handler.get_transcription(recording.transcription_id)
+            if not transcription or not transcription.speaker_mapping:
+                continue
+
+            # Enrich for display names
+            enriched = enrich_transcription_with_participants(transcription, current_user.id)
+            enriched_mapping = enriched.get('speaker_mapping', {})
+
+            for speaker_label, mapping_data in enriched_mapping.items():
+                history = mapping_data.get('identificationHistory') or []
+                current_status = mapping_data.get('identificationStatus')
+                current_display = mapping_data.get('displayName')
+                current_pid = mapping_data.get('participantId')
+
+                for entry in history:
+                    audit_entries.append({
+                        'recordingId': recording.id,
+                        'recordingTitle': recording.title or recording.original_filename,
+                        'transcriptionId': transcription.id,
+                        'speakerLabel': speaker_label,
+                        'currentDisplayName': current_display,
+                        'currentParticipantId': current_pid,
+                        'currentStatus': current_status,
+                        **entry,
+                    })
+
+        # Sort by timestamp descending (most recent first)
+        audit_entries.sort(key=lambda x: x.get('timestamp', ''), reverse=True)
+
+        total = len(audit_entries)
+        audit_entries = audit_entries[offset:offset + limit]
+
+        return jsonify({
+            'status': 'success',
+            'data': audit_entries,
+            'total': total,
+            'limit': limit,
+            'offset': offset,
+        }), 200
+
+    except Exception as e:
+        logger.error(f"Error fetching speaker audit log: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@api_bp.route('/speaker-reviews', methods=['GET'])
+@require_auth
+def get_speaker_reviews():
+    """
+    Get recordings with pending speaker identification reviews.
+    Returns recordings where speaker_identification_status is 'needs_review' or 'completed',
+    and at least one speaker has identificationStatus of 'suggest' or 'unknown'.
+
+    Query params:
+        status: Filter by identificationStatus ('suggest', 'unknown', or 'all') - default 'all'
+        limit: Max results (default 50)
+        offset: Pagination offset (default 0)
+    """
+    current_user = get_current_user()
+    if not current_user:
+        return jsonify({'error': 'User not authenticated'}), 401
+
+    try:
+        status_filter = request.args.get('status', 'all')
+        limit = min(int(request.args.get('limit', 50)), 100)
+        offset = int(request.args.get('offset', 0))
+
+        recording_handler = get_recording_handler()
+        transcription_handler = get_transcription_handler()
+
+        # Query recordings needing review
+        query = """
+        SELECT * FROM c
+        WHERE c.type = 'recording'
+        AND c.user_id = @user_id
+        AND c.transcription_status = 'completed'
+        AND c.speaker_identification_status IN ('needs_review', 'completed')
+        ORDER BY c.recorded_timestamp DESC
+        """
+        parameters = [{"name": "@user_id", "value": current_user.id}]
+
+        items = list(recording_handler.container.query_items(
+            query=query,
+            parameters=parameters,
+            enable_cross_partition_query=True
+        ))
+
+        # Filter recordings that have suggest/unknown speakers
+        review_items = []
+        for item in items:
+            recording = Recording(**item)
+            if not recording.transcription_id:
+                continue
+
+            transcription = transcription_handler.get_transcription(recording.transcription_id)
+            if not transcription or not transcription.speaker_mapping:
+                continue
+
+            # Count speakers needing review
+            suggest_count = 0
+            unknown_count = 0
+            for label, mapping in transcription.speaker_mapping.items():
+                if hasattr(mapping, 'model_dump'):
+                    m = mapping.model_dump()
+                elif isinstance(mapping, dict):
+                    m = mapping
+                else:
+                    continue
+
+                id_status = m.get('identificationStatus')
+                if id_status == 'suggest':
+                    suggest_count += 1
+                elif id_status == 'unknown':
+                    unknown_count += 1
+
+            if status_filter == 'suggest' and suggest_count == 0:
+                continue
+            if status_filter == 'unknown' and unknown_count == 0:
+                continue
+            if status_filter == 'all' and suggest_count == 0 and unknown_count == 0:
+                continue
+
+            # Enrich transcription
+            enriched = enrich_transcription_with_participants(transcription, current_user.id)
+
+            review_items.append({
+                'recording': recording.model_dump(),
+                'transcription': enriched,
+                'suggestCount': suggest_count,
+                'unknownCount': unknown_count,
+            })
+
+        # Apply pagination
+        total = len(review_items)
+        review_items = review_items[offset:offset + limit]
+
+        return jsonify({
+            'status': 'success',
+            'data': review_items,
+            'total': total,
+            'limit': limit,
+            'offset': offset,
+        }), 200
+
+    except Exception as e:
+        logger.error(f"Error fetching speaker reviews: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@api_bp.route('/transcription/<transcription_id>/speaker/<speaker_label>/accept', methods=['POST'])
+@require_auth
+def accept_speaker_suggestion(transcription_id, speaker_label):
+    """
+    Accept a speaker identification suggestion.
+    Copies suggestedParticipantId to participantId, sets manuallyVerified=True,
+    and triggers profile update with stored embedding.
+
+    Optionally accepts a body with { "participantId": "..." } to accept a
+    specific candidate from topCandidates instead of the top suggestion.
+    """
+    current_user = get_current_user()
+    if not current_user:
+        return jsonify({'error': 'User not authenticated'}), 401
+
+    try:
+        transcription_handler = get_transcription_handler()
+        transcription = transcription_handler.get_transcription(transcription_id)
+
+        if not transcription:
+            return jsonify({'error': 'Transcription not found'}), 404
+        if transcription.user_id != current_user.id:
+            return jsonify({'error': 'Transcription does not belong to current user'}), 403
+
+        mapping = transcription.speaker_mapping or {}
+        if speaker_label not in mapping:
+            return jsonify({'error': f'Speaker {speaker_label} not found'}), 404
+
+        speaker_data = mapping[speaker_label]
+        if hasattr(speaker_data, 'model_dump'):
+            speaker_dict = speaker_data.model_dump()
+        elif isinstance(speaker_data, dict):
+            speaker_dict = speaker_data.copy()
+        else:
+            return jsonify({'error': 'Invalid speaker data'}), 500
+
+        # Check if a specific participantId was provided (quick-pick from candidates)
+        body = request.get_json(silent=True) or {}
+        participant_id = body.get('participantId') or speaker_dict.get('suggestedParticipantId')
+
+        if not participant_id:
+            return jsonify({'error': 'No suggestion to accept'}), 400
+
+        # Verify participant exists
+        participant_handler = get_participant_handler()
+        participant = participant_handler.get_participant(current_user.id, participant_id)
+        if not participant:
+            return jsonify({'error': 'Participant not found'}), 404
+
+        # Accept identity but do NOT train by default — user must explicitly approve training
+        use_for_training = body.get('useForTraining', False)
+
+        logger.info(
+            f"SPEAKER ASSIGN: transcription={transcription_id}, speaker={speaker_label}, "
+            f"participant={participant_id} ({participant.displayName}), "
+            f"useForTraining={use_for_training}, similarity={speaker_dict.get('similarity')}"
+        )
+
+        # Audit log
+        _append_history(
+            speaker_dict, action='accepted', source='user_review_queue',
+            participant_id=participant_id, display_name=participant.displayName,
+            similarity=speaker_dict.get('similarity'),
+            candidates=speaker_dict.get('topCandidates'),
+        )
+
+        # Update speaker mapping
+        speaker_dict['participantId'] = participant_id
+        speaker_dict['manuallyVerified'] = True
+        speaker_dict['confidence'] = speaker_dict.get('similarity', 1.0)
+        speaker_dict['identificationStatus'] = 'auto'
+        speaker_dict['useForTraining'] = use_for_training
+        speaker_dict.pop('suggestedParticipantId', None)
+        speaker_dict.pop('suggestedDisplayName', None)
+
+        # Update in transcription
+        merged_mapping = {}
+        for label, data in mapping.items():
+            if hasattr(data, 'model_dump'):
+                merged_mapping[label] = data.model_dump()
+            elif isinstance(data, dict):
+                merged_mapping[label] = data.copy()
+            else:
+                merged_mapping[label] = {}
+        merged_mapping[speaker_label] = speaker_dict
+
+        update_transcription_speaker_data_with_participants(
+            transcription_id, merged_mapping,
+            reasoning="Accepted speaker identification suggestion"
+        )
+
+        # Only trigger profile update if user explicitly approved training
+        if use_for_training:
+            embedding = speaker_dict.get('embedding')
+            if embedding:
+                logger.info(
+                    f"TRAINING UPDATE: participant={participant_id} ({participant.displayName}), "
+                    f"embedding_dim={len(embedding)}, recording={transcription.recording_id}"
+                )
+                from speaker_profile_updater import update_profile_from_mapping
+                result = update_profile_from_mapping(
+                    current_user.id, participant_id, embedding,
+                    recording_id=transcription.recording_id,
+                    display_name=participant.displayName
+                )
+                logger.info(f"TRAINING UPDATE RESULT: success={result}")
+            else:
+                logger.warning(f"TRAINING SKIPPED: no embedding stored for {speaker_label}")
+        else:
+            logger.info(f"TRAINING NOT REQUESTED for {speaker_label}")
+
+        # Check if recording still needs review
+        _update_recording_review_status(transcription, merged_mapping)
+
+        return jsonify({
+            'success': True,
+            'message': f'Speaker {speaker_label} accepted as {participant.displayName}',
+            'useForTraining': use_for_training,
+            'speaker_data': {
+                **speaker_dict,
+                'displayName': participant.displayName,
+            }
+        }), 200
+
+    except Exception as e:
+        logger.error(f"Error accepting suggestion for {transcription_id}/{speaker_label}: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@api_bp.route('/transcription/<transcription_id>/speaker/<speaker_label>/reject', methods=['POST'])
+@require_auth
+def reject_speaker_suggestion(transcription_id, speaker_label):
+    """
+    Reject a speaker identification suggestion.
+    Clears suggestedParticipantId and sets identificationStatus to 'unknown'.
+    """
+    current_user = get_current_user()
+    if not current_user:
+        return jsonify({'error': 'User not authenticated'}), 401
+
+    try:
+        transcription_handler = get_transcription_handler()
+        transcription = transcription_handler.get_transcription(transcription_id)
+
+        if not transcription:
+            return jsonify({'error': 'Transcription not found'}), 404
+        if transcription.user_id != current_user.id:
+            return jsonify({'error': 'Transcription does not belong to current user'}), 403
+
+        mapping = transcription.speaker_mapping or {}
+        if speaker_label not in mapping:
+            return jsonify({'error': f'Speaker {speaker_label} not found'}), 404
+
+        speaker_data = mapping[speaker_label]
+        if hasattr(speaker_data, 'model_dump'):
+            speaker_dict = speaker_data.model_dump()
+        elif isinstance(speaker_data, dict):
+            speaker_dict = speaker_data.copy()
+        else:
+            return jsonify({'error': 'Invalid speaker data'}), 500
+
+        # Audit log
+        _append_history(
+            speaker_dict, action='rejected', source='user_review_queue',
+            participant_id=speaker_dict.get('suggestedParticipantId'),
+            similarity=speaker_dict.get('similarity'),
+            candidates=speaker_dict.get('topCandidates'),
+        )
+
+        # Clear suggestion, mark as unknown
+        speaker_dict['identificationStatus'] = 'unknown'
+        speaker_dict.pop('suggestedParticipantId', None)
+        speaker_dict.pop('suggestedDisplayName', None)
+
+        # Update in transcription
+        merged_mapping = {}
+        for label, data in mapping.items():
+            if hasattr(data, 'model_dump'):
+                merged_mapping[label] = data.model_dump()
+            elif isinstance(data, dict):
+                merged_mapping[label] = data.copy()
+            else:
+                merged_mapping[label] = {}
+        merged_mapping[speaker_label] = speaker_dict
+
+        update_transcription_speaker_data_with_participants(
+            transcription_id, merged_mapping,
+            reasoning="Rejected speaker identification suggestion"
+        )
+
+        return jsonify({
+            'success': True,
+            'message': f'Suggestion for {speaker_label} rejected',
+        }), 200
+
+    except Exception as e:
+        logger.error(f"Error rejecting suggestion for {transcription_id}/{speaker_label}: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@api_bp.route('/transcription/<transcription_id>/speaker/<speaker_label>/dismiss', methods=['POST'])
+@require_auth
+def dismiss_speaker(transcription_id, speaker_label):
+    """
+    Dismiss a speaker — mark as "don't care" so the worker never re-analyzes them.
+    Sets identificationStatus to 'dismissed'.
+    """
+    current_user = get_current_user()
+    if not current_user:
+        return jsonify({'error': 'User not authenticated'}), 401
+
+    try:
+        transcription_handler = get_transcription_handler()
+        transcription = transcription_handler.get_transcription(transcription_id)
+
+        if not transcription:
+            return jsonify({'error': 'Transcription not found'}), 404
+        if transcription.user_id != current_user.id:
+            return jsonify({'error': 'Transcription does not belong to current user'}), 403
+
+        mapping = transcription.speaker_mapping or {}
+        if speaker_label not in mapping:
+            return jsonify({'error': f'Speaker {speaker_label} not found'}), 404
+
+        speaker_data = mapping[speaker_label]
+        if hasattr(speaker_data, 'model_dump'):
+            speaker_dict = speaker_data.model_dump()
+        elif isinstance(speaker_data, dict):
+            speaker_dict = speaker_data.copy()
+        else:
+            return jsonify({'error': 'Invalid speaker data'}), 500
+
+        # Audit log
+        _append_history(
+            speaker_dict, action='dismissed', source='user_review_queue',
+            similarity=speaker_dict.get('similarity'),
+            candidates=speaker_dict.get('topCandidates'),
+        )
+
+        speaker_dict['identificationStatus'] = 'dismissed'
+        speaker_dict.pop('suggestedParticipantId', None)
+        speaker_dict.pop('suggestedDisplayName', None)
+
+        # Update in transcription
+        merged_mapping = {}
+        for label, data in mapping.items():
+            if hasattr(data, 'model_dump'):
+                merged_mapping[label] = data.model_dump()
+            elif isinstance(data, dict):
+                merged_mapping[label] = data.copy()
+            else:
+                merged_mapping[label] = {}
+        merged_mapping[speaker_label] = speaker_dict
+
+        update_transcription_speaker_data_with_participants(
+            transcription_id, merged_mapping,
+            reasoning="Speaker dismissed by user"
+        )
+
+        # Check if recording still needs review
+        _update_recording_review_status(transcription, merged_mapping)
+
+        return jsonify({
+            'success': True,
+            'message': f'Speaker {speaker_label} dismissed',
+        }), 200
+
+    except Exception as e:
+        logger.error(f"Error dismissing speaker {transcription_id}/{speaker_label}: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@api_bp.route('/transcription/<transcription_id>/speaker/<speaker_label>/reassign', methods=['POST'])
+@require_auth
+def reassign_speaker(transcription_id, speaker_label):
+    """
+    Reassign a speaker from the audit view. Creates a 'reassigned' audit entry
+    and updates the speaker mapping to the new participant.
+    Expects: { "participantId": "...", "useForTraining": false }
+    """
+    current_user = get_current_user()
+    if not current_user:
+        return jsonify({'error': 'User not authenticated'}), 401
+
+    try:
+        body = request.get_json(silent=True) or {}
+        new_participant_id = body.get('participantId')
+        use_for_training = body.get('useForTraining', False)
+
+        if not new_participant_id:
+            return jsonify({'error': 'participantId is required'}), 400
+
+        transcription_handler = get_transcription_handler()
+        transcription = transcription_handler.get_transcription(transcription_id)
+
+        if not transcription:
+            return jsonify({'error': 'Transcription not found'}), 404
+        if transcription.user_id != current_user.id:
+            return jsonify({'error': 'Transcription does not belong to current user'}), 403
+
+        mapping = transcription.speaker_mapping or {}
+        if speaker_label not in mapping:
+            return jsonify({'error': f'Speaker {speaker_label} not found'}), 404
+
+        speaker_data = mapping[speaker_label]
+        if hasattr(speaker_data, 'model_dump'):
+            speaker_dict = speaker_data.model_dump()
+        elif isinstance(speaker_data, dict):
+            speaker_dict = speaker_data.copy()
+        else:
+            return jsonify({'error': 'Invalid speaker data'}), 500
+
+        # Verify new participant exists
+        participant_handler = get_participant_handler()
+        participant = participant_handler.get_participant(current_user.id, new_participant_id)
+        if not participant:
+            return jsonify({'error': 'Participant not found'}), 404
+
+        old_participant_id = speaker_dict.get('participantId')
+
+        # Audit log — record the reassignment
+        _append_history(
+            speaker_dict, action='reassigned', source='user_audit_view',
+            participant_id=new_participant_id, display_name=participant.displayName,
+            similarity=speaker_dict.get('similarity'),
+            candidates=speaker_dict.get('topCandidates'),
+        )
+
+        # Update speaker mapping
+        speaker_dict['participantId'] = new_participant_id
+        speaker_dict['manuallyVerified'] = True
+        speaker_dict['confidence'] = 1.0
+        speaker_dict['identificationStatus'] = 'auto'
+        speaker_dict['useForTraining'] = use_for_training
+        speaker_dict.pop('suggestedParticipantId', None)
+        speaker_dict.pop('suggestedDisplayName', None)
+
+        # Update in transcription
+        merged_mapping = {}
+        for label, data in mapping.items():
+            if hasattr(data, 'model_dump'):
+                merged_mapping[label] = data.model_dump()
+            elif isinstance(data, dict):
+                merged_mapping[label] = data.copy()
+            else:
+                merged_mapping[label] = {}
+        merged_mapping[speaker_label] = speaker_dict
+
+        update_transcription_speaker_data_with_participants(
+            transcription_id, merged_mapping,
+            reasoning="Reassigned from audit view"
+        )
+
+        # Trigger profile update if training approved
+        if use_for_training:
+            embedding = speaker_dict.get('embedding')
+            if embedding:
+                from speaker_profile_updater import update_profile_from_mapping
+                update_profile_from_mapping(
+                    current_user.id, new_participant_id, embedding,
+                    recording_id=transcription.recording_id,
+                    display_name=participant.displayName
+                )
+
+        return jsonify({
+            'success': True,
+            'message': f'Speaker {speaker_label} reassigned to {participant.displayName}',
+            'previousParticipantId': old_participant_id,
+        }), 200
+
+    except Exception as e:
+        logger.error(f"Error reassigning speaker {transcription_id}/{speaker_label}: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@api_bp.route('/transcription/<transcription_id>/speaker/<speaker_label>/training', methods=['POST'])
+@require_auth
+def toggle_speaker_training(transcription_id, speaker_label):
+    """
+    Toggle whether a speaker's embedding is approved for voice profile training.
+    Expects: { "useForTraining": true/false }
+
+    When enabling training, triggers the profile update with the stored embedding.
+    When disabling, just sets the flag (does not remove from existing profile).
+    """
+    current_user = get_current_user()
+    if not current_user:
+        return jsonify({'error': 'User not authenticated'}), 401
+
+    try:
+        body = request.get_json(silent=True) or {}
+        use_for_training = body.get('useForTraining')
+        if use_for_training is None:
+            return jsonify({'error': 'useForTraining is required'}), 400
+
+        transcription_handler = get_transcription_handler()
+        transcription = transcription_handler.get_transcription(transcription_id)
+
+        if not transcription:
+            return jsonify({'error': 'Transcription not found'}), 404
+        if transcription.user_id != current_user.id:
+            return jsonify({'error': 'Transcription does not belong to current user'}), 403
+
+        mapping = transcription.speaker_mapping or {}
+        if speaker_label not in mapping:
+            return jsonify({'error': f'Speaker {speaker_label} not found'}), 404
+
+        speaker_data = mapping[speaker_label]
+        if hasattr(speaker_data, 'model_dump'):
+            speaker_dict = speaker_data.model_dump()
+        elif isinstance(speaker_data, dict):
+            speaker_dict = speaker_data.copy()
+        else:
+            return jsonify({'error': 'Invalid speaker data'}), 500
+
+        action = 'training_approved' if use_for_training else 'training_revoked'
+        logger.info(
+            f"TRAINING TOGGLE: transcription={transcription_id}, speaker={speaker_label}, "
+            f"participant={speaker_dict.get('participantId')}, useForTraining={use_for_training}"
+        )
+        _append_history(
+            speaker_dict, action=action, source='user_review_queue',
+            participant_id=speaker_dict.get('participantId'),
+        )
+
+        speaker_dict['useForTraining'] = use_for_training
+
+        # Update in transcription
+        merged_mapping = {}
+        for label, data in mapping.items():
+            if hasattr(data, 'model_dump'):
+                merged_mapping[label] = data.model_dump()
+            elif isinstance(data, dict):
+                merged_mapping[label] = data.copy()
+            else:
+                merged_mapping[label] = {}
+        merged_mapping[speaker_label] = speaker_dict
+
+        update_transcription_speaker_data_with_participants(
+            transcription_id, merged_mapping,
+            reasoning="Updated training approval"
+        )
+
+        # If enabling training, trigger profile update
+        if use_for_training:
+            participant_id = speaker_dict.get('participantId')
+            embedding = speaker_dict.get('embedding')
+            if participant_id and embedding:
+                participant_handler = get_participant_handler()
+                participant = participant_handler.get_participant(current_user.id, participant_id)
+                display_name = participant.displayName if participant else ""
+
+                logger.info(
+                    f"TRAINING UPDATE (toggle): participant={participant_id} ({display_name}), "
+                    f"embedding_dim={len(embedding)}, recording={transcription.recording_id}"
+                )
+                from speaker_profile_updater import update_profile_from_mapping
+                result = update_profile_from_mapping(
+                    current_user.id, participant_id, embedding,
+                    recording_id=transcription.recording_id,
+                    display_name=display_name
+                )
+                logger.info(f"TRAINING UPDATE RESULT (toggle): success={result}")
+            else:
+                logger.warning(
+                    f"TRAINING SKIPPED (toggle): participant={participant_id}, "
+                    f"has_embedding={embedding is not None}"
+                )
+        else:
+            logger.info(f"TRAINING REVOKED: speaker={speaker_label}")
+
+        action = "approved for" if use_for_training else "excluded from"
+        return jsonify({
+            'success': True,
+            'message': f'Speaker {speaker_label} {action} voice training',
+            'useForTraining': use_for_training,
+        }), 200
+
+    except Exception as e:
+        logger.error(f"Error toggling training for {transcription_id}/{speaker_label}: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@api_bp.route('/transcription/<transcription_id>/reidentify', methods=['POST'])
+@require_auth
+def reidentify_speakers(transcription_id):
+    """
+    Re-trigger speaker identification for a transcription.
+    Sets speaker_identification_status to 'not_started' so the worker picks it up.
+    """
+    current_user = get_current_user()
+    if not current_user:
+        return jsonify({'error': 'User not authenticated'}), 401
+
+    try:
+        transcription_handler = get_transcription_handler()
+        transcription = transcription_handler.get_transcription(transcription_id)
+
+        if not transcription:
+            return jsonify({'error': 'Transcription not found'}), 404
+        if transcription.user_id != current_user.id:
+            return jsonify({'error': 'Transcription does not belong to current user'}), 403
+
+        # Clear auto/suggest results (keep manually verified)
+        if transcription.speaker_mapping:
+            mapping = {}
+            for label, data in transcription.speaker_mapping.items():
+                if hasattr(data, 'model_dump'):
+                    d = data.model_dump()
+                elif isinstance(data, dict):
+                    d = data.copy()
+                else:
+                    d = {}
+
+                if d.get('manuallyVerified') or d.get('identificationStatus') == 'dismissed':
+                    mapping[label] = d
+                else:
+                    # Keep only basic fields, clear identification data
+                    mapping[label] = {
+                        k: v for k, v in d.items()
+                        if k not in ('identificationStatus', 'similarity', 'suggestedParticipantId',
+                                     'suggestedDisplayName', 'topCandidates', 'identifiedAt',
+                                     'embedding', 'participantId', 'confidence')
+                    }
+
+            transcription.speaker_mapping = mapping
+            transcription_handler.update_transcription(transcription)
+
+        # Reset recording status
+        recording_handler = get_recording_handler()
+        recording = recording_handler.get_recording(transcription.recording_id)
+        if recording:
+            recording.speaker_identification_status = 'not_started'
+            recording_handler.update_recording(recording)
+
+        return jsonify({
+            'success': True,
+            'message': 'Speaker re-identification queued',
+        }), 200
+
+    except Exception as e:
+        logger.error(f"Error re-identifying speakers for {transcription_id}: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@api_bp.route('/speaker-profiles/rebuild', methods=['POST'])
+@require_auth
+def rebuild_speaker_profiles():
+    """
+    Rebuild all speaker profiles from verified mappings.
+    Useful after corrections or when profiles need recalibration.
+    """
+    current_user = get_current_user()
+    if not current_user:
+        return jsonify({'error': 'User not authenticated'}), 401
+
+    try:
+        from speaker_profile_updater import rebuild_all_profiles
+        transcription_handler = get_transcription_handler()
+        recording_handler = get_recording_handler()
+
+        stats = rebuild_all_profiles(
+            current_user.id,
+            transcription_handler,
+            recording_handler
+        )
+
+        return jsonify({
+            'success': True,
+            'message': f'Rebuilt {stats["profiles_rebuilt"]} profiles from {stats["embeddings_processed"]} embeddings',
+            'stats': stats,
+        }), 200
+
+    except Exception as e:
+        logger.error(f"Error rebuilding speaker profiles: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+def _update_recording_review_status(transcription: Transcription, mapping: dict) -> None:
+    """
+    Check if a recording still needs review after an accept/reject action.
+    Updates speaker_identification_status to 'completed' if no more pending reviews.
+    """
+    try:
+        has_pending = False
+        for label, data in mapping.items():
+            if isinstance(data, dict):
+                status = data.get('identificationStatus')
+            elif hasattr(data, 'identificationStatus'):
+                status = data.identificationStatus
+            else:
+                continue
+
+            if status in ('suggest', 'unknown'):
+                has_pending = True
+                break
+
+        if not has_pending:
+            recording_handler = get_recording_handler()
+            recording = recording_handler.get_recording(transcription.recording_id)
+            if recording and recording.speaker_identification_status == 'needs_review':
+                recording.speaker_identification_status = 'completed'
+                recording_handler.update_recording(recording)
+
+    except Exception as e:
+        logger.error(f"Error updating recording review status: {e}")

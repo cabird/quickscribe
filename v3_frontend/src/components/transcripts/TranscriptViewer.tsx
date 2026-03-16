@@ -14,6 +14,7 @@ import { recordingsService } from '../../services/recordingsService';
 import { participantsService } from '../../services/participantsService';
 import { transcriptionsService } from '../../services/transcriptionsService';
 import { useIsMobile } from '../../hooks/useIsMobile';
+import type { SpeakerMappingEntry } from '../../types';
 
 const useStyles = makeStyles({
   viewContainer: {
@@ -459,6 +460,89 @@ export function TranscriptViewer({ transcription, recording, loading }: Transcri
     }
   }, [transcription]);
 
+  const handleAcceptSuggestion = useCallback(async (speakerLabel: string) => {
+    if (!transcription) return;
+
+    try {
+      await transcriptionsService.acceptSuggestion(transcription.id, speakerLabel);
+
+      // Refresh transcription to get updated data
+      const updated = await transcriptionsService.getTranscriptionById(transcription.id);
+      if (updated.speaker_mapping) {
+        const newMappings: Record<string, string> = {};
+        for (const [label, mapping] of Object.entries(updated.speaker_mapping)) {
+          if (mapping.displayName) {
+            newMappings[label] = mapping.displayName;
+          }
+        }
+        setSpeakerMappings(newMappings);
+      }
+      showToast.success('Speaker suggestion accepted');
+    } catch (err) {
+      console.error('[Speaker] Failed to accept suggestion:', err);
+      showToast.error('Failed to accept suggestion');
+    }
+  }, [transcription]);
+
+  const handleRejectSuggestion = useCallback(async (speakerLabel: string) => {
+    if (!transcription) return;
+
+    try {
+      await transcriptionsService.rejectSuggestion(transcription.id, speakerLabel);
+      showToast.success('Speaker suggestion rejected');
+    } catch (err) {
+      console.error('[Speaker] Failed to reject suggestion:', err);
+      showToast.error('Failed to reject suggestion');
+    }
+  }, [transcription]);
+
+  const handleSelectCandidate = useCallback(async (speakerLabel: string, participantId: string) => {
+    if (!transcription) return;
+
+    try {
+      await transcriptionsService.acceptSuggestion(transcription.id, speakerLabel, participantId);
+
+      // Refresh to get updated names
+      const updated = await transcriptionsService.getTranscriptionById(transcription.id);
+      if (updated.speaker_mapping) {
+        const newMappings: Record<string, string> = {};
+        for (const [label, mapping] of Object.entries(updated.speaker_mapping)) {
+          if (mapping.displayName) {
+            newMappings[label] = mapping.displayName;
+          }
+        }
+        setSpeakerMappings(newMappings);
+      }
+      showToast.success('Speaker assigned');
+    } catch (err) {
+      console.error('[Speaker] Failed to select candidate:', err);
+      showToast.error('Failed to assign speaker');
+    }
+  }, [transcription]);
+
+  const handleToggleTraining = useCallback(async (speakerLabel: string) => {
+    if (!transcription) return;
+
+    const mapping = transcription.speaker_mapping?.[speakerLabel];
+    if (!mapping) return;
+
+    const newValue = !mapping.useForTraining;
+    try {
+      await transcriptionsService.toggleTraining(transcription.id, speakerLabel, newValue);
+      showToast.success(newValue ? 'Approved for voice training' : 'Removed from voice training');
+    } catch (err) {
+      console.error('[Speaker] Failed to toggle training:', err);
+      showToast.error('Failed to update training setting');
+    }
+  }, [transcription]);
+
+  // Get identification data for a speaker label
+  const getIdentificationData = useCallback((speakerLabel: string): Partial<SpeakerMappingEntry> => {
+    const mapping = transcription?.speaker_mapping?.[speakerLabel];
+    if (!mapping) return {};
+    return mapping;
+  }, [transcription?.speaker_mapping]);
+
   const handleRefClick = (transcriptIndex: number) => {
     setHighlightedIndex(transcriptIndex);
   };
@@ -737,6 +821,15 @@ export function TranscriptViewer({ transcription, recording, loading }: Transcri
                     ? `${p.firstName} ${p.lastName}`
                     : p.displayName
                 )}
+                identificationStatus={getIdentificationData(entry.speakerLabel).identificationStatus}
+                confidence={getIdentificationData(entry.speakerLabel).similarity}
+                suggestedName={getIdentificationData(entry.speakerLabel).suggestedDisplayName}
+                topCandidates={getIdentificationData(entry.speakerLabel).topCandidates}
+                useForTraining={getIdentificationData(entry.speakerLabel).useForTraining}
+                onAcceptSuggestion={handleAcceptSuggestion}
+                onRejectSuggestion={handleRejectSuggestion}
+                onSelectCandidate={handleSelectCandidate}
+                onToggleTraining={handleToggleTraining}
               />
             </div>
           ))
