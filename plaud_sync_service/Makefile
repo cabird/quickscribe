@@ -170,10 +170,10 @@ create:
 		--cpu 2 \
 		--memory 4Gi \
 		--env-vars SERVICE_VERSION=$(call get_version) \
-		--cron-expression "*/30 * * * *"; \
+		--cron-expression "*/15 * * * *"; \
 	'
 	@echo "$(GREEN)Container Apps Job created: $(JOB_NAME)$(RESET)"
-	@echo "$(BLUE)Scheduled to run every 30 minutes$(RESET)"
+	@echo "$(BLUE)Scheduled to run every 15 minutes$(RESET)"
 
 # Configure environment variables from .env file
 azure-config:

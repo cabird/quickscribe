@@ -9,6 +9,13 @@ import {
   Switch,
   Input,
   Button,
+  Dialog,
+  DialogSurface,
+  DialogBody,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  DialogTrigger,
 } from '@fluentui/react-components';
 import {
   Person24Regular,
@@ -16,6 +23,7 @@ import {
   Save24Regular,
   Eye24Regular,
   EyeOff24Regular,
+  Info16Regular,
 } from '@fluentui/react-icons';
 import { userService } from '../../services/userService';
 import type { User } from '../../types';
@@ -90,6 +98,58 @@ const useStyles = makeStyles({
     display: 'flex',
     gap: '8px',
     marginTop: '16px',
+  },
+  helpButton: {
+    minWidth: '24px',
+    width: '24px',
+    height: '24px',
+    padding: '2px',
+    color: tokens.colorNeutralForeground3,
+    cursor: 'pointer',
+    ':hover': {
+      color: tokens.colorBrandForeground1,
+    },
+  },
+  helpStep: {
+    marginBottom: '16px',
+  },
+  helpStepNumber: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '22px',
+    height: '22px',
+    borderRadius: '50%',
+    backgroundColor: tokens.colorBrandBackground,
+    color: tokens.colorNeutralForegroundOnBrand,
+    fontSize: '12px',
+    fontWeight: 600,
+    marginRight: '8px',
+  },
+  helpStepTitle: {
+    fontWeight: 600,
+    fontSize: '14px',
+  },
+  helpStepBody: {
+    marginTop: '4px',
+    marginLeft: '30px',
+    fontSize: '13px',
+    color: tokens.colorNeutralForeground2,
+    lineHeight: '1.5',
+  },
+  codeBlock: {
+    display: 'block',
+    backgroundColor: tokens.colorNeutralBackground3,
+    padding: '10px 12px',
+    borderRadius: '6px',
+    fontFamily: 'monospace',
+    fontSize: '12px',
+    marginTop: '8px',
+    overflowX: 'auto',
+    whiteSpace: 'pre-wrap',
+    wordBreak: 'break-all',
+    userSelect: 'all',
+    cursor: 'text',
   },
 });
 
@@ -240,6 +300,57 @@ export function SettingsView() {
               <div className={styles.cardTitle}>
                 <Cloud24Regular />
                 <span>Plaud Integration</span>
+                <Dialog>
+                  <DialogTrigger disableButtonEnhancement>
+                    <button className={styles.helpButton} title="How to get your Plaud token">
+                      <Info16Regular />
+                    </button>
+                  </DialogTrigger>
+                  <DialogSurface style={{ maxWidth: '560px' }}>
+                    <DialogBody>
+                      <DialogTitle>How to Get Your Plaud Bearer Token</DialogTitle>
+                      <DialogContent>
+                        <div className={styles.helpStep}>
+                          <span className={styles.helpStepNumber}>1</span>
+                          <span className={styles.helpStepTitle}>Open the Plaud web app</span>
+                          <div className={styles.helpStepBody}>
+                            Go to <strong>web.plaud.ai</strong> and log in with your account.
+                          </div>
+                        </div>
+                        <div className={styles.helpStep}>
+                          <span className={styles.helpStepNumber}>2</span>
+                          <span className={styles.helpStepTitle}>Open the browser console</span>
+                          <div className={styles.helpStepBody}>
+                            Press <strong>F12</strong> (or right-click → Inspect → Console tab).
+                          </div>
+                        </div>
+                        <div className={styles.helpStep}>
+                          <span className={styles.helpStepNumber}>3</span>
+                          <span className={styles.helpStepTitle}>Run this command</span>
+                          <div className={styles.helpStepBody}>
+                            Paste the following into the console and press Enter:
+                            <code className={styles.codeBlock}>localStorage.getItem('tokenstr')</code>
+                          </div>
+                        </div>
+                        <div className={styles.helpStep}>
+                          <span className={styles.helpStepNumber}>4</span>
+                          <span className={styles.helpStepTitle}>Copy the token</span>
+                          <div className={styles.helpStepBody}>
+                            The output will look like <strong>bearer eyJhbG...</strong> — copy everything <em>after</em> "bearer " (just the eyJ... part) and paste it into the Bearer Token field below.
+                          </div>
+                        </div>
+                        <div style={{ marginTop: '12px', padding: '10px', backgroundColor: '#FEF3C7', borderRadius: '6px', fontSize: '12px', color: '#92400E' }}>
+                          <strong>Note:</strong> Tokens expire periodically. If you see a "401 Unauthorized" error in the job logs, you'll need to repeat these steps to get a fresh token.
+                        </div>
+                      </DialogContent>
+                      <DialogActions>
+                        <DialogTrigger disableButtonEnhancement>
+                          <Button appearance="primary">Got it</Button>
+                        </DialogTrigger>
+                      </DialogActions>
+                    </DialogBody>
+                  </DialogSurface>
+                </Dialog>
               </div>
             }
           />
