@@ -121,7 +121,7 @@ build:
 	find $(TEMP_DIR) -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
 
 	@echo "Building Docker image..."
-	docker build -f $(TEMP_DIR)/Dockerfile -t $(IMAGE_NAME):$(call get_version) $(TEMP_DIR)
+	DOCKER_BUILDKIT=0 docker build --network=host -f $(TEMP_DIR)/Dockerfile -t $(IMAGE_NAME):$(call get_version) $(TEMP_DIR)
 	docker tag $(IMAGE_NAME):$(call get_version) $(REGISTRY)/$(IMAGE_NAME):$(call get_version)
 	docker tag $(IMAGE_NAME):$(call get_version) $(REGISTRY)/$(IMAGE_NAME):latest
 

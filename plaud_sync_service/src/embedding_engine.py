@@ -10,6 +10,9 @@ import json
 import os
 from typing import Optional, Tuple, List
 
+import subprocess
+import tempfile
+
 import numpy as np
 import torch
 import torchaudio
@@ -42,7 +45,21 @@ class EmbeddingEngine:
         print("Model loaded successfully.")
 
     def load_audio_mono_16k(self, path: str) -> Tuple[torch.Tensor, int]:
-        """Load audio file as mono 16kHz waveform."""
+        """Load audio file as mono 16kHz waveform. Converts mp3 via ffmpeg if needed."""
+        # torchaudio may not have mp3 backend in CPU-only builds — convert via ffmpeg
+        if path.lower().endswith('.mp3'):
+            wav_tmp = tempfile.NamedTemporaryFile(suffix='.wav', delete=False)
+            wav_tmp.close()
+            try:
+                subprocess.run(
+                    ['ffmpeg', '-y', '-i', path, '-ar', '16000', '-ac', '1', wav_tmp.name],
+                    capture_output=True, check=True,
+                )
+                wav, sr = torchaudio.load(wav_tmp.name)
+                return wav, sr  # Already mono 16kHz from ffmpeg
+            finally:
+                os.remove(wav_tmp.name)
+
         wav, sr = torchaudio.load(path)
         if wav.size(0) > 1:
             wav = torch.mean(wav, dim=0, keepdim=True)

@@ -233,7 +233,7 @@ class SpeakerProcessor:
                 results[speaker_label] = result
                 job_logger.info(
                     f"  {speaker_label}: {result['status']} "
-                    f"(sim={result['similarity']:.3f if result['similarity'] else 'N/A'}, "
+                    f"(sim={'%.3f' % result['similarity'] if result['similarity'] else 'N/A'}, "
                     f"pid={result['participant_id'] or 'none'})",
                     recording_id
                 )
