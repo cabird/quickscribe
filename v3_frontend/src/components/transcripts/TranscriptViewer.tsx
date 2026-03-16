@@ -446,6 +446,11 @@ export function TranscriptViewer({ transcription, recording, loading }: Transcri
         true // manuallyVerified
       );
 
+      // Notify parent to refresh transcription (picks up identificationStatus for badges)
+      window.dispatchEvent(new CustomEvent('transcriptionUpdated', {
+        detail: { transcriptionId: transcription.id }
+      }));
+
       showToast.success(`Speaker renamed to ${participant.displayName}`);
     } catch (err) {
       console.error('[Speaker] Failed to save speaker mapping:', err);

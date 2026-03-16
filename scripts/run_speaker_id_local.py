@@ -684,11 +684,103 @@ def main():
         bc.upload_blob(upload_data, overwrite=True)
         print(f"Saved {len(profile_db.profiles)} profiles")
 
+    # Phase 3: Re-rate existing suggest/unknown speakers against updated profiles
+    print("\n--- Re-rating existing speakers against updated profiles ---")
+    rerate_query = """
+    SELECT c.id, c.speaker_mapping, c.recording_id FROM c
+    WHERE c.partitionKey = 'transcription'
+    AND IS_DEFINED(c.speaker_mapping)
+    """
+    rerate_items = list(cosmos.query_items(query=rerate_query, enable_cross_partition_query=True))
+
+    rerated = 0
+    upgrades = 0
+    now = datetime.now(UTC).isoformat()
+
+    for item in rerate_items:
+        mapping = item.get("speaker_mapping") or {}
+        mapping_changed = False
+
+        for label, data in mapping.items():
+            if not isinstance(data, dict):
+                continue
+            status = data.get("identificationStatus")
+            if status not in ("suggest", "unknown"):
+                continue
+            embedding_list = data.get("embedding")
+            if not embedding_list:
+                continue
+
+            rerated += 1
+            embedding = np.array(embedding_list, dtype=np.float32)
+
+            top_candidates = match_top_n(profile_db, embedding, n=5)
+            top_candidates = [c for c in top_candidates if c["similarity"] >= 0.40]
+
+            if not top_candidates:
+                continue
+
+            best = top_candidates[0]
+            best_sim = best["similarity"]
+            best_id = best["participantId"]
+
+            if best_sim >= AUTO_THRESHOLD:
+                new_status = "auto"
+            elif best_sim >= SUGGEST_THRESHOLD:
+                new_status = "suggest"
+            else:
+                continue
+
+            # Only upgrade, never downgrade
+            if status == "unknown" and new_status in ("suggest", "auto"):
+                pass
+            elif status == "suggest" and new_status == "auto":
+                pass
+            else:
+                continue
+
+            upgrades += 1
+            old_status = status
+            data["identificationStatus"] = new_status
+            data["similarity"] = round(best_sim, 4)
+            data["topCandidates"] = top_candidates
+
+            if new_status == "auto":
+                data["participantId"] = best_id
+                data["confidence"] = round(best_sim, 4)
+                data["manuallyVerified"] = False
+                data.pop("suggestedParticipantId", None)
+            elif new_status == "suggest":
+                data["suggestedParticipantId"] = best_id
+
+            history = data.get("identificationHistory") or []
+            history.append({
+                "timestamp": now,
+                "action": f"rerated_{old_status}_to_{new_status}",
+                "source": "worker",
+                "participantId": best_id,
+                "similarity": round(best_sim, 4),
+                "candidatesPresented": top_candidates,
+            })
+            data["identificationHistory"] = history
+            mapping_changed = True
+
+            display = best.get("displayName", best_id[:8])
+            print(f"  {item.get('recording_id', '?')}: {label} {old_status} → {new_status} (sim={best_sim:.3f}, {display})")
+
+        if mapping_changed and not args.dry_run:
+            item["speaker_mapping"] = mapping
+            cosmos.upsert_item(body=item)
+
+    print(f"Re-rating complete: {rerated} speakers checked, {upgrades} upgraded")
+
     print(f"\n{'=' * 70}")
     print(f"Done! Processed {total_processed} recordings, {total_speakers} speakers")
     print(f"  Auto:    {status_counts['auto']}")
     print(f"  Suggest: {status_counts['suggest']}")
     print(f"  Unknown: {status_counts['unknown']}")
+    if upgrades > 0:
+        print(f"  Re-rated: {rerated} checked, {upgrades} upgraded")
     if args.dry_run:
         print("\n  *** DRY RUN — no changes written to CosmosDB ***")
     print("=" * 70)

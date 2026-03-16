@@ -1028,15 +1028,23 @@ def update_single_speaker(transcription_id):
                 logger.warning(f"Unknown speaker data type for {label}: {type(data)}")
                 merged_mapping[label] = {}
         
-        # Create normalized speaker data (no denormalized name/displayName/reasoning)
-        speaker_data = {
+        # Merge into existing speaker data (preserve embedding, history, etc.)
+        existing_speaker = merged_mapping.get(speaker_label, {})
+        existing_speaker.update({
             'participantId': participant_id,
             'confidence': 1.0,
-            'manuallyVerified': manually_verified
-        }
+            'manuallyVerified': manually_verified,
+            'identificationStatus': 'auto',
+        })
+
+        # Audit log
+        _append_history(
+            existing_speaker, action='manual_assigned', source='user_inline',
+            participant_id=participant_id, display_name=participant.displayName,
+        )
 
         # Update the specific speaker
-        merged_mapping[speaker_label] = speaker_data
+        merged_mapping[speaker_label] = existing_speaker
         logger.info(f"Updated speaker {speaker_label}, merged mapping now has {len(merged_mapping)} speakers")
 
         # Update transcription with the merged speaker mapping

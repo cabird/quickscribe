@@ -36,6 +36,18 @@ export function useTranscription(transcriptionId: string | null): UseTranscripti
     fetchTranscription();
   }, [transcriptionId]);
 
+  // Listen for transcriptionUpdated events (e.g. after speaker assignment)
+  useEffect(() => {
+    const handleUpdate = (event: Event) => {
+      const detail = (event as CustomEvent).detail;
+      if (detail?.transcriptionId === transcriptionId) {
+        fetchTranscription();
+      }
+    };
+    window.addEventListener('transcriptionUpdated', handleUpdate);
+    return () => window.removeEventListener('transcriptionUpdated', handleUpdate);
+  }, [transcriptionId]);
+
   return {
     transcription,
     loading,

@@ -148,6 +148,8 @@ class JobExecutor:
             "unknown_matches": 0,
             "recordings_identified": 0,
             "embeddings_extracted": 0,
+            "rerated_speakers": 0,
+            "rerated_upgrades": 0,
             "errors": 0,
         }
 
@@ -189,7 +191,10 @@ class JobExecutor:
                     # Phase B: Speaker identification for newly completed + backlog
                     self._run_speaker_id_for_user(user, completed_recording_ids, speaker_stats, logger)
 
-                    # Phase C: Fetch new Plaud recordings
+                    # Phase C: Re-rate existing suggest/unknown speakers against current profiles
+                    self._rerate_speakers_for_user(user, speaker_stats, logger)
+
+                    # Phase D: Fetch new Plaud recordings
                     if not self.check_transcriptions_only:
                         user_stats = self._process_plaud_recordings(user, logger)
                         stats.recordings_found += user_stats["found"]
@@ -220,6 +225,9 @@ class JobExecutor:
                         f"{speaker_stats['speakers_identified']} speakers "
                         f"(auto={speaker_stats['auto_matches']}, suggest={speaker_stats['suggest_matches']}, "
                         f"unknown={speaker_stats['unknown_matches']})")
+            if speaker_stats['rerated_speakers'] > 0:
+                logger.info(f"Re-rated: {speaker_stats['rerated_speakers']} speakers checked, "
+                            f"{speaker_stats['rerated_upgrades']} upgraded")
             logger.info(f"Errors: {stats.errors + speaker_stats['errors']}")
 
             self._complete_job_execution(job_id, stats, users_processed, logger)
@@ -398,6 +406,160 @@ class JobExecutor:
                 logger.info(f"Saved {len(profile_db.profiles)} profiles for user {user.id}")
             except Exception as e:
                 logger.error(f"Failed to save profiles for user {user.id}: {e}")
+
+    def _rerate_speakers_for_user(self, user: User, speaker_stats: Dict[str, int],
+                                   logger: JobLogger) -> None:
+        """
+        Re-rate existing suggest/unknown speakers against current profiles.
+        Uses stored embeddings — no audio download or ML inference needed.
+        Pure cosine similarity math, very fast.
+        """
+        try:
+            # Load current profiles
+            profile_db = self.profile_manager.load_profiles(user.id)
+            if not profile_db.profiles:
+                return  # No profiles to match against
+
+            # Query transcriptions with suggest/unknown speakers
+            query = """
+            SELECT * FROM c
+            WHERE c.type = 'recording'
+            AND c.user_id = @user_id
+            AND c.transcription_status = 'completed'
+            AND c.speaker_identification_status IN ('needs_review', 'completed')
+            """
+            parameters = [{"name": "@user_id", "value": user.id}]
+            items = list(self.recording_handler.container.query_items(
+                query=query, parameters=parameters,
+                enable_cross_partition_query=True
+            ))
+
+            if not items:
+                return
+
+            import numpy as np
+            from embedding_engine import l2_normalize
+
+            now = datetime.now(UTC).isoformat()
+            AUTO_THRESHOLD = 0.78
+            SUGGEST_THRESHOLD = 0.68
+
+            rerated = 0
+            upgrades = 0
+
+            for item in items:
+                recording = Recording(**item)
+                if not recording.transcription_id:
+                    continue
+
+                transcription = self.transcription_handler.get_transcription(recording.transcription_id)
+                if not transcription or not transcription.speaker_mapping:
+                    continue
+
+                mapping = transcription.speaker_mapping
+                mapping_changed = False
+
+                for label, data in mapping.items():
+                    if hasattr(data, 'model_dump'):
+                        d = data.model_dump()
+                    elif isinstance(data, dict):
+                        d = data.copy()
+                    else:
+                        continue
+
+                    status = d.get('identificationStatus')
+                    if status not in ('suggest', 'unknown'):
+                        continue
+
+                    embedding_list = d.get('embedding')
+                    if not embedding_list:
+                        continue
+
+                    rerated += 1
+                    embedding = np.array(embedding_list, dtype=np.float32)
+
+                    # Re-match against current profiles
+                    match = profile_db.match_with_confidence(
+                        embedding,
+                        high_threshold=AUTO_THRESHOLD,
+                        low_threshold=SUGGEST_THRESHOLD,
+                    )
+
+                    new_status = match["status"]
+
+                    # Only upgrade, never downgrade
+                    if status == 'unknown' and new_status in ('suggest', 'auto'):
+                        pass  # upgrade
+                    elif status == 'suggest' and new_status == 'auto':
+                        pass  # upgrade
+                    else:
+                        continue  # no improvement
+
+                    upgrades += 1
+                    old_status = status
+
+                    # Update the mapping entry
+                    d['identificationStatus'] = new_status
+                    d['similarity'] = match['similarity']
+                    d['topCandidates'] = match.get('top_candidates', [])
+
+                    if new_status == 'auto':
+                        d['participantId'] = match['participant_id']
+                        d['confidence'] = match['similarity']
+                        d['manuallyVerified'] = False
+                        d.pop('suggestedParticipantId', None)
+                    elif new_status == 'suggest':
+                        d['suggestedParticipantId'] = match['participant_id']
+
+                    # Audit trail
+                    history = d.get('identificationHistory') or []
+                    history.append({
+                        'timestamp': now,
+                        'action': f'rerated_{old_status}_to_{new_status}',
+                        'source': 'worker',
+                        'participantId': match['participant_id'],
+                        'similarity': match['similarity'],
+                        'candidatesPresented': match.get('top_candidates', []),
+                    })
+                    d['identificationHistory'] = history
+
+                    # Write back into mapping
+                    if hasattr(data, 'model_dump'):
+                        mapping[label] = d
+                    else:
+                        mapping[label] = d
+                    mapping_changed = True
+
+                    logger.info(
+                        f"  Re-rated {label}: {old_status} → {new_status} "
+                        f"(sim={'%.3f' % match['similarity']}, "
+                        f"pid={match['participant_id']})",
+                        recording.id
+                    )
+
+                if mapping_changed:
+                    transcription.speaker_mapping = mapping
+                    self.transcription_handler.update_transcription(transcription)
+
+                    # Update recording status if all speakers are now resolved
+                    has_pending = any(
+                        (m.get('identificationStatus') if isinstance(m, dict) else getattr(m, 'identificationStatus', None))
+                        in ('suggest', 'unknown')
+                        for m in (mapping.values() if isinstance(mapping, dict) else [])
+                    )
+                    if not has_pending and recording.speaker_identification_status == 'needs_review':
+                        recording.speaker_identification_status = 'completed'
+                        self.recording_handler.update_recording(recording)
+
+            speaker_stats['rerated_speakers'] += rerated
+            speaker_stats['rerated_upgrades'] += upgrades
+
+            if rerated > 0:
+                logger.info(f"Re-rating complete: {rerated} speakers checked, {upgrades} upgraded")
+
+        except Exception as e:
+            logger.error(f"Error re-rating speakers for user {user.id}: {e}")
+            speaker_stats['errors'] += 1
 
     def _identify_recording(self, recording_id: str, user: User,
                              profile_db, speaker_stats: Dict[str, int],
