@@ -1,8 +1,8 @@
-# Makefile for Plaud Sync Service
+# Makefile for QuickScribe Processing Service (Plaud Sync + Speaker ID)
 
 # Configuration
-JOB_NAME = quickscribe-plaud-sync-job
-IMAGE_NAME = plaud-sync
+JOB_NAME = quickscribe-processing-job
+IMAGE_NAME = quickscribe-worker
 VERSION = $(shell grep SERVICE_VERSION src/service_version.py | cut -d '=' -f2 | sed "s/['\"]//g" | tr -d '[:space:]')
 REGISTRY = quickscribecontainerregistry.azurecr.io
 AZURE_ACR_NAME = quickscribecontainerregistry
@@ -25,7 +25,7 @@ RESET = \033[0m
 
 # Default target
 help:
-	@echo "$(BLUE)Plaud Sync Service Makefile$(RESET)"
+	@echo "$(BLUE)QuickScribe Processing Service Makefile$(RESET)"
 	@echo ""
 	@echo "Available targets:"
 	@echo "  $(GREEN)build-swagger-client$(RESET) - Build Azure Speech Services swagger client wheel"
@@ -163,17 +163,17 @@ create:
 		--registry-username $(AZURE_ACR_NAME) \
 		--registry-password "$$ACR_PASSWORD" \
 		--trigger-type Schedule \
-		--replica-timeout 1800 \
+		--replica-timeout 5400 \
 		--replica-retry-limit 3 \
 		--parallelism 1 \
 		--replica-completion-count 1 \
-		--cpu 0.5 \
-		--memory 1Gi \
+		--cpu 2 \
+		--memory 4Gi \
 		--env-vars SERVICE_VERSION=$(call get_version) \
-		--cron-expression "*/15 * * * *"; \
+		--cron-expression "*/30 * * * *"; \
 	'
 	@echo "$(GREEN)Container Apps Job created: $(JOB_NAME)$(RESET)"
-	@echo "$(BLUE)Scheduled to run every 15 minutes$(RESET)"
+	@echo "$(BLUE)Scheduled to run every 30 minutes$(RESET)"
 
 # Configure environment variables from .env file
 azure-config:
