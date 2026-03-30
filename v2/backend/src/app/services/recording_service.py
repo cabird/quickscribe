@@ -656,6 +656,7 @@ async def upload_recording(
     logger.info("upload_recording: should_transcribe=%s", should_transcribe)
 
     # Create recording in DB
+    from datetime import datetime, timezone
     recording = await create_recording(
         user_id=user_id,
         original_filename=original_filename,
@@ -663,6 +664,7 @@ async def upload_recording(
         title=title,
         file_path=blob_name,
         status=initial_status,
+        recorded_at=datetime.now(timezone.utc).isoformat(),
     )
     logger.info("upload_recording: DB record created id=%s, status=%s", recording.id[:12], initial_status)
 

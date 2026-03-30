@@ -330,6 +330,11 @@ async def _migrate_schema(db: aiosqlite.Connection) -> None:
         except Exception:
             pass  # column already exists
 
+    # Backfill null recorded_at with created_at for uploaded recordings
+    await db.execute(
+        "UPDATE recordings SET recorded_at = created_at WHERE recorded_at IS NULL"
+    )
+
     await db.commit()
 
 

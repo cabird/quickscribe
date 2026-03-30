@@ -1,6 +1,6 @@
 [project]
 name = "quickscribe-v2"
-version = "2.6.5"
+version = "2.6.6"
 description = "QuickScribe v2 - Personal audio transcription application"
 requires-python = ">=3.11"
 dependencies = [
