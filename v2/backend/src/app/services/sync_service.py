@@ -261,9 +261,10 @@ async def _sync_user(
 
 
 async def _transcode_to_mp3(input_path: Path, output_path: Path) -> Path:
-    """Transcode an audio file to MP3 128kbps using ffmpeg.
+    """Transcode an audio file to mono MP3 128kbps using ffmpeg.
 
-    Runs in a thread to avoid blocking the event loop.
+    Azure Speech Services batch transcription requires mono audio for
+    reliable diarization. Runs in a thread to avoid blocking the event loop.
     """
     import asyncio
     import subprocess
@@ -272,6 +273,7 @@ async def _transcode_to_mp3(input_path: Path, output_path: Path) -> Path:
         result = subprocess.run(
             [
                 "ffmpeg", "-y", "-i", str(input_path),
+                "-ac", "1",
                 "-codec:a", "libmp3lame", "-b:a", "128k",
                 str(output_path),
             ],

@@ -651,10 +651,9 @@ async def upload_recording(
                 logger.info("upload_recording: also uploaded to Azure Blob for transcription: %s", blob_name)
 
     # Determine initial status based on whether speech services are configured
-    should_transcribe = settings.speech_enabled and settings.azure_storage_connection_string
+    should_transcribe = settings.speech_enabled and bool(settings.azure_storage_connection_string)
     initial_status = RecordingStatus.transcribing if should_transcribe else RecordingStatus.pending
-    logger.info("upload_recording: should_transcribe=%s, speech_enabled=%s, has_conn_str=%s",
-                should_transcribe, settings.speech_enabled, bool(settings.azure_storage_connection_string))
+    logger.info("upload_recording: should_transcribe=%s", should_transcribe)
 
     # Create recording in DB
     recording = await create_recording(
