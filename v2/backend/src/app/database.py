@@ -28,6 +28,7 @@ CREATE TABLE IF NOT EXISTS users (
     plaud_token     TEXT,
     plaud_last_sync TEXT,
     settings_json   TEXT,
+    api_key         TEXT,
     created_at      TEXT DEFAULT (datetime('now')),
     last_login      TEXT
 );
@@ -319,6 +320,15 @@ async def _migrate_schema(db: aiosqlite.Connection) -> None:
         await db.execute(
             "CREATE INDEX IF NOT EXISTS idx_search_traces_created ON search_traces(created_at DESC)"
         )
+
+    # Add api_key column to users if missing
+    cursor = await db.execute("PRAGMA table_info(users)")
+    user_columns = {row[1] for row in await cursor.fetchall()}
+    if "api_key" not in user_columns:
+        try:
+            await db.execute("ALTER TABLE users ADD COLUMN api_key TEXT")
+        except Exception:
+            pass  # column already exists
 
     await db.commit()
 

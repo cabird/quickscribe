@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import secrets
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -54,6 +55,29 @@ async def update_settings(body: PlaudSettingsUpdate, user: CurrentUser):
     await db.commit()
     row = await db.execute_fetchall("SELECT * FROM users WHERE id = ?", (user.id,))
     return UserProfile(**dict(row[0]))
+
+
+# ---------------------------------------------------------------------------
+# API key management
+# ---------------------------------------------------------------------------
+
+
+@router.post("/api-key")
+async def generate_api_key(user: CurrentUser):
+    """Generate a new API key for the current user (replaces any existing key)."""
+    api_key = secrets.token_hex(16)
+    db = await get_db()
+    await db.execute("UPDATE users SET api_key = ? WHERE id = ?", (api_key, user.id))
+    await db.commit()
+    return {"api_key": api_key}
+
+
+@router.delete("/api-key", status_code=204)
+async def revoke_api_key(user: CurrentUser):
+    """Remove the current user's API key."""
+    db = await get_db()
+    await db.execute("UPDATE users SET api_key = NULL WHERE id = ?", (user.id,))
+    await db.commit()
 
 
 # ---------------------------------------------------------------------------

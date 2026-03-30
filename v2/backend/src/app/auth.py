@@ -234,3 +234,63 @@ async def get_current_user(
     await db.commit()
 
     return user
+
+
+# ---------------------------------------------------------------------------
+# API key authentication
+# ---------------------------------------------------------------------------
+
+
+async def get_user_by_api_key(
+    request: Request,
+) -> User:
+    """FastAPI dependency — authenticates via X-API-Key header."""
+    api_key = request.headers.get("X-API-Key")
+    if not api_key:
+        raise HTTPException(status_code=401, detail="Missing X-API-Key header")
+
+    db = await get_db()
+    rows = await db.execute_fetchall(
+        "SELECT * FROM users WHERE api_key = ?", (api_key,)
+    )
+    if not rows:
+        raise HTTPException(status_code=401, detail="Invalid API key")
+
+    return User(**dict(rows[0]))
+
+
+async def get_current_user_or_api_key(
+    request: Request,
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> User:
+    """FastAPI dependency — tries Bearer token first, falls back to API key."""
+    # Dev bypass
+    if settings.auth_disabled:
+        return await _get_dev_user()
+
+    # Try Bearer token
+    auth_header = request.headers.get("Authorization", "")
+    if auth_header.startswith("Bearer "):
+        token = auth_header[7:]
+        claims = await _validate_token(token, settings)
+        azure_oid = claims.get("oid")
+        if not azure_oid:
+            raise HTTPException(status_code=401, detail="Token missing oid claim")
+        user = await _get_or_create_user(
+            azure_oid=azure_oid,
+            email=claims.get("preferred_username") or claims.get("email"),
+            name=claims.get("name"),
+        )
+        db = await get_db()
+        await db.execute(
+            "UPDATE users SET last_login = datetime('now') WHERE id = ?", (user.id,)
+        )
+        await db.commit()
+        return user
+
+    # Fall back to API key
+    api_key = request.headers.get("X-API-Key")
+    if api_key:
+        return await get_user_by_api_key(request)
+
+    raise HTTPException(status_code=401, detail="Missing authorization header or API key")

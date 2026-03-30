@@ -6,7 +6,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 
-from app.auth import get_current_user
+from app.auth import get_current_user, get_current_user_or_api_key
 from app.models import (
     AnalysisRequest,
     PaginatedResponse,
@@ -21,6 +21,7 @@ from app.services import ai_service, recording_service, tag_service
 router = APIRouter(prefix="/api/recordings", tags=["recordings"])
 
 CurrentUser = Annotated[User, Depends(get_current_user)]
+CurrentUserOrApiKey = Annotated[User, Depends(get_current_user_or_api_key)]
 
 
 # ---------------------------------------------------------------------------
@@ -103,7 +104,7 @@ async def get_recording(recording_id: str, user: CurrentUser):
 
 @router.post("/upload", response_model=RecordingDetail, status_code=201)
 async def upload_recording(
-    user: CurrentUser,
+    user: CurrentUserOrApiKey,
     file: UploadFile = File(...),
     title: str | None = None,
 ):

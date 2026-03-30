@@ -586,6 +586,9 @@ async def upload_recording(
 ) -> RecordingDetail:
     """Handle file upload: save to temp, upload to blob, create recording.
 
+    If speech services are enabled, submits the recording for transcription
+    so the poll_transcriptions scheduler picks it up automatically.
+
     Args:
         user_id: Owner's user ID.
         file: The uploaded file from FastAPI.
@@ -598,6 +601,9 @@ async def upload_recording(
     from pathlib import Path
     from fastapi import UploadFile
 
+    from app.config import get_settings
+
+    settings = get_settings()
     original_filename = file.filename or "upload"
 
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -613,6 +619,23 @@ async def upload_recording(
         # Upload to blob storage
         await storage_service.upload_file(local_path, blob_name)
 
+        # If using local storage but speech is enabled, also upload to Azure Blob
+        # so Azure Speech Services can access the audio via a SAS URL
+        if settings.use_local_storage and settings.speech_enabled and settings.azure_storage_connection_string:
+            from azure.storage.blob.aio import BlobServiceClient as AsyncBlobServiceClient
+            async with AsyncBlobServiceClient.from_connection_string(
+                settings.azure_storage_connection_string
+            ) as azure_client:
+                container = azure_client.get_container_client(settings.azure_storage_container)
+                blob = container.get_blob_client(blob_name)
+                with open(local_path, "rb") as f:
+                    await blob.upload_blob(f, overwrite=True)
+                logger.info("Also uploaded to Azure Blob for transcription: %s", blob_name)
+
+    # Determine initial status based on whether speech services are configured
+    should_transcribe = settings.speech_enabled and settings.azure_storage_connection_string
+    initial_status = RecordingStatus.transcribing if should_transcribe else RecordingStatus.pending
+
     # Create recording in DB
     recording = await create_recording(
         user_id=user_id,
@@ -620,8 +643,39 @@ async def upload_recording(
         source=RecordingSource.upload,
         title=title,
         file_path=blob_name,
-        status=RecordingStatus.pending,
+        status=initial_status,
     )
+
+    # Submit for transcription if speech services are configured
+    if should_transcribe:
+        try:
+            from app.services.speech_client import SpeechClient
+
+            audio_url = storage_service._azure_sas_url(blob_name, 24, settings)
+            speech = SpeechClient()
+            transcription_id = await speech.create_transcription(
+                audio_url=audio_url,
+                display_name=original_filename,
+            )
+
+            db = await get_db()
+            await db.execute(
+                """UPDATE recordings
+                   SET provider_job_id = ?, processing_started = datetime('now')
+                   WHERE id = ?""",
+                (transcription_id, recording.id),
+            )
+            await db.commit()
+            logger.info("Upload transcription submitted: %s (job=%s)", original_filename, transcription_id[:8])
+        except Exception as e:
+            logger.error("Failed to submit transcription for upload %s: %s", original_filename, e)
+            # Revert status to pending so it can be retried
+            db = await get_db()
+            await db.execute(
+                "UPDATE recordings SET status = 'pending', status_message = ? WHERE id = ?",
+                (f"Transcription submission failed: {e}", recording.id),
+            )
+            await db.commit()
 
     return await get_recording(user_id, recording.id)
 
