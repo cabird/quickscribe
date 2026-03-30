@@ -204,17 +204,30 @@ async def _sync_user(
 
     blocked_ids = existing_ids | deleted_ids
 
-    # Filter to new recordings only
+    # Categorize recordings
     new_recordings = [r for r in plaud_recordings if r.id not in blocked_ids]
-    stats["skipped"] += len(plaud_recordings) - len(new_recordings)
+    already_imported = len(existing_ids & {r.id for r in plaud_recordings})
+    previously_deleted = len(deleted_ids & {r.id for r in plaud_recordings})
 
     # Apply max_recordings_per_sync limit if set
-    if settings.max_recordings_per_sync:
-        new_recordings = new_recordings[: settings.max_recordings_per_sync]
+    if settings.max_recordings_per_sync and len(new_recordings) > settings.max_recordings_per_sync:
+        limited_to = settings.max_recordings_per_sync
+        new_recordings = new_recordings[:limited_to]
+    else:
+        limited_to = None
 
-    run_logs.append(f"User {user_id}: {len(new_recordings)} new recordings to process")
+    # Log clear breakdown
+    summary = f"User {user_id[:8]}: {len(plaud_recordings)} from Plaud — {already_imported} already imported, {previously_deleted} previously deleted"
+    if new_recordings:
+        summary += f", {len(new_recordings)} to process"
+        if limited_to:
+            summary += f" (limited to {limited_to})"
+    else:
+        summary += ", nothing new"
+    run_logs.append(summary)
     if run_logger:
-        await run_logger.info(f"User {user_id[:8]}: {len(new_recordings)} new recordings to process (skipped {stats['skipped']})")
+        await run_logger.info(summary)
+    stats["skipped"] += already_imported + previously_deleted
 
     for audio_file in new_recordings:
         try:
@@ -224,9 +237,13 @@ async def _sync_user(
                 run_logs.append(f"Processed: {audio_file.filename}")
             else:
                 stats["skipped"] += 1
+                if run_logger:
+                    await run_logger.info(f"Skipped (duplicate): {audio_file.filename}")
         except Exception as exc:
             if "UNIQUE constraint failed: recordings.plaud_id" in str(exc):
                 stats["skipped"] += 1
+                if run_logger:
+                    await run_logger.info(f"Skipped (duplicate): {audio_file.filename}")
             else:
                 stats["errors"] += 1
                 msg = f"Error processing {audio_file.id}: {exc}"
