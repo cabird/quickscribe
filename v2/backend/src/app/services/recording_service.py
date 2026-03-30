@@ -608,8 +608,10 @@ async def upload_recording(
 
     with tempfile.TemporaryDirectory() as tmpdir:
         local_path = Path(tmpdir) / original_filename
-        content = await file.read()
-        local_path.write_bytes(content)
+        # Stream to disk in chunks to avoid loading entire file into memory
+        with local_path.open("wb") as out:
+            while chunk := await file.read(1024 * 1024):
+                out.write(chunk)
 
         # Build blob path
         recording_id = str(uuid.uuid4())

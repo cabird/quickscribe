@@ -27,7 +27,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Eye, EyeOff, HelpCircle, Loader2, Pencil, Plus, RefreshCw, Save, Trash2 } from "lucide-react";
+import { Eye, EyeOff, HelpCircle, Loader2, Pencil, Plus, RefreshCw, Save, Trash2, Copy, Check, Smartphone } from "lucide-react";
 import * as api from "@/lib/api";
 import {
   useCurrentUser,
@@ -49,6 +49,9 @@ export default function SettingsPage() {
 
         {/* Profile card */}
         {user && <ProfileCard user={user} />}
+
+        {/* API Key for iOS uploads */}
+        {user && <ApiKeyCard user={user} />}
 
         {/* Plaud integration */}
         {user && <PlaudCard user={user} />}
@@ -81,6 +84,72 @@ function ProfileCard({ user }: { user: UserProfile }) {
         />
         <InfoRow label="User ID" value={user.id} />
       </div>
+    </Card>
+  );
+}
+
+function ApiKeyCard({ user }: { user: UserProfile }) {
+  const [copied, setCopied] = useState(false);
+  const [showKey, setShowKey] = useState(false);
+  const [generating, setGenerating] = useState(false);
+  const [currentKey, setCurrentKey] = useState(user.api_key);
+
+  const handleCopy = useCallback(async () => {
+    if (!currentKey) return;
+    try {
+      await navigator.clipboard.writeText(currentKey);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setCopied(false);
+    }
+  }, [currentKey]);
+
+  const handleGenerate = useCallback(async () => {
+    setGenerating(true);
+    try {
+      const resp = await fetch("/api/me/api-key", { method: "POST", headers: { Authorization: `Bearer ${await (await import("@/lib/auth")).getAccessToken()}` } });
+      const data = await resp.json();
+      setCurrentKey(data.api_key);
+    } finally {
+      setGenerating(false);
+    }
+  }, []);
+
+  const maskedKey = currentKey && currentKey.length > 10
+    ? currentKey.slice(0, 6) + "•".repeat(currentKey.length - 10) + currentKey.slice(-4)
+    : "—";
+
+  return (
+    <Card className="p-5">
+      <div className="flex items-center gap-2">
+        <Smartphone className="h-4 w-4 text-muted-foreground" />
+        <h2 className="text-sm font-semibold">API Key — iPhone Upload</h2>
+      </div>
+      <Separator className="my-3" />
+      <p className="mb-3 text-xs text-muted-foreground">
+        Use this key in an iOS Shortcut to upload Voice Memos directly. Set the
+        header <code className="rounded bg-muted px-1 py-0.5">X-API-Key</code> to
+        the value below.
+      </p>
+      {currentKey ? (
+        <div className="flex items-center gap-2">
+          <code className="flex-1 rounded bg-muted px-3 py-2 text-sm font-mono select-all">
+            {showKey ? currentKey : maskedKey}
+          </code>
+          <Button variant="ghost" size="icon" onClick={() => setShowKey(!showKey)}>
+            {showKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+          </Button>
+          <Button variant="ghost" size="icon" onClick={handleCopy}>
+            {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+          </Button>
+        </div>
+      ) : (
+        <Button variant="outline" size="sm" onClick={handleGenerate} disabled={generating}>
+          {generating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          Generate API Key
+        </Button>
+      )}
     </Card>
   );
 }

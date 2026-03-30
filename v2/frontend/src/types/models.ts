@@ -52,6 +52,7 @@ export interface UserProfile {
   plaud_enabled: boolean;
   plaud_token: string | null;
   plaud_last_sync: string | null;
+  api_key: string | null;
   created_at: string | null;
   last_login: string | null;
 }

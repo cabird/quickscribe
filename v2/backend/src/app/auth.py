@@ -246,8 +246,8 @@ async def get_user_by_api_key(
 ) -> User:
     """FastAPI dependency — authenticates via X-API-Key header."""
     api_key = request.headers.get("X-API-Key")
-    if not api_key:
-        raise HTTPException(status_code=401, detail="Missing X-API-Key header")
+    if not api_key or len(api_key) != 32:
+        raise HTTPException(status_code=401, detail="Invalid API key")
 
     db = await get_db()
     rows = await db.execute_fetchall(

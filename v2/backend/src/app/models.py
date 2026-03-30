@@ -132,6 +132,7 @@ class UserProfile(BaseModel):
     plaud_enabled: bool = False
     plaud_token: str | None = None
     plaud_last_sync: datetime | None = None
+    api_key: str | None = None
     created_at: datetime | None = None
     last_login: datetime | None = None
 
