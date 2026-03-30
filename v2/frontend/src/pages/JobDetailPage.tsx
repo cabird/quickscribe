@@ -57,7 +57,7 @@ export default function JobDetailPage() {
 
   // Fetch logs: once for completed runs, poll for running runs
   useEffect(() => {
-    if (!id) return;
+    if (!id || isLoading) return;
     let cancelled = false;
 
     const fetchAndAppendLogs = async () => {
@@ -105,7 +105,7 @@ export default function JobDetailPage() {
         intervalRef.current = null;
       }
     };
-  }, [id, isRunning, refetchJob]);
+  }, [id, isLoading, isRunning, refetchJob]);
 
   const handleBack = useCallback(() => {
     navigate("/jobs");
