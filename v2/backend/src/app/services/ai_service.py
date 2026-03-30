@@ -143,8 +143,9 @@ async def chat(
     start_ms = int(time.time() * 1000)
     try:
         response = await client.chat.completions.create(
-            model=settings.azure_openai_deployment,
+            model=settings.azure_openai_chat_deployment or settings.azure_openai_mini_deployment or settings.azure_openai_deployment,
             messages=all_messages,
+            reasoning_effort="low",
         )
 
         elapsed_ms = int(time.time() * 1000) - start_ms

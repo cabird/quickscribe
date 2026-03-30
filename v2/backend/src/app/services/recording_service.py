@@ -605,13 +605,17 @@ async def upload_recording(
 
     settings = get_settings()
     original_filename = file.filename or "upload"
+    logger.info("upload_recording: starting for user=%s, file=%s", user_id[:12], original_filename)
 
     with tempfile.TemporaryDirectory() as tmpdir:
         local_path = Path(tmpdir) / original_filename
         # Stream to disk in chunks to avoid loading entire file into memory
+        bytes_written = 0
         with local_path.open("wb") as out:
             while chunk := await file.read(1024 * 1024):
                 out.write(chunk)
+                bytes_written += len(chunk)
+        logger.info("upload_recording: saved %s to temp (%d bytes)", original_filename, bytes_written)
 
         # Build blob path
         recording_id = str(uuid.uuid4())
@@ -619,7 +623,9 @@ async def upload_recording(
         blob_name = f"{user_id}/{recording_id}{extension}"
 
         # Upload to blob storage
+        logger.info("upload_recording: uploading to blob storage as %s", blob_name)
         await storage_service.upload_file(local_path, blob_name)
+        logger.info("upload_recording: blob upload complete")
 
         # If using local storage but speech is enabled, also upload to Azure Blob
         # so Azure Speech Services can access the audio via a SAS URL
@@ -632,11 +638,13 @@ async def upload_recording(
                 blob = container.get_blob_client(blob_name)
                 with open(local_path, "rb") as f:
                     await blob.upload_blob(f, overwrite=True)
-                logger.info("Also uploaded to Azure Blob for transcription: %s", blob_name)
+                logger.info("upload_recording: also uploaded to Azure Blob for transcription: %s", blob_name)
 
     # Determine initial status based on whether speech services are configured
     should_transcribe = settings.speech_enabled and settings.azure_storage_connection_string
     initial_status = RecordingStatus.transcribing if should_transcribe else RecordingStatus.pending
+    logger.info("upload_recording: should_transcribe=%s, speech_enabled=%s, has_conn_str=%s",
+                should_transcribe, settings.speech_enabled, bool(settings.azure_storage_connection_string))
 
     # Create recording in DB
     recording = await create_recording(
@@ -647,14 +655,17 @@ async def upload_recording(
         file_path=blob_name,
         status=initial_status,
     )
+    logger.info("upload_recording: DB record created id=%s, status=%s", recording.id[:12], initial_status)
 
     # Submit for transcription if speech services are configured
     if should_transcribe:
         try:
             from app.services.speech_client import SpeechClient
 
+            logger.info("upload_recording: generating SAS URL for %s", blob_name)
             audio_url = storage_service._azure_sas_url(blob_name, 24, settings)
             speech = SpeechClient()
+            logger.info("upload_recording: submitting to Azure Speech Services")
             transcription_id = await speech.create_transcription(
                 audio_url=audio_url,
                 display_name=original_filename,
@@ -668,9 +679,9 @@ async def upload_recording(
                 (transcription_id, recording.id),
             )
             await db.commit()
-            logger.info("Upload transcription submitted: %s (job=%s)", original_filename, transcription_id[:8])
+            logger.info("upload_recording: transcription submitted %s (job=%s)", original_filename, transcription_id[:8])
         except Exception as e:
-            logger.error("Failed to submit transcription for upload %s: %s", original_filename, e)
+            logger.exception("upload_recording: FAILED to submit transcription for %s: %s", original_filename, e)
             # Revert status to pending so it can be retried
             db = await get_db()
             await db.execute(
@@ -678,8 +689,12 @@ async def upload_recording(
                 (f"Transcription submission failed: {e}", recording.id),
             )
             await db.commit()
+    else:
+        logger.info("upload_recording: skipping transcription (not configured)")
 
-    return await get_recording(user_id, recording.id)
+    result = await get_recording(user_id, recording.id)
+    logger.info("upload_recording: done, returning recording %s", recording.id[:12])
+    return result
 
 
 async def search_recordings(user_id: str, query: str) -> list[RecordingSummary]:

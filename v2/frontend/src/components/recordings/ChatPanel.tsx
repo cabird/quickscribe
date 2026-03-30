@@ -59,16 +59,19 @@ export function ChatPanel({ recordingId, isOpen, onClose, onHighlightEntry }: Ch
   const isMobile = useIsMobile();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
   const chatMutation = useChatWithTranscript();
 
   // Scroll to bottom on new messages
   useEffect(() => {
-    const el = scrollRef.current;
-    if (el) el.scrollTop = el.scrollHeight;
-  }, [messages]);
+    // ScrollArea renders a viewport div as the scrollable container
+    const viewport = scrollAreaRef.current?.querySelector("[data-radix-scroll-area-viewport]") as HTMLElement | null;
+    if (viewport) {
+      viewport.scrollTop = viewport.scrollHeight;
+    }
+  }, [messages, chatMutation.isPending]);
 
   const handleSend = useCallback(async () => {
     const text = input.trim();
@@ -133,8 +136,8 @@ export function ChatPanel({ recordingId, isOpen, onClose, onHighlightEntry }: Ch
       </div>
 
       {/* Messages */}
-      <ScrollArea className="flex-1 px-4">
-        <div ref={scrollRef} className="space-y-4 py-4">
+      <ScrollArea ref={scrollAreaRef} className="flex-1 px-4">
+        <div className="space-y-4 py-4">
           {messages.length === 0 && (
             <p className="text-center text-sm text-muted-foreground">
               Ask a question about this transcript

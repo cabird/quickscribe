@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
@@ -22,6 +23,9 @@ router = APIRouter(prefix="/api/recordings", tags=["recordings"])
 
 CurrentUser = Annotated[User, Depends(get_current_user)]
 CurrentUserOrApiKey = Annotated[User, Depends(get_current_user_or_api_key)]
+
+
+logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -105,16 +109,34 @@ async def get_recording(recording_id: str, user: CurrentUser):
 @router.post("/upload", response_model=RecordingDetail, status_code=201)
 async def upload_recording(
     user: CurrentUserOrApiKey,
-    file: UploadFile = File(...),
+    file: UploadFile | None = File(None),
+    audio_file: UploadFile | None = File(None),
     title: str | None = None,
 ):
-    """Upload an audio file for transcription."""
-    recording = await recording_service.upload_recording(
-        user_id=user.id,
-        file=file,
-        title=title,
+    """Upload an audio file for transcription. Accepts 'file' or 'audio_file' field name."""
+    upload = file or audio_file
+    if not upload:
+        raise HTTPException(status_code=400, detail="No file provided. Use form field 'file' or 'audio_file'.")
+
+    auth_method = "api_key" if not hasattr(user, '_auth_method') else "bearer"
+    logger.info(
+        "Upload request: user=%s, auth=%s, filename=%s, content_type=%s, title=%s",
+        user.id[:12], auth_method, upload.filename, upload.content_type, title,
     )
-    return recording
+
+    try:
+        recording = await recording_service.upload_recording(
+            user_id=user.id,
+            file=upload,
+            title=title,
+        )
+        logger.info("Upload complete: recording=%s, status=%s", recording.id[:12], recording.status)
+        return recording
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("Upload failed for user=%s, filename=%s: %s", user.id[:12], upload.filename, e)
+        raise HTTPException(status_code=500, detail=f"Upload failed: {e}")
 
 
 @router.post("/paste", response_model=RecordingDetail, status_code=201)

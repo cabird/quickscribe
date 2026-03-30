@@ -7,6 +7,7 @@ In dev: AUTH_DISABLED=true returns a hardcoded dev user.
 from __future__ import annotations
 
 import asyncio
+import logging
 import time
 from typing import Annotated
 
@@ -17,6 +18,8 @@ from fastapi import Depends, HTTPException, Request, status
 from app.config import Settings, get_settings
 from app.database import get_db
 from app.models import User
+
+logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -247,6 +250,7 @@ async def get_user_by_api_key(
     """FastAPI dependency — authenticates via X-API-Key header."""
     api_key = request.headers.get("X-API-Key")
     if not api_key or len(api_key) != 32:
+        logger.warning("API key auth failed: invalid key format (len=%s)", len(api_key) if api_key else 0)
         raise HTTPException(status_code=401, detail="Invalid API key")
 
     db = await get_db()
@@ -254,9 +258,12 @@ async def get_user_by_api_key(
         "SELECT * FROM users WHERE api_key = ?", (api_key,)
     )
     if not rows:
+        logger.warning("API key auth failed: no matching user (key=%s...)", api_key[:6])
         raise HTTPException(status_code=401, detail="Invalid API key")
 
-    return User(**dict(rows[0]))
+    user = User(**dict(rows[0]))
+    logger.info("API key auth success: user=%s (%s)", user.id[:12], user.email)
+    return user
 
 
 async def get_current_user_or_api_key(
@@ -271,26 +278,34 @@ async def get_current_user_or_api_key(
     # Try Bearer token
     auth_header = request.headers.get("Authorization", "")
     if auth_header.startswith("Bearer "):
-        token = auth_header[7:]
-        claims = await _validate_token(token, settings)
-        azure_oid = claims.get("oid")
-        if not azure_oid:
-            raise HTTPException(status_code=401, detail="Token missing oid claim")
-        user = await _get_or_create_user(
-            azure_oid=azure_oid,
-            email=claims.get("preferred_username") or claims.get("email"),
-            name=claims.get("name"),
-        )
-        db = await get_db()
-        await db.execute(
-            "UPDATE users SET last_login = datetime('now') WHERE id = ?", (user.id,)
-        )
-        await db.commit()
-        return user
+        try:
+            token = auth_header[7:]
+            claims = await _validate_token(token, settings)
+            azure_oid = claims.get("oid")
+            if not azure_oid:
+                raise HTTPException(status_code=401, detail="Token missing oid claim")
+            user = await _get_or_create_user(
+                azure_oid=azure_oid,
+                email=claims.get("preferred_username") or claims.get("email"),
+                name=claims.get("name"),
+            )
+            db = await get_db()
+            await db.execute(
+                "UPDATE users SET last_login = datetime('now') WHERE id = ?", (user.id,)
+            )
+            await db.commit()
+            return user
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.exception("Bearer auth failed: %s", e)
+            raise HTTPException(status_code=401, detail=f"Authentication failed: {e}")
 
     # Fall back to API key
     api_key = request.headers.get("X-API-Key")
     if api_key:
         return await get_user_by_api_key(request)
 
+    logger.warning("Auth failed: no Authorization header or X-API-Key from %s %s",
+                    request.method, request.url.path)
     raise HTTPException(status_code=401, detail="Missing authorization header or API key")

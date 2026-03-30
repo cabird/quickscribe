@@ -45,6 +45,7 @@ class Settings(BaseSettings):
     azure_openai_api_key: str = ""
     azure_openai_deployment: str = ""
     azure_openai_mini_deployment: str = ""
+    azure_openai_chat_deployment: str = ""
     azure_openai_api_version: str = "2024-06-01"
 
     # --- Azure Speech Services ---
