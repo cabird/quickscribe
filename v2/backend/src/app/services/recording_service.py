@@ -617,14 +617,24 @@ async def upload_recording(
                 bytes_written += len(chunk)
         logger.info("upload_recording: saved %s to temp (%d bytes)", original_filename, bytes_written)
 
-        # Build blob path
-        recording_id = str(uuid.uuid4())
-        extension = local_path.suffix or ".bin"
-        blob_name = f"{user_id}/{recording_id}{extension}"
+        # Transcode to MP3 for Azure Speech Services compatibility
+        mp3_path = Path(tmpdir) / f"{Path(original_filename).stem}.mp3"
+        if local_path.suffix.lower() != ".mp3":
+            from app.services.sync_service import _transcode_to_mp3
+            logger.info("upload_recording: transcoding %s → MP3", local_path.suffix)
+            await _transcode_to_mp3(local_path, mp3_path)
+            upload_path = mp3_path
+            logger.info("upload_recording: transcode complete (%d bytes)", mp3_path.stat().st_size)
+        else:
+            upload_path = local_path
 
-        # Upload to blob storage
+        # Build blob path (always .mp3 for transcription compatibility)
+        recording_id = str(uuid.uuid4())
+        blob_name = f"{user_id}/{recording_id}.mp3"
+
+        # Upload transcoded file to blob storage
         logger.info("upload_recording: uploading to blob storage as %s", blob_name)
-        await storage_service.upload_file(local_path, blob_name)
+        await storage_service.upload_file(upload_path, blob_name)
         logger.info("upload_recording: blob upload complete")
 
         # If using local storage but speech is enabled, also upload to Azure Blob
@@ -636,7 +646,7 @@ async def upload_recording(
             ) as azure_client:
                 container = azure_client.get_container_client(settings.azure_storage_container)
                 blob = container.get_blob_client(blob_name)
-                with open(local_path, "rb") as f:
+                with open(upload_path, "rb") as f:
                     await blob.upload_blob(f, overwrite=True)
                 logger.info("upload_recording: also uploaded to Azure Blob for transcription: %s", blob_name)
 
