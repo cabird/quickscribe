@@ -1,0 +1,66 @@
+[project]
+name = "quickscribe-v2"
+version = "2.3.3"
+description = "QuickScribe v2 - Personal audio transcription application"
+requires-python = ">=3.11"
+dependencies = [
+    # Web framework
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.32.0",
+    "python-multipart>=0.0.12",
+
+    # Database
+    "aiosqlite>=0.20.0",
+
+    # Auth
+    "pyjwt[crypto]>=2.9.0",
+
+    # Azure services
+    "azure-storage-blob>=12.23.0",
+    "aiohttp>=3.9.0",
+    "openai>=1.51.0",
+
+    # Plaud sync & audio processing
+    "httpx>=0.27.0",
+    "ffmpeg-python>=0.2.0",
+
+    # numpy kept in main deps (used by speaker_profile_updater and other services)
+    "numpy>=1.24.0",
+
+    # AI & text processing
+    "pyyaml>=6.0",
+    "tiktoken>=0.5.0",
+    "jinja2>=3.1.0",
+
+    # Config
+    "pydantic>=2.9.0",
+    "pydantic-settings>=2.0.0",
+    "python-dotenv>=1.0.0",
+
+    # Background scheduling
+    "apscheduler>=3.10.0",
+]
+
+[project.optional-dependencies]
+speaker-id = [
+    # ECAPA-TDNN speaker identification — pinned versions from v1 for compatibility
+    "torch==2.4.1",
+    "torchaudio==2.4.1",
+    "speechbrain==1.0.3",
+    "huggingface_hub==0.24.7",
+    "soundfile>=0.12.0",
+]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.24.0",
+    "httpx>=0.27.0",
+    "ruff>=0.8.0",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"

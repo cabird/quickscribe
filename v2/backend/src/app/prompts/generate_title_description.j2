@@ -1,0 +1,21 @@
+Analyze this audio transcript and generate both a title and description.
+
+For the title:
+- Maximum 60 characters
+- Concise and descriptive
+- Focus on the main topic or purpose
+- No quotes around the title
+
+For the description:
+- 1-2 sentences summarizing the main content
+- Informative about what was discussed or accomplished
+- Concise but comprehensive
+
+IMPORTANT: Return only valid JSON with no additional text, explanations, or formatting.
+Do not wrap the JSON in code blocks or add any other content.
+
+Required format:
+{% raw %}{"title": "Your generated title here", "description": "Your generated description here"}{% endraw %}
+
+TRANSCRIPT:
+{{ transcript }}

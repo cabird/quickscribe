@@ -1,0 +1,20 @@
+{% set system_message %}You are a helpful assistant that searches through meeting transcript summaries. Always respond with valid JSON only.{% endset %}
+I have a batch of {{ num_recordings }} meeting transcript summaries (batch {{ batch_index }} of {{ total_batches }}). Find recordings relevant to this request:
+
+## Request
+{{ question }}
+
+## Recording Summaries
+{{ summaries }}
+
+## Instructions
+Return the most relevant recordings as candidates.
+
+Return JSON:
+{% raw %}{"candidates": [{"tag": "AB12", "score": 0.95, "why": "Why this recording is relevant"}]}{% endraw %}
+
+Guidelines:
+- Use the [[TAG]] codes from the summaries
+- Score from 0.0 to 1.0 (only include >= 0.3)
+- At most {{ max_candidates }} candidates, ordered by score
+- If nothing relevant, return {% raw %}{"candidates": []}{% endraw %}

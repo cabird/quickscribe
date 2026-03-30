@@ -1,0 +1,25 @@
+{% set system_message %}You extract relevant passages and context from meeting transcripts. Format responses in Markdown.{% endset %}
+Extract the parts of this transcript that are relevant to the request below.
+
+## Request
+{{ question }}
+
+## Recording: {{ title }}
+Date: {{ date }}
+Speakers: {{ speakers }}
+
+## Transcript
+{{ transcript }}
+
+## Instructions
+
+Pull out the parts of this transcript that are relevant to the request.
+
+For each relevant section:
+- Include the actual words from the transcript as blockquotes, attributed to the speaker
+- Summarize any context needed to understand the passage (e.g., what was being discussed leading up to it)
+- Include enough surrounding context so each passage makes sense on its own
+
+If multiple parts of the transcript are relevant, include all of them.
+
+If nothing in this transcript is relevant to the request, respond with exactly: NOT_RELEVANT

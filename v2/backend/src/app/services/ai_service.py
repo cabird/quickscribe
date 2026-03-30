@@ -1,0 +1,192 @@
+"""Azure OpenAI integration for transcript analysis and chat."""
+
+from __future__ import annotations
+
+import json
+import logging
+import time
+
+from openai import AsyncAzureOpenAI
+
+from app.config import get_settings
+from app.models import ChatResponse
+from app.prompts import render
+
+logger = logging.getLogger(__name__)
+
+
+def _get_client() -> AsyncAzureOpenAI:
+    """Create an async Azure OpenAI client."""
+    settings = get_settings()
+    return AsyncAzureOpenAI(
+        azure_endpoint=settings.azure_openai_endpoint,
+        api_key=settings.azure_openai_api_key,
+        api_version=settings.azure_openai_api_version,
+    )
+
+
+def _truncate_transcript(transcript: str, max_chars: int = 80_000) -> str:
+    """Truncate transcript to stay within token limits.
+
+    Keeps the beginning and end, which tend to have the most identifying
+    information (introductions and conclusions).
+    """
+    if len(transcript) <= max_chars:
+        return transcript
+
+    half = max_chars // 2
+    return (
+        transcript[:half]
+        + "\n\n[... transcript truncated for length ...]\n\n"
+        + transcript[-half:]
+    )
+
+
+async def generate_title_description(transcript: str) -> dict:
+    """Generate a title and description for a transcript.
+
+    Args:
+        transcript: The full or diarized transcript text.
+
+    Returns:
+        Dict with "title" and "description" keys.
+    """
+    settings = get_settings()
+
+    truncated = _truncate_transcript(transcript, max_chars=30_000)
+    prompt_text = render("generate_title_description", transcript=truncated)
+
+    client = _get_client()
+    try:
+        response = await client.chat.completions.create(
+            model=settings.azure_openai_mini_deployment,
+            messages=[{"role": "user", "content": prompt_text}],
+            max_completion_tokens=4000,
+            response_format={"type": "json_object"},
+        )
+
+        content = response.choices[0].message.content or "{}"
+        result = json.loads(content)
+
+        return {
+            "title": result.get("title", "Untitled Recording"),
+            "description": result.get("description", ""),
+        }
+    except (json.JSONDecodeError, KeyError, IndexError) as exc:
+        logger.warning("Failed to parse title/description response: %s", exc)
+        return {"title": "Untitled Recording", "description": ""}
+    finally:
+        await client.close()
+
+
+async def infer_speakers(transcript: str) -> dict:
+    """Infer speaker identities from a diarized transcript.
+
+    Args:
+        transcript: Diarized transcript with "Speaker 1:", "Speaker 2:" labels.
+
+    Returns:
+        Dict mapping speaker labels to inferred info, e.g.:
+        {"Speaker 1": {"name": "Alice", "reasoning": "..."}, ...}
+    """
+    settings = get_settings()
+
+    truncated = _truncate_transcript(transcript, max_chars=40_000)
+    prompt_text = render("infer_speaker_names", transcript=truncated)
+
+    client = _get_client()
+    try:
+        response = await client.chat.completions.create(
+            model=settings.azure_openai_deployment,
+            messages=[{"role": "user", "content": prompt_text}],
+            response_format={"type": "json_object"},
+        )
+
+        content = response.choices[0].message.content or "{}"
+        return json.loads(content)
+    except (json.JSONDecodeError, KeyError, IndexError) as exc:
+        logger.warning("Failed to parse speaker inference response: %s", exc)
+        return {}
+    finally:
+        await client.close()
+
+
+async def chat(
+    messages: list[dict],
+    transcript_context: str,
+) -> ChatResponse:
+    """Chat with transcript context.
+
+    Args:
+        messages: Conversation history as list of {"role": ..., "content": ...}.
+        transcript_context: The transcript text to include as system context.
+
+    Returns:
+        ChatResponse with the assistant's reply and usage info.
+    """
+    settings = get_settings()
+    truncated = _truncate_transcript(transcript_context)
+
+    system_message = {
+        "role": "system",
+        "content": (
+            "You are a helpful assistant that answers questions about an audio transcript. "
+            "Use the transcript below as your primary source of information. "
+            "If something isn't covered in the transcript, say so.\n\n"
+            f"TRANSCRIPT:\n{truncated}"
+        ),
+    }
+
+    all_messages = [system_message] + messages
+
+    client = _get_client()
+    start_ms = int(time.time() * 1000)
+    try:
+        response = await client.chat.completions.create(
+            model=settings.azure_openai_deployment,
+            messages=all_messages,
+        )
+
+        elapsed_ms = int(time.time() * 1000) - start_ms
+        choice = response.choices[0]
+        usage = None
+        if response.usage:
+            usage = {
+                "prompt_tokens": response.usage.prompt_tokens,
+                "completion_tokens": response.usage.completion_tokens,
+                "total_tokens": response.usage.total_tokens,
+            }
+
+        return ChatResponse(
+            message=choice.message.content or "",
+            usage=usage,
+            response_time_ms=elapsed_ms,
+        )
+    finally:
+        await client.close()
+
+
+async def run_analysis(transcript: str, prompt_template: str) -> str:
+    """Run a custom analysis prompt against a transcript.
+
+    Args:
+        transcript: The transcript text.
+        prompt_template: A prompt string containing a {transcript} placeholder.
+
+    Returns:
+        The raw LLM response text.
+    """
+    settings = get_settings()
+    truncated = _truncate_transcript(transcript)
+    prompt_text = prompt_template.format(transcript=truncated)
+
+    client = _get_client()
+    try:
+        response = await client.chat.completions.create(
+            model=settings.azure_openai_deployment,
+            messages=[{"role": "user", "content": prompt_text}],
+        )
+
+        return response.choices[0].message.content or ""
+    finally:
+        await client.close()

@@ -1,0 +1,18 @@
+I have a transcript labeled with generic speaker tags ("Speaker 1", "Speaker 2", etc.). Based on
+conversation context, including tone, phrasing, and topics discussed, please infer suitable
+names or labels for each speaker.
+
+- If an actual name cannot be determined, use the existing speaker tag ("Speaker 1", "Speaker 2", etc.)
+- Ensure each inferred name is unique and concise (preferably one word, max two) and does not overlap with other labels.
+
+IMPORTANT: Return only valid JSON with no additional text, explanations, or formatting.
+Do not wrap the JSON in code blocks or add any other content.
+
+Required format:
+{% raw %}{
+  "Speaker 1": {"name": "<inferred name or label>", "reasoning": "<concise reasoning>"},
+  "Speaker 2": {"name": "<inferred name or label>", "reasoning": "<concise reasoning>"}
+}{% endraw %}
+
+TRANSCRIPT:
+{{ transcript }}

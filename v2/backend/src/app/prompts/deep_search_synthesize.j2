@@ -1,0 +1,22 @@
+{% set system_message %}You are a helpful assistant that synthesizes information from multiple meeting transcript extracts into coherent answers.{% endset %}
+Answer the request below using the extracted transcript passages provided.
+
+## Request
+{{ question }}
+
+## Extracted Passages from Recordings
+{{ per_recording_answers }}
+
+## Instructions
+The extracts above contain actual passages pulled from meeting transcripts, with speaker attributions and surrounding context. Use them to answer the request.
+
+- Weave the information into a coherent response
+- Preserve important direct quotes from the extracts (as blockquotes) — these are real words people said
+- Attribute statements to speakers by name when the extracts identify them
+- Cite recordings inline using [[TAG]] codes so the reader knows which recording each piece comes from
+- Use one tag per bracket pair: [[AB12]] [[CD34]], not [[AB12, CD34]]
+- Only cite tags that appear in the recording headers above
+- If sources agree, synthesize. If they differ or evolve over time, note that.
+- Format your response in Markdown
+- Don't invent facts not present in the extracts
+- If the extracts don't contain enough to fully answer the request, say what's missing

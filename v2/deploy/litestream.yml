@@ -1,0 +1,10 @@
+dbs:
+  - path: /app/data/app.db
+    replicas:
+      - type: abs
+        account-name: ${AZURE_STORAGE_ACCOUNT}
+        account-key: ${AZURE_STORAGE_KEY}
+        bucket: ${LITESTREAM_BUCKET}
+        path: app.db
+        sync-interval: 1s
+        snapshot-interval: 24h

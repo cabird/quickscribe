@@ -1,0 +1,27 @@
+{% set system_message %}You are a helpful assistant that searches through meeting transcript summaries. Always respond with valid JSON only.{% endset %}
+I have {{ num_recordings }} meeting transcript summaries. I need to find recordings relevant to this request:
+
+## Request
+{{ question }}
+
+## Recording Summaries
+{{ summaries }}
+
+## Instructions
+
+Either answer directly from the summaries, or return candidates for deeper transcript search.
+
+Return JSON — one of:
+
+Direct answer (if summaries have enough info):
+{% raw %}{"answered": true, "answer": "Markdown response. Cite recordings like [[AB12]].", "sources": ["AB12", "CD34"]}{% endraw %}
+
+Need deeper search:
+{% raw %}{"answered": false, "candidates": [{"tag": "AB12", "score": 0.95, "why": "Why this recording is relevant"}]}{% endraw %}
+
+Guidelines:
+- Use the [[TAG]] codes from the summaries
+- Cite sources inline in your answer
+- Return at most {{ max_candidates }} candidates, ordered by score (0.0-1.0)
+- If the request needs quotes, specific details, or speaker attribution, return candidates
+- If nothing is relevant, return {% raw %}{"answered": false, "candidates": []}{% endraw %}
