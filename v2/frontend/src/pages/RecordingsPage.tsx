@@ -35,8 +35,8 @@ export default function RecordingsPage() {
   // Multi-select state
   const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set());
 
-  // Resizable splitter state (percentage of container width for left panel)
-  const [splitPercent, setSplitPercent] = useState(35);
+  // Resizable splitter state (pixel width for left panel)
+  const [splitWidth, setSplitWidth] = useState(380);
   const containerRef = useRef<HTMLDivElement>(null);
   const isDragging = useRef(false);
 
@@ -153,7 +153,8 @@ export default function RecordingsPage() {
   }, [recordings, checkedIds]);
 
   // Splitter drag handlers
-  const handleMouseDown = useCallback(() => {
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
     isDragging.current = true;
     document.body.style.cursor = "col-resize";
     document.body.style.userSelect = "none";
@@ -163,9 +164,9 @@ export default function RecordingsPage() {
     const handleMouseMove = (e: MouseEvent) => {
       if (!isDragging.current || !containerRef.current) return;
       const rect = containerRef.current.getBoundingClientRect();
-      const percent = ((e.clientX - rect.left) / rect.width) * 100;
-      // Clamp between 20% and 60%
-      setSplitPercent(Math.min(60, Math.max(20, percent)));
+      const newWidth = e.clientX - rect.left;
+      const maxWidth = rect.width - 400;
+      setSplitWidth(Math.min(maxWidth, Math.max(250, newWidth)));
     };
 
     const handleMouseUp = () => {
@@ -376,18 +377,20 @@ export default function RecordingsPage() {
     <>
       <div ref={containerRef} className="flex h-full">
         {/* Left panel: recording list */}
-        <div className="shrink-0 overflow-hidden" style={{ width: `${splitPercent}%` }}>
+        <div className="shrink-0 overflow-hidden" style={{ width: `${splitWidth}px` }}>
           {listPanel}
         </div>
 
         {/* Draggable splitter */}
         <div
-          className="w-1 shrink-0 cursor-col-resize bg-border hover:bg-brand-300 active:bg-brand-400 transition-colors"
+          className="group relative w-1.5 shrink-0 cursor-col-resize bg-border transition-colors hover:bg-primary/30 active:bg-primary/50"
           onMouseDown={handleMouseDown}
           role="separator"
           aria-orientation="vertical"
           tabIndex={0}
-        />
+        >
+          <div className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-transparent transition-colors group-hover:bg-primary/50" />
+        </div>
 
         {/* Right panel: detail */}
         <div className="min-w-0 flex-1 overflow-hidden">

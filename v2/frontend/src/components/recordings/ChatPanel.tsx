@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 import { Minimize2, Send, Trash2, X } from "lucide-react";
@@ -59,18 +58,14 @@ export function ChatPanel({ recordingId, isOpen, onClose, onHighlightEntry }: Ch
   const isMobile = useIsMobile();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
-  const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
   const chatMutation = useChatWithTranscript();
 
   // Scroll to bottom on new messages
   useEffect(() => {
-    // ScrollArea renders a viewport div as the scrollable container
-    const viewport = scrollAreaRef.current?.querySelector("[data-radix-scroll-area-viewport]") as HTMLElement | null;
-    if (viewport) {
-      viewport.scrollTop = viewport.scrollHeight;
-    }
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, chatMutation.isPending]);
 
   const handleSend = useCallback(async () => {
@@ -136,7 +131,7 @@ export function ChatPanel({ recordingId, isOpen, onClose, onHighlightEntry }: Ch
       </div>
 
       {/* Messages */}
-      <ScrollArea ref={scrollAreaRef} className="flex-1 px-4">
+      <div className="flex-1 overflow-y-auto px-4">
         <div className="space-y-4 py-4">
           {messages.length === 0 && (
             <p className="text-center text-sm text-muted-foreground">
@@ -169,8 +164,9 @@ export function ChatPanel({ recordingId, isOpen, onClose, onHighlightEntry }: Ch
               </span>
             </div>
           )}
+          <div ref={messagesEndRef} />
         </div>
-      </ScrollArea>
+      </div>
 
       {/* Input */}
       <div className="border-t p-3">
