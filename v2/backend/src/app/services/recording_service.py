@@ -214,7 +214,7 @@ async def list_recordings(
     total = dict(count_rows[0])["cnt"] if count_rows else 0
 
     # Fetch page
-    base_query += " ORDER BY recorded_at DESC NULLS LAST, created_at DESC LIMIT ? OFFSET ?"
+    base_query += " ORDER BY COALESCE(recorded_at, created_at) DESC LIMIT ? OFFSET ?"
     rows = await db.execute_fetchall(base_query, params + [per_page, offset])
 
     recording_ids = [dict(r)["id"] for r in rows]
@@ -721,7 +721,7 @@ async def search_recordings(user_id: str, query: str) -> list[RecordingSummary]:
             WHERE user_id = ? AND rowid IN (
                 SELECT rowid FROM recordings_fts WHERE recordings_fts MATCH ?
             )
-            ORDER BY recorded_at DESC
+            ORDER BY COALESCE(recorded_at, created_at) DESC
             LIMIT 50""",
         (user_id, query),
     )
@@ -769,7 +769,7 @@ async def get_recordings_for_review(user_id: str) -> list[dict]:
                OR speaker_mapping LIKE '%"identificationStatus": "suggest"%'
                OR speaker_mapping LIKE '%"identificationStatus":"unknown"%'
                OR speaker_mapping LIKE '%"identificationStatus": "unknown"%')
-           ORDER BY recorded_at DESC""",
+           ORDER BY COALESCE(recorded_at, created_at) DESC""",
         (user_id,),
     )
 
