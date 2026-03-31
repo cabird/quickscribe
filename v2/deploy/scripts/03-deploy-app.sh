@@ -1,5 +1,5 @@
 #!/bin/bash
-# Deploy latest image to Azure Web App and poll health endpoint.
+# Deploy image to Azure Web App and poll health endpoint until version matches.
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -8,9 +8,10 @@ source "$SCRIPT_DIR/config.sh"
 check_azure_login
 
 ACR_LOGIN_SERVER="$ACR_NAME.azurecr.io"
-FULL_IMAGE="$ACR_LOGIN_SERVER/$IMAGE_NAME:latest"
+APP_VERSION=$(cat "$PROJECT_ROOT/backend/VERSION" | tr -d '[:space:]')
+FULL_IMAGE="$ACR_LOGIN_SERVER/$IMAGE_NAME:$APP_VERSION"
 
-echo "Updating container image to: $FULL_IMAGE"
+echo "Deploying $FULL_IMAGE"
 az webapp config container set \
     --name "$APP_NAME" \
     --resource-group "$RESOURCE_GROUP" \
@@ -28,22 +29,21 @@ MAX_ATTEMPTS=30
 INTERVAL=10
 
 echo ""
-echo "Polling health endpoint: $HEALTH_URL"
-echo "  Max wait: $((MAX_ATTEMPTS * INTERVAL))s"
+echo "Polling for version $APP_VERSION at $HEALTH_URL"
 
 for i in $(seq 1 $MAX_ATTEMPTS); do
-    STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$HEALTH_URL" 2>/dev/null || echo "000")
-    if [ "$STATUS" = "200" ]; then
-        echo "  Attempt $i: HTTP $STATUS — healthy!"
+    RESP=$(curl -s "$HEALTH_URL" 2>/dev/null || echo "{}")
+    if echo "$RESP" | grep -q "$APP_VERSION"; then
+        echo "  ✓ $RESP"
         echo ""
         echo "Deployment complete: https://$APP_NAME.azurewebsites.net"
         exit 0
     fi
-    echo "  Attempt $i/$MAX_ATTEMPTS: HTTP $STATUS — waiting ${INTERVAL}s..."
+    echo "  Attempt $i/$MAX_ATTEMPTS: $RESP — waiting ${INTERVAL}s..."
     sleep "$INTERVAL"
 done
 
 echo ""
-echo "ERROR: Health check did not pass after $((MAX_ATTEMPTS * INTERVAL))s."
+echo "ERROR: Version $APP_VERSION not seen after $((MAX_ATTEMPTS * INTERVAL))s."
 echo "Check logs: az webapp log tail --name $APP_NAME --resource-group $RESOURCE_GROUP"
 exit 1
