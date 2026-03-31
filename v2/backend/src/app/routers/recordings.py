@@ -106,7 +106,7 @@ async def get_recording(recording_id: str, user: CurrentUser):
 # ---------------------------------------------------------------------------
 
 
-@router.post("/upload", response_model=RecordingDetail, status_code=201)
+@router.post("/upload", status_code=201)
 async def upload_recording(
     user: CurrentUserOrApiKey,
     file: UploadFile | None = File(None),
@@ -131,7 +131,12 @@ async def upload_recording(
             title=title,
         )
         logger.info("Upload complete: recording=%s, status=%s", recording.id[:12], recording.status)
-        return recording
+        return {
+            "success": "File uploaded successfully!",
+            "filename": upload.filename,
+            "recording_id": recording.id,
+            "status": recording.status,
+        }
     except HTTPException:
         raise
     except Exception as e:
