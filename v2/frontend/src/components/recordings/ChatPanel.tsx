@@ -17,6 +17,7 @@ interface ChatPanelProps {
   isOpen: boolean;
   onClose: () => void;
   onHighlightEntry?: (entryId: string) => void;
+  width?: number;
 }
 
 const REF_REGEX = /\[\[ref_(\w+)\]\]/g;
@@ -54,7 +55,7 @@ function renderMessageContent(content: string, onHighlightEntry?: (entryId: stri
   return parts.length > 0 ? parts : content;
 }
 
-export function ChatPanel({ recordingId, isOpen, onClose, onHighlightEntry }: ChatPanelProps) {
+export function ChatPanel({ recordingId, isOpen, onClose, onHighlightEntry, width }: ChatPanelProps) {
   const isMobile = useIsMobile();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
@@ -211,7 +212,13 @@ export function ChatPanel({ recordingId, isOpen, onClose, onHighlightEntry }: Ch
   if (!isOpen) return null;
 
   return (
-    <div className="flex h-full w-[40%] min-w-[300px] max-w-[500px] shrink-0 flex-col border-l bg-background">
+    <div
+      className={cn(
+        "flex h-full shrink-0 flex-col border-l bg-background",
+        !width && "w-[40%] min-w-[300px] max-w-[500px]"
+      )}
+      style={width ? { width } : undefined}
+    >
       {chatContent}
     </div>
   );

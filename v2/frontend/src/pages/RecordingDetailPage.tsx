@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -72,12 +72,49 @@ export default function RecordingDetailPage() {
   const audioPlayerRef = useRef<AudioPlayerHandle>(null);
 
   const [chatOpen, setChatOpen] = useState(false);
+  const [chatWidth, setChatWidth] = useState(400);
   const [isAudioPlaying, setIsAudioPlaying] = useState(false);
   const [currentTimeMs, setCurrentTimeMs] = useState(0);
   const [highlightedEntryId, setHighlightedEntryId] = useState<string | null>(null);
   const highlightTimeoutRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const [analysisResult, setAnalysisResult] = useState<string | null>(null);
   const [analysisTemplateName, setAnalysisTemplateName] = useState<string | null>(null);
+
+  // Chat splitter drag state
+  const chatContainerRef = useRef<HTMLDivElement>(null);
+  const isChatDragging = useRef(false);
+
+  const handleChatSplitterMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    isChatDragging.current = true;
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+  }, []);
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isChatDragging.current || !chatContainerRef.current) return;
+      const rect = chatContainerRef.current.getBoundingClientRect();
+      const newChatWidth = rect.right - e.clientX;
+      const maxChatWidth = rect.width - 400;
+      setChatWidth(Math.min(maxChatWidth, Math.max(300, newChatWidth)));
+    };
+
+    const handleMouseUp = () => {
+      if (isChatDragging.current) {
+        isChatDragging.current = false;
+        document.body.style.cursor = "";
+        document.body.style.userSelect = "";
+      }
+    };
+
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
+    return () => {
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, []);
 
   const { data: recording, isLoading, refetch } = useRecording(id!);
 
@@ -301,7 +338,7 @@ export default function RecordingDetailPage() {
     : [];
 
   return (
-    <div className="flex h-full min-w-0 overflow-hidden">
+    <div ref={chatContainerRef} className="flex h-full min-w-0 overflow-hidden">
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden pr-2">
         {/* Header */}
         <div className="border-b px-4 py-3">
@@ -552,12 +589,26 @@ export default function RecordingDetailPage() {
         </ScrollArea>
       </div>
 
+      {/* Chat splitter */}
+      {chatOpen && !isMobile && (
+        <div
+          className="group relative w-1.5 shrink-0 cursor-col-resize bg-border transition-colors hover:bg-primary/30 active:bg-primary/50"
+          onMouseDown={handleChatSplitterMouseDown}
+          role="separator"
+          aria-orientation="vertical"
+          tabIndex={0}
+        >
+          <div className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-transparent transition-colors group-hover:bg-primary/50" />
+        </div>
+      )}
+
       {/* Chat panel */}
       <ChatPanel
         recordingId={id!}
         isOpen={chatOpen}
         onClose={() => setChatOpen(false)}
         onHighlightEntry={handleHighlightEntry}
+        width={chatOpen && !isMobile ? chatWidth : undefined}
       />
     </div>
   );
