@@ -1,6 +1,6 @@
 [project]
 name = "quickscribe-v2"
-version = "2.7.0"
+version = "2.7.1"
 description = "QuickScribe v2 - Personal audio transcription application"
 requires-python = ">=3.11"
 dependencies = [
@@ -24,10 +24,8 @@ dependencies = [
     "httpx>=0.27.0",
     "ffmpeg-python>=0.2.0",
 
-    # numpy kept in main deps (used by speaker_profile_updater and other services)
-    "numpy>=1.24.0",
-
     # AI & text processing
+    "numpy>=1.24.0",
     "pyyaml>=6.0",
     "tiktoken>=0.5.0",
     "jinja2>=3.1.0",
@@ -39,23 +37,31 @@ dependencies = [
 
     # Background scheduling
     "apscheduler>=3.10.0",
-]
 
-[project.optional-dependencies]
-speaker-id = [
-    # ECAPA-TDNN speaker identification — pinned versions from v1 for compatibility
+    # Speaker identification (ECAPA-TDNN)
     "torch==2.4.1",
     "torchaudio==2.4.1",
     "speechbrain==1.0.3",
     "huggingface_hub==0.24.7",
     "soundfile>=0.12.0",
 ]
+
+[project.optional-dependencies]
 dev = [
     "pytest>=8.0.0",
     "pytest-asyncio>=0.24.0",
     "httpx>=0.27.0",
     "ruff>=0.8.0",
 ]
+
+[tool.uv.sources]
+torch = { index = "pytorch-cpu" }
+torchaudio = { index = "pytorch-cpu" }
+
+[[tool.uv.index]]
+url = "https://download.pytorch.org/whl/cpu"
+name = "pytorch-cpu"
+explicit = true
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

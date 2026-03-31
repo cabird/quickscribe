@@ -10,9 +10,16 @@ from pydantic_settings import BaseSettings
 
 
 def _read_version() -> str:
-    """Read version from pyproject.toml, checking multiple possible locations."""
+    """Read version from VERSION file, falling back to pyproject.toml."""
     for candidate in [
-        Path(__file__).resolve().parent.parent.parent / "pyproject.toml",  # src/app/../../
+        Path(__file__).resolve().parent.parent.parent / "VERSION",  # src/app/../../VERSION
+        Path("/app/VERSION"),
+    ]:
+        if candidate.exists():
+            return candidate.read_text().strip()
+
+    for candidate in [
+        Path(__file__).resolve().parent.parent.parent / "pyproject.toml",
         Path("/app/pyproject.toml"),
     ]:
         if candidate.exists():
