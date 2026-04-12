@@ -167,6 +167,84 @@ async def chat(
         await client.close()
 
 
+async def synthesize(
+    recordings: list[dict],
+    question: str,
+) -> ChatResponse:
+    """Synthesize information across multiple recordings.
+
+    Args:
+        recordings: List of dicts with keys: title, recorded_at, speaker_names, text.
+        question: The user's question to answer across all recordings.
+
+    Returns:
+        ChatResponse with the synthesized answer and usage info.
+    """
+    settings = get_settings()
+
+    # Build per-recording sections
+    sections: list[str] = []
+    total_chars = 0
+    max_total_chars = 80_000
+
+    for i, rec in enumerate(recordings, 1):
+        title = rec.get("title") or "Untitled"
+        date = rec.get("recorded_at") or "unknown date"
+        speakers = ", ".join(rec.get("speaker_names") or []) or "unknown"
+        text = rec.get("text") or ""
+
+        header = f'## Recording {i}: "{title}" ({date}, speakers: {speakers})\n'
+        remaining = max_total_chars - total_chars - len(header)
+        if remaining <= 0:
+            break
+        if len(text) > remaining:
+            text = _truncate_transcript(text, max_chars=remaining)
+        sections.append(header + text)
+        total_chars += len(header) + len(text)
+
+    recordings_block = "\n\n".join(sections)
+
+    system_message = {
+        "role": "system",
+        "content": (
+            "You are a helpful assistant that synthesizes information across multiple meeting recordings. "
+            "Answer the user's question using the recording summaries below as your primary source. "
+            "Cite specific recordings by their title and date when making claims. "
+            "If something isn't covered in the provided recordings, say so.\n\n"
+            f"RECORDINGS:\n\n{recordings_block}"
+        ),
+    }
+
+    all_messages = [system_message, {"role": "user", "content": question}]
+
+    client = _get_client()
+    start_ms = int(time.time() * 1000)
+    try:
+        response = await client.chat.completions.create(
+            model=settings.azure_openai_chat_deployment or settings.azure_openai_mini_deployment or settings.azure_openai_deployment,
+            messages=all_messages,
+            reasoning_effort="low",
+        )
+
+        elapsed_ms = int(time.time() * 1000) - start_ms
+        choice = response.choices[0]
+        usage = None
+        if response.usage:
+            usage = {
+                "prompt_tokens": response.usage.prompt_tokens,
+                "completion_tokens": response.usage.completion_tokens,
+                "total_tokens": response.usage.total_tokens,
+            }
+
+        return ChatResponse(
+            message=choice.message.content or "",
+            usage=usage,
+            response_time_ms=elapsed_ms,
+        )
+    finally:
+        await client.close()
+
+
 async def run_analysis(transcript: str, prompt_template: str) -> str:
     """Run a custom analysis prompt against a transcript.
 

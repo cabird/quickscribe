@@ -19,7 +19,7 @@ from pydantic import BaseModel
 from app.auth import get_current_user_or_api_key
 from app.config import get_settings
 from app.database import get_db
-from app.models import McpSpeaker, User
+from app.models import McpSpeaker, McpSynthesizeRequest, User
 from app.services import mcp_search_service
 
 router = APIRouter(prefix="/api/mcp", tags=["mcp"])
@@ -50,7 +50,7 @@ class McpChatRequest(BaseModel):
 # ---------------------------------------------------------------------------
 
 
-@router.get("/recordings")
+@router.get("/recordings", operation_id="search_recordings")
 async def search_recordings(
     user: CurrentUser,
     query: str | None = None,
@@ -58,6 +58,7 @@ async def search_recordings(
     participant_id: str | None = None,
     date_from: date | None = None,
     date_to: date | None = None,
+    title: str | None = None,
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
 ):
@@ -78,8 +79,12 @@ async def search_recordings(
 
     Use `participant_id` to restrict results to recordings featuring a specific
     speaker (get participant IDs from list_participants or search_participants).
-    Use `date_from`/`date_to` to limit by recording date. Use `token_count` in
-    the results to estimate transcript size before calling get_transcription.
+    Use `date_from`/`date_to` to limit by recording date. Use `title` to filter
+    by a case-insensitive substring match on the recording title (independent of
+    the FTS `query`). This enables combined filtering such as "recordings with
+    'standup' in the title that mention 'deployment' in the content." Use
+    `token_count` in the results to estimate transcript size before calling
+    get_transcription.
 
     After identifying promising candidates, call get_recording to inspect richer
     metadata and AI summaries, then get_transcription or ai_chat for content."""
@@ -92,6 +97,7 @@ async def search_recordings(
         date_to=date_to.isoformat() if date_to else None,
         limit=limit,
         offset=offset,
+        title_filter=title,
     )
     return results
 
@@ -101,7 +107,7 @@ async def search_recordings(
 # ---------------------------------------------------------------------------
 
 
-@router.get("/recordings/{recording_id}")
+@router.get("/recordings/{recording_id}", operation_id="get_recording")
 async def get_recording(recording_id: str, user: CurrentUser):
     """Retrieve full metadata for a single recording, including AI summary and speakers.
 
@@ -188,7 +194,7 @@ async def get_recording(recording_id: str, user: CurrentUser):
 # ---------------------------------------------------------------------------
 
 
-@router.get("/recordings/{recording_id}/transcript")
+@router.get("/recordings/{recording_id}/transcript", operation_id="get_transcription")
 async def get_transcription(
     recording_id: str,
     user: CurrentUser,
@@ -308,7 +314,7 @@ async def get_transcription(
 # ---------------------------------------------------------------------------
 
 
-@router.get("/participants")
+@router.get("/participants", operation_id="list_participants")
 async def list_participants(user: CurrentUser):
     """List all known participants/speakers in the QuickScribe library.
 
@@ -364,7 +370,7 @@ async def list_participants(user: CurrentUser):
 # ---------------------------------------------------------------------------
 
 
-@router.get("/participants/search")
+@router.get("/participants/search", operation_id="search_participants")
 async def search_participants(
     user: CurrentUser,
     query: str = Query(..., min_length=1),
@@ -462,7 +468,7 @@ async def search_participants(
 # ---------------------------------------------------------------------------
 
 
-@router.post("/recordings/{recording_id}/chat")
+@router.post("/recordings/{recording_id}/chat", operation_id="ai_chat")
 async def ai_chat(recording_id: str, body: McpChatRequest, user: CurrentUser):
     """Ask a question about a specific recording using its transcript as context.
 
@@ -508,4 +514,94 @@ async def ai_chat(recording_id: str, body: McpChatRequest, user: CurrentUser):
         "response": chat_response.message,
         "usage": chat_response.usage,
         "response_time_ms": chat_response.response_time_ms,
+    }
+
+
+# ---------------------------------------------------------------------------
+# 7. Synthesize across recordings
+# ---------------------------------------------------------------------------
+
+
+@router.post("/synthesize", operation_id="synthesize_recordings")
+async def synthesize_recordings(body: McpSynthesizeRequest, user: CurrentUser):
+    """Synthesize information across multiple recordings using AI.
+
+    Use this when you need to combine information from several recordings to answer
+    a question, identify patterns, compare discussions over time, or produce a
+    unified summary. Pass a list of recording IDs (from search_recordings) and a
+    question. The server packs each recording's AI summary and metadata into a
+    single LLM call and returns a synthesized answer.
+
+    This is ideal for questions like "what recurring themes appear across these
+    meetings?" or "how did the discussion about X evolve over time?" where
+    single-recording ai_chat would require many separate calls and manual synthesis.
+
+    Limit: 20 recordings per call. Uses AI summaries when available, falls back to
+    transcript text. Returns 400 if no valid recordings found, 503 if AI is not
+    configured."""
+    settings = get_settings()
+    if not settings.ai_enabled:
+        raise HTTPException(status_code=503, detail="AI is not configured")
+
+    if len(body.recording_ids) > 20:
+        raise HTTPException(status_code=400, detail="Maximum 20 recordings per synthesis request")
+
+    if not body.recording_ids:
+        raise HTTPException(status_code=400, detail="No recording IDs provided")
+
+    db = await get_db()
+
+    # Fetch all requested recordings
+    placeholders = ",".join("?" for _ in body.recording_ids)
+    rows = await db.execute_fetchall(
+        f"""SELECT id, title, recorded_at, speaker_mapping,
+                   search_summary, diarized_text, transcript_text
+            FROM recordings
+            WHERE id IN ({placeholders}) AND user_id = ? AND status = 'ready'""",
+        [*body.recording_ids, user.id],
+    )
+
+    if not rows:
+        raise HTTPException(status_code=400, detail="No valid recordings found")
+
+    # Build recording data for the AI service
+    recordings_data: list[dict] = []
+    for row in rows:
+        r = dict(row)
+
+        # Extract speaker names from speaker_mapping
+        speaker_names: list[str] = []
+        mapping_raw = r.get("speaker_mapping")
+        if mapping_raw:
+            try:
+                mapping = json.loads(mapping_raw)
+                for entry in mapping.values():
+                    if isinstance(entry, dict):
+                        name = entry.get("displayName")
+                        if name:
+                            speaker_names.append(name)
+            except (json.JSONDecodeError, AttributeError):
+                pass
+
+        # Prefer search_summary, fall back to transcript text
+        text = r.get("search_summary") or r.get("diarized_text") or r.get("transcript_text") or ""
+
+        recordings_data.append({
+            "title": r.get("title"),
+            "recorded_at": r.get("recorded_at"),
+            "speaker_names": speaker_names,
+            "text": text,
+        })
+
+    from app.services import ai_service
+
+    synth_response = await ai_service.synthesize(
+        recordings=recordings_data,
+        question=body.question,
+    )
+
+    return {
+        "response": synth_response.message,
+        "usage": synth_response.usage,
+        "response_time_ms": synth_response.response_time_ms,
     }

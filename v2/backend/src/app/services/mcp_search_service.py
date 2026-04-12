@@ -90,6 +90,7 @@ def _build_base_where(
     participant_id: str | None,
     date_from: str | None,
     date_to: str | None,
+    title_filter: str | None = None,
 ) -> tuple[str, list]:
     """Build WHERE clause fragments and params for common filters.
 
@@ -116,6 +117,10 @@ def _build_base_where(
         clauses.append("COALESCE(r.recorded_at, r.created_at) <= ?")
         params.append(date_to)
 
+    if title_filter:
+        clauses.append("LOWER(r.title) LIKE ?")
+        params.append(f"%{title_filter.lower()}%")
+
     return "WHERE " + " AND ".join(clauses), params
 
 
@@ -128,10 +133,11 @@ async def _fts_search(
     limit: int,
     offset: int,
     exclude_ids: set[str] | None = None,
+    title_filter: str | None = None,
 ) -> list[dict]:
     """Run an FTS5 MATCH query with filters. Returns list of row dicts."""
     db = await get_db()
-    where_clause, params = _build_base_where(user_id, participant_id, date_from, date_to)
+    where_clause, params = _build_base_where(user_id, participant_id, date_from, date_to, title_filter=title_filter)
 
     # Add FTS match
     fts_condition = "r.rowid IN (SELECT rowid FROM recordings_fts WHERE recordings_fts MATCH ?)"
@@ -171,6 +177,7 @@ async def search_recordings(
     date_to: str | None = None,
     limit: int = 20,
     offset: int = 0,
+    title_filter: str | None = None,
 ) -> list[dict]:
     """Search or list recordings with optional FTS5 search and filters.
 
@@ -183,6 +190,7 @@ async def search_recordings(
         date_to: Optional ISO date string (inclusive).
         limit: Max results (1-100).
         offset: Pagination offset.
+        title_filter: Optional title substring filter (LIKE match, case-insensitive).
 
     Returns:
         List of result dicts matching the MCP response shape.
@@ -192,14 +200,14 @@ async def search_recordings(
 
     # If no query, just list with filters
     if not query:
-        return await _list_recordings(user_id, participant_id, date_from, date_to, limit, offset)
+        return await _list_recordings(user_id, participant_id, date_from, date_to, limit, offset, title_filter=title_filter)
 
     sanitized = _sanitize_fts_query(query)
     if not sanitized:
-        return await _list_recordings(user_id, participant_id, date_from, date_to, limit, offset)
+        return await _list_recordings(user_id, participant_id, date_from, date_to, limit, offset, title_filter=title_filter)
 
     if mode == "cascade":
-        return await _cascade_search(user_id, sanitized, participant_id, date_from, date_to, limit, offset)
+        return await _cascade_search(user_id, sanitized, participant_id, date_from, date_to, limit, offset, title_filter=title_filter)
 
     # Single-tier search
     if mode == "title":
@@ -212,7 +220,7 @@ async def search_recordings(
         fts_query = sanitized
         tier_label = "transcript"
 
-    rows = await _fts_search(user_id, fts_query, participant_id, date_from, date_to, limit, offset)
+    rows = await _fts_search(user_id, fts_query, participant_id, date_from, date_to, limit, offset, title_filter=title_filter)
     recording_ids = [r["id"] for r in rows]
     tag_map = await _get_tag_ids_bulk(recording_ids)
     return [
@@ -229,6 +237,7 @@ async def _cascade_search(
     date_to: str | None,
     limit: int,
     offset: int,
+    title_filter: str | None = None,
 ) -> list[dict]:
     """Run cascading search: title -> summary -> full, deduplicating.
 
@@ -244,7 +253,7 @@ async def _cascade_search(
     tier1_query = f"title:{sanitized}"
     tier1_rows = await _fts_search(
         user_id, tier1_query, participant_id, date_from, date_to,
-        total_needed, 0,
+        total_needed, 0, title_filter=title_filter,
     )
     for r in tier1_rows:
         if len(all_results) >= total_needed:
@@ -258,7 +267,7 @@ async def _cascade_search(
         tier2_query = f"{{title description search_summary}}:{sanitized}"
         tier2_rows = await _fts_search(
             user_id, tier2_query, participant_id, date_from, date_to,
-            remaining, 0, exclude_ids=seen_ids,
+            remaining, 0, exclude_ids=seen_ids, title_filter=title_filter,
         )
         for r in tier2_rows:
             if len(all_results) >= total_needed:
@@ -272,7 +281,7 @@ async def _cascade_search(
         tier3_query = sanitized
         tier3_rows = await _fts_search(
             user_id, tier3_query, participant_id, date_from, date_to,
-            remaining, 0, exclude_ids=seen_ids,
+            remaining, 0, exclude_ids=seen_ids, title_filter=title_filter,
         )
         for r in tier3_rows:
             if len(all_results) >= total_needed:
@@ -299,10 +308,11 @@ async def _list_recordings(
     date_to: str | None,
     limit: int,
     offset: int,
+    title_filter: str | None = None,
 ) -> list[dict]:
     """List recordings with filters (no FTS search)."""
     db = await get_db()
-    where_clause, params = _build_base_where(user_id, participant_id, date_from, date_to)
+    where_clause, params = _build_base_where(user_id, participant_id, date_from, date_to, title_filter=title_filter)
 
     sql = f"""
         SELECT {_MCP_COLUMNS}

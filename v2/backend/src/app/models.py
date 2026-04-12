@@ -546,6 +546,11 @@ class McpTokenResponse(BaseModel):
     created_at: datetime | None = None
 
 
+class McpSynthesizeRequest(BaseModel):
+    recording_ids: list[str]
+    question: str
+
+
 class McpSpeaker(BaseModel):
     label: str
     display_name: str | None = None
