@@ -218,6 +218,23 @@ CREATE TABLE IF NOT EXISTS collection_items (
 CREATE INDEX IF NOT EXISTS idx_collection_items_collection ON collection_items(collection_id);
 CREATE INDEX IF NOT EXISTS idx_collection_items_recording ON collection_items(recording_id);
 
+CREATE TABLE IF NOT EXISTS mcp_tokens (
+    id              TEXT PRIMARY KEY,
+    user_id         TEXT NOT NULL,
+    token_name      TEXT NOT NULL,
+    token_prefix    TEXT NOT NULL,
+    token_hash      TEXT NOT NULL UNIQUE,
+    raw_token       TEXT NOT NULL,
+    scopes          TEXT,
+    last_used_at    DATETIME,
+    revoked_at      DATETIME,
+    created_at      DATETIME DEFAULT (datetime('now')),
+    FOREIGN KEY (user_id) REFERENCES users(id)
+);
+
+CREATE INDEX IF NOT EXISTS ix_mcp_tokens_user_id ON mcp_tokens (user_id);
+CREATE UNIQUE INDEX IF NOT EXISTS ix_mcp_tokens_token_hash ON mcp_tokens (token_hash);
+
 CREATE TABLE IF NOT EXISTS collection_searches (
     id TEXT PRIMARY KEY,
     collection_id TEXT NOT NULL REFERENCES collections(id) ON DELETE CASCADE,
@@ -329,6 +346,33 @@ async def _migrate_schema(db: aiosqlite.Connection) -> None:
             await db.execute("ALTER TABLE users ADD COLUMN api_key TEXT")
         except Exception:
             pass  # column already exists
+
+    # Add mcp_tokens table if missing (for existing databases)
+    cursor = await db.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='mcp_tokens'"
+    )
+    if not await cursor.fetchone():
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS mcp_tokens (
+                id              TEXT PRIMARY KEY,
+                user_id         TEXT NOT NULL,
+                token_name      TEXT NOT NULL,
+                token_prefix    TEXT NOT NULL,
+                token_hash      TEXT NOT NULL UNIQUE,
+                raw_token       TEXT NOT NULL,
+                scopes          TEXT,
+                last_used_at    DATETIME,
+                revoked_at      DATETIME,
+                created_at      DATETIME DEFAULT (datetime('now')),
+                FOREIGN KEY (user_id) REFERENCES users(id)
+            )
+        """)
+        await db.execute(
+            "CREATE INDEX IF NOT EXISTS ix_mcp_tokens_user_id ON mcp_tokens (user_id)"
+        )
+        await db.execute(
+            "CREATE UNIQUE INDEX IF NOT EXISTS ix_mcp_tokens_token_hash ON mcp_tokens (token_hash)"
+        )
 
     # Backfill null recorded_at with created_at for uploaded recordings
     await db.execute(

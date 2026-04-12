@@ -525,3 +525,28 @@ class SearchToAddRequest(BaseModel):
 class CreateFromCandidatesRequest(BaseModel):
     name: str = Field(min_length=1, max_length=200)
     recording_ids: list[str]
+
+
+# ---------------------------------------------------------------------------
+# MCP Tokens
+# ---------------------------------------------------------------------------
+
+
+class McpTokenCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=200)
+
+
+class McpTokenResponse(BaseModel):
+    id: str
+    token_name: str
+    token_prefix: str
+    raw_token: str
+    last_used_at: datetime | None = None
+    revoked_at: datetime | None = None
+    created_at: datetime | None = None
+
+
+class McpSpeaker(BaseModel):
+    label: str
+    display_name: str | None = None
+    participant_id: str | None = None

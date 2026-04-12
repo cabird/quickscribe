@@ -36,6 +36,7 @@ import type {
   CollectionDetail,
   CollectionSearchRecord,
   SearchHistoryItem,
+  McpToken,
 } from "@/types/models";
 
 // =============================================================================
@@ -82,6 +83,10 @@ export const queryKeys = {
   searchHistory: {
     all: ["searchHistory"] as const,
     list: () => ["searchHistory", "list"] as const,
+  },
+  mcpTokens: {
+    all: ["mcpTokens"] as const,
+    list: () => ["mcpTokens", "list"] as const,
   },
 } as const;
 
@@ -711,6 +716,38 @@ export function useCreateCollectionFromCandidates() {
     }) => api.createCollectionFromCandidates(name, recordingIds),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: queryKeys.collections.all });
+    },
+  });
+}
+
+// -- MCP Tokens -------------------------------------------------------------
+
+export function useMcpTokens(
+  options?: Partial<UseQueryOptions<McpToken[]>>,
+) {
+  return useQuery({
+    queryKey: queryKeys.mcpTokens.list(),
+    queryFn: api.listMcpTokens,
+    ...options,
+  });
+}
+
+export function useCreateMcpToken() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (name: string) => api.createMcpToken(name),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: queryKeys.mcpTokens.all });
+    },
+  });
+}
+
+export function useRevokeMcpToken() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.revokeMcpToken(id),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: queryKeys.mcpTokens.all });
     },
   });
 }

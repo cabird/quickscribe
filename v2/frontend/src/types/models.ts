@@ -518,3 +518,13 @@ export interface SearchToAddFilters {
   date_to?: string;
   speaker?: string;
 }
+
+export interface McpToken {
+  id: string;
+  token_name: string;
+  token_prefix: string;
+  raw_token: string;
+  last_used_at: string | null;
+  revoked_at: string | null;
+  created_at: string | null;
+}

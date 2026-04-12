@@ -18,6 +18,7 @@ from fastapi import Depends, HTTPException, Request, status
 from app.config import Settings, get_settings
 from app.database import get_db
 from app.models import User
+from app.services import mcp_token_service
 
 logger = logging.getLogger(__name__)
 
@@ -200,6 +201,30 @@ async def _get_dev_user() -> User:
 
 
 # ---------------------------------------------------------------------------
+# MCP token authentication
+# ---------------------------------------------------------------------------
+
+
+async def _try_mcp_token(token: str) -> User | None:
+    """Authenticate via MCP bearer token. Returns User or None."""
+    if not token.startswith(mcp_token_service.TOKEN_PREFIX):
+        return None
+
+    user_id = await mcp_token_service.validate_token(token)
+    if not user_id:
+        return None
+
+    db = await get_db()
+    rows = await db.execute_fetchall(
+        "SELECT * FROM users WHERE id = ?", (user_id,)
+    )
+    if not rows:
+        return None
+
+    return User(**dict(rows[0]))
+
+
+# ---------------------------------------------------------------------------
 # FastAPI dependency
 # ---------------------------------------------------------------------------
 
@@ -217,6 +242,14 @@ async def get_current_user(
         raise HTTPException(status_code=401, detail="Missing authorization header")
 
     token = auth_header[7:]
+
+    # Check MCP token before JWT validation
+    if token.startswith(mcp_token_service.TOKEN_PREFIX):
+        user = await _try_mcp_token(token)
+        if user:
+            return user
+        raise HTTPException(status_code=401, detail="Invalid or revoked MCP token")
+
     claims = await _validate_token(token, settings)
 
     azure_oid = claims.get("oid")
@@ -280,6 +313,14 @@ async def get_current_user_or_api_key(
     if auth_header.startswith("Bearer "):
         try:
             token = auth_header[7:]
+
+            # Check MCP token before JWT validation
+            if token.startswith(mcp_token_service.TOKEN_PREFIX):
+                user = await _try_mcp_token(token)
+                if user:
+                    return user
+                raise HTTPException(status_code=401, detail="Invalid or revoked MCP token")
+
             claims = await _validate_token(token, settings)
             azure_oid = claims.get("oid")
             if not azure_oid:

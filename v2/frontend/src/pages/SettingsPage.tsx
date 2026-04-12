@@ -27,7 +27,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Eye, EyeOff, HelpCircle, Loader2, Pencil, Plus, RefreshCw, Save, Trash2, Copy, Check, Smartphone } from "lucide-react";
+import { Eye, EyeOff, HelpCircle, Loader2, Pencil, Plus, RefreshCw, Save, Trash2, Copy, Check, Smartphone, Key, ChevronDown, ChevronUp } from "lucide-react";
 import * as api from "@/lib/api";
 import {
   useCurrentUser,
@@ -36,8 +36,11 @@ import {
   useCreateAnalysisTemplate,
   useUpdateAnalysisTemplate,
   useDeleteAnalysisTemplate,
+  useMcpTokens,
+  useCreateMcpToken,
+  useRevokeMcpToken,
 } from "@/lib/queries";
-import type { AnalysisTemplate, UserProfile } from "@/types/models";
+import type { AnalysisTemplate, McpToken, UserProfile } from "@/types/models";
 
 export default function SettingsPage() {
   const { data: user } = useCurrentUser();
@@ -52,6 +55,9 @@ export default function SettingsPage() {
 
         {/* API Key for iOS uploads */}
         {user && <ApiKeyCard user={user} />}
+
+        {/* MCP Access Tokens */}
+        <McpTokensCard />
 
         {/* Plaud integration */}
         {user && <PlaudCard user={user} />}
@@ -150,6 +156,246 @@ function ApiKeyCard({ user }: { user: UserProfile }) {
           Generate API Key
         </Button>
       )}
+    </Card>
+  );
+}
+
+function buildMcpConfig(rawToken: string) {
+  return JSON.stringify(
+    {
+      mcpServers: {
+        quickscribe: {
+          command: "npx",
+          args: [
+            "mcp-remote",
+            `${window.location.origin}/mcp`,
+            "--header",
+            `Authorization: Bearer ${rawToken}`,
+          ],
+        },
+      },
+    },
+    null,
+    2,
+  );
+}
+
+function McpTokensCard() {
+  const { data: tokens, isLoading, error } = useMcpTokens();
+  const createMutation = useCreateMcpToken();
+  const revokeMutation = useRevokeMcpToken();
+
+  const [newTokenName, setNewTokenName] = useState("");
+  const [createError, setCreateError] = useState<string | null>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [copiedConfigId, setCopiedConfigId] = useState<string | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  const activeTokens = (tokens ?? []).filter((t) => !t.revoked_at);
+
+  const handleCreate = async () => {
+    if (!newTokenName.trim()) return;
+    setCreateError(null);
+    try {
+      await createMutation.mutateAsync(newTokenName.trim());
+      setNewTokenName("");
+    } catch {
+      setCreateError("Failed to create token. You may have reached the 10-token limit.");
+    }
+  };
+
+  const handleCopyToken = async (token: McpToken) => {
+    try {
+      await navigator.clipboard.writeText(token.raw_token);
+      setCopiedId(token.id);
+      setTimeout(() => setCopiedId(null), 2000);
+    } catch {
+      // clipboard not available
+    }
+  };
+
+  const handleCopyConfig = async (token: McpToken) => {
+    try {
+      await navigator.clipboard.writeText(buildMcpConfig(token.raw_token));
+      setCopiedConfigId(token.id);
+      setTimeout(() => setCopiedConfigId(null), 2000);
+    } catch {
+      // clipboard not available
+    }
+  };
+
+  return (
+    <Card className="p-5">
+      <div className="flex items-center gap-2">
+        <Key className="h-4 w-4 text-muted-foreground" />
+        <h2 className="text-sm font-semibold">MCP Access Tokens</h2>
+      </div>
+      <Separator className="my-3" />
+      <p className="mb-3 text-xs text-muted-foreground">
+        Create tokens to connect LLM tools (Claude Code, Copilot, etc.)
+        to your QuickScribe data.
+      </p>
+      {isLoading && (
+        <p className="py-4 text-center text-sm text-muted-foreground">
+          Loading tokens...
+        </p>
+      )}
+      {error && (
+        <p className="py-4 text-center text-sm text-destructive">
+          Failed to load MCP tokens.
+        </p>
+      )}
+
+      {/* Create form */}
+      <div className="mb-4 flex items-center gap-2">
+        <Input
+          value={newTokenName}
+          onChange={(e) => setNewTokenName(e.target.value)}
+          placeholder="Token name (e.g. Claude Desktop)"
+          className="flex-1"
+          onKeyDown={(e) => {
+            if (e.key === "Enter") void handleCreate();
+          }}
+          disabled={createMutation.isPending}
+        />
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleCreate}
+          disabled={!newTokenName.trim() || createMutation.isPending}
+          className="gap-1"
+        >
+          {createMutation.isPending ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Plus className="h-4 w-4" />
+          )}
+          Create Token
+        </Button>
+      </div>
+      {createError && (
+        <p className="mb-3 text-xs text-destructive">{createError}</p>
+      )}
+
+      {/* Active tokens */}
+      <div className="space-y-3">
+        {activeTokens.map((token) => (
+          <div
+            key={token.id}
+            className="rounded-md border p-3 space-y-2"
+          >
+            <div className="flex items-start justify-between">
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium">{token.token_name}</p>
+                <div className="mt-1 flex gap-3 text-xs text-muted-foreground">
+                  <span>
+                    Created{" "}
+                    {token.created_at
+                      ? new Date(token.created_at).toLocaleDateString()
+                      : "—"}
+                  </span>
+                  <span>
+                    {token.last_used_at
+                      ? `Last used ${new Date(token.last_used_at).toLocaleDateString()}`
+                      : "Never used"}
+                  </span>
+                </div>
+              </div>
+              <AlertDialog>
+                <AlertDialogTrigger
+                  className="inline-flex h-7 w-7 items-center justify-center rounded-md text-destructive hover:bg-accent"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Revoke token?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Revoke &quot;{token.token_name}&quot;? Any MCP clients
+                      using this token will lose access immediately.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={() => revokeMutation.mutate(token.id)}
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    >
+                      Revoke
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </div>
+
+            {/* Raw token display */}
+            <div className="flex items-center gap-2">
+              <Input
+                readOnly
+                value={token.raw_token}
+                className="flex-1 font-mono text-xs"
+                onClick={(e) => (e.target as HTMLInputElement).select()}
+              />
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 shrink-0"
+                onClick={() => handleCopyToken(token)}
+              >
+                {copiedId === token.id ? (
+                  <Check className="h-4 w-4 text-green-500" />
+                ) : (
+                  <Copy className="h-4 w-4" />
+                )}
+              </Button>
+            </div>
+
+            {/* Expandable MCP config */}
+            <div>
+              <button
+                type="button"
+                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                onClick={() =>
+                  setExpandedId(expandedId === token.id ? null : token.id)
+                }
+              >
+                {expandedId === token.id ? (
+                  <ChevronUp className="h-3.5 w-3.5" />
+                ) : (
+                  <ChevronDown className="h-3.5 w-3.5" />
+                )}
+                MCP config snippet
+              </button>
+              {expandedId === token.id && (
+                <div className="mt-2 space-y-2">
+                  <pre className="rounded bg-muted p-3 text-xs font-mono overflow-x-auto whitespace-pre">
+{buildMcpConfig(token.raw_token)}
+                  </pre>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-1"
+                    onClick={() => handleCopyConfig(token)}
+                  >
+                    {copiedConfigId === token.id ? (
+                      <Check className="h-4 w-4 text-green-500" />
+                    ) : (
+                      <Copy className="h-4 w-4" />
+                    )}
+                    Copy config
+                  </Button>
+                </div>
+              )}
+            </div>
+          </div>
+        ))}
+
+        {activeTokens.length === 0 && (
+          <p className="py-4 text-center text-sm text-muted-foreground">
+            No MCP tokens yet. Create one to connect MCP clients to QuickScribe.
+          </p>
+        )}
+      </div>
     </Card>
   );
 }

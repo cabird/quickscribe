@@ -6,7 +6,7 @@ import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -99,7 +99,7 @@ app.add_middleware(
 # Routers
 # ---------------------------------------------------------------------------
 
-from app.routers import ai, collections, participants, recordings, search, settings as settings_router, sync, tags  # noqa: E402
+from app.routers import ai, collections, mcp_tokens, mcp_tools, participants, recordings, search, settings as settings_router, sync, tags  # noqa: E402
 
 app.include_router(recordings.router)
 app.include_router(participants.router)
@@ -109,6 +109,8 @@ app.include_router(settings_router.router)
 app.include_router(sync.router)
 app.include_router(search.router)
 app.include_router(collections.router)
+app.include_router(mcp_tokens.router)
+app.include_router(mcp_tools.router)
 
 
 # ---------------------------------------------------------------------------
@@ -149,6 +151,40 @@ if settings.use_local_storage:
 
 
 # ---------------------------------------------------------------------------
+# MCP Server
+# ---------------------------------------------------------------------------
+
+from fastapi import Depends as _Depends
+from fastapi.security import HTTPBearer as _HTTPBearer, HTTPAuthorizationCredentials as _HTTPAuthCreds
+from fastapi_mcp import AuthConfig as _AuthConfig, FastApiMCP as _FastApiMCP
+from app.services.mcp_token_service import TOKEN_PREFIX as _MCP_PREFIX
+
+_mcp_bearer_scheme = _HTTPBearer(auto_error=False)
+
+
+async def _mcp_auth(
+    creds: _HTTPAuthCreds | None = _Depends(_mcp_bearer_scheme),
+) -> None:
+    """Require a valid MCP bearer token (qs_mcp_ prefix)."""
+    if creds is None:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    if not creds.credentials.startswith(_MCP_PREFIX):
+        raise HTTPException(status_code=401, detail="Invalid MCP token format")
+
+
+mcp = _FastApiMCP(
+    app,
+    name="QuickScribe",
+    description="Search, browse, and extract information from audio recordings and transcripts",
+    include_tags=["mcp"],
+    auth_config=_AuthConfig(
+        dependencies=[_Depends(_mcp_auth)],
+    ),
+)
+mcp.mount_http()  # Serves at /mcp
+
+
+# ---------------------------------------------------------------------------
 # Static files / SPA catch-all
 # ---------------------------------------------------------------------------
 
@@ -158,8 +194,8 @@ if FRONTEND_DIR.is_dir():
     @app.get("/{full_path:path}", include_in_schema=False)
     async def spa_catch_all(request: Request, full_path: str):
         """Serve index.html for all non-API paths (SPA routing)."""
-        # Don't intercept API routes
-        if full_path.startswith("api/"):
+        # Don't intercept API or MCP routes
+        if full_path.startswith("api/") or full_path == "mcp" or full_path.startswith("mcp/"):
             return JSONResponse(status_code=404, content={"detail": "Not found"})
         # Serve actual static files if they exist
         file_path = FRONTEND_DIR / full_path

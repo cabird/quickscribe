@@ -35,6 +35,7 @@ import type {
   UserProfile,
   AnalysisTemplate,
   UpdateAnalysisTemplateRequest,
+  McpToken,
 } from "@/types/models";
 
 // ---------------------------------------------------------------------------
@@ -750,4 +751,20 @@ export async function createCollectionFromCandidates(
     { name, recording_ids: recordingIds },
   );
   return data;
+}
+
+// -- MCP Tokens -------------------------------------------------------------
+
+export async function listMcpTokens(): Promise<McpToken[]> {
+  const { data } = await apiClient.get<McpToken[]>('/api/settings/mcp-tokens');
+  return data;
+}
+
+export async function createMcpToken(name: string): Promise<McpToken> {
+  const { data } = await apiClient.post<McpToken>('/api/settings/mcp-tokens', { name });
+  return data;
+}
+
+export async function revokeMcpToken(tokenId: string): Promise<void> {
+  await apiClient.delete(`/api/settings/mcp-tokens/${tokenId}`);
 }
