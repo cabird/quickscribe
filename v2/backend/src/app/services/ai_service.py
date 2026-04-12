@@ -208,7 +208,7 @@ async def synthesize(
         "role": "system",
         "content": (
             "You are a helpful assistant that synthesizes information across multiple meeting recordings. "
-            "Answer the user's question using the recording summaries below as your primary source. "
+            "Answer the user's question using the recording transcripts below as your primary source. "
             "Cite specific recordings by their title and date when making claims. "
             "If something isn't covered in the provided recordings, say so.\n\n"
             f"RECORDINGS:\n\n{recordings_block}"

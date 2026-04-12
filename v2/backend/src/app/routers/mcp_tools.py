@@ -529,16 +529,16 @@ async def synthesize_recordings(body: McpSynthesizeRequest, user: CurrentUser):
     Use this when you need to combine information from several recordings to answer
     a question, identify patterns, compare discussions over time, or produce a
     unified summary. Pass a list of recording IDs (from search_recordings) and a
-    question. The server packs each recording's AI summary and metadata into a
-    single LLM call and returns a synthesized answer.
+    question. The server packs each recording's full transcript and metadata into
+    a single LLM call and returns a synthesized answer.
 
     This is ideal for questions like "what recurring themes appear across these
     meetings?" or "how did the discussion about X evolve over time?" where
     single-recording ai_chat would require many separate calls and manual synthesis.
 
-    Limit: 20 recordings per call. Uses AI summaries when available, falls back to
-    transcript text. Returns 400 if no valid recordings found, 503 if AI is not
-    configured."""
+    Limit: 20 recordings per call. Uses full diarized transcripts (truncated to
+    fit context limits when necessary). Returns 400 if no valid recordings found,
+    503 if AI is not configured."""
     settings = get_settings()
     if not settings.ai_enabled:
         raise HTTPException(status_code=503, detail="AI is not configured")
@@ -583,8 +583,8 @@ async def synthesize_recordings(body: McpSynthesizeRequest, user: CurrentUser):
             except (json.JSONDecodeError, AttributeError):
                 pass
 
-        # Prefer search_summary, fall back to transcript text
-        text = r.get("search_summary") or r.get("diarized_text") or r.get("transcript_text") or ""
+        # Use full transcript (diarized preferred), fall back to plain text
+        text = r.get("diarized_text") or r.get("transcript_text") or ""
 
         recordings_data.append({
             "title": r.get("title"),
