@@ -6,6 +6,7 @@ import json
 import logging
 import time
 
+import tiktoken
 from openai import AsyncAzureOpenAI
 
 from app.config import get_settings
@@ -13,6 +14,19 @@ from app.models import ChatResponse
 from app.prompts import render
 
 logger = logging.getLogger(__name__)
+
+_enc: tiktoken.Encoding | None = None
+
+
+def _get_encoding() -> tiktoken.Encoding:
+    global _enc
+    if _enc is None:
+        _enc = tiktoken.get_encoding("cl100k_base")
+    return _enc
+
+
+def _count_tokens(text: str) -> int:
+    return len(_get_encoding().encode(text))
 
 
 def _get_client() -> AsyncAzureOpenAI:
@@ -25,20 +39,28 @@ def _get_client() -> AsyncAzureOpenAI:
     )
 
 
-def _truncate_transcript(transcript: str, max_chars: int = 800_000) -> str:
+# Reserve tokens for system prompt overhead + completion
+_MAX_CONTEXT_TOKENS = 200_000
+_RESERVED_TOKENS = 10_000  # for system prompt framing + response
+_MAX_TRANSCRIPT_TOKENS = _MAX_CONTEXT_TOKENS - _RESERVED_TOKENS
+
+
+def _truncate_transcript(transcript: str, max_tokens: int = _MAX_TRANSCRIPT_TOKENS) -> str:
     """Truncate transcript to stay within token limits.
 
     Keeps the beginning and end, which tend to have the most identifying
     information (introductions and conclusions).
     """
-    if len(transcript) <= max_chars:
+    enc = _get_encoding()
+    tokens = enc.encode(transcript)
+    if len(tokens) <= max_tokens:
         return transcript
 
-    half = max_chars // 2
+    half = max_tokens // 2
     return (
-        transcript[:half]
+        enc.decode(tokens[:half])
         + "\n\n[... transcript truncated for length ...]\n\n"
-        + transcript[-half:]
+        + enc.decode(tokens[-half:])
     )
 
 
@@ -53,7 +75,7 @@ async def generate_title_description(transcript: str) -> dict:
     """
     settings = get_settings()
 
-    truncated = _truncate_transcript(transcript, max_chars=30_000)
+    truncated = _truncate_transcript(transcript, max_tokens=8_000)
     prompt_text = render("generate_title_description", transcript=truncated)
 
     client = _get_client()
@@ -91,7 +113,7 @@ async def infer_speakers(transcript: str) -> dict:
     """
     settings = get_settings()
 
-    truncated = _truncate_transcript(transcript, max_chars=40_000)
+    truncated = _truncate_transcript(transcript, max_tokens=10_000)
     prompt_text = render("infer_speaker_names", transcript=truncated)
 
     client = _get_client()
@@ -182,10 +204,9 @@ async def synthesize(
     """
     settings = get_settings()
 
-    # Build per-recording sections
+    # Build per-recording sections, tracking token usage
     sections: list[str] = []
-    total_chars = 0
-    max_total_chars = 800_000
+    total_tokens = 0
 
     for i, rec in enumerate(recordings, 1):
         title = rec.get("title") or "Untitled"
@@ -194,13 +215,16 @@ async def synthesize(
         text = rec.get("text") or ""
 
         header = f'## Recording {i}: "{title}" ({date}, speakers: {speakers})\n'
-        remaining = max_total_chars - total_chars - len(header)
+        header_tokens = _count_tokens(header)
+        remaining = _MAX_TRANSCRIPT_TOKENS - total_tokens - header_tokens
         if remaining <= 0:
             break
-        if len(text) > remaining:
-            text = _truncate_transcript(text, max_chars=remaining)
+        text_tokens = _count_tokens(text)
+        if text_tokens > remaining:
+            text = _truncate_transcript(text, max_tokens=remaining)
+            text_tokens = remaining
         sections.append(header + text)
-        total_chars += len(header) + len(text)
+        total_tokens += header_tokens + text_tokens
 
     recordings_block = "\n\n".join(sections)
 
