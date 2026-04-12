@@ -1,0 +1,268 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.11"
+# dependencies = [
+#     "fastmcp>=2.0.0",
+#     "httpx>=0.27",
+#     "rich>=13",
+# ]
+# ///
+"""CLI for testing the QuickScribe MCP server.
+
+Talks MCP protocol to the QuickScribe server at /mcp, using a bearer
+token for authentication. Useful for verifying tool discovery, calling
+tools, and inspecting responses.
+
+Usage:
+
+    ./qs-mcp tools
+    ./qs-mcp tool search_recordings
+    ./qs-mcp call search_recordings --args '{"query":"budget","limit":3}'
+    ./qs-mcp call get_recording --args '{"recording_id":"abc123"}'
+    ./qs-mcp call search_participants --args '{"query":"chris"}'
+
+Server URL resolution (first match wins):
+
+    1. --server URL flag
+    2. $QUICKSCRIBE_MCP_URL env var
+    3. http://localhost:8000/mcp
+
+Token resolution (first match wins):
+
+    1. --token flag
+    2. $QUICKSCRIBE_MCP_TOKEN env var
+
+When AUTH_DISABLED=true on the server, no token is needed.
+"""
+
+from __future__ import annotations
+
+import argparse
+import asyncio
+import json
+import os
+import sys
+from typing import Any
+
+import httpx
+from fastmcp import Client
+from fastmcp.client.transports import StreamableHttpTransport
+from rich.console import Console
+from rich.table import Table
+
+DEFAULT_URL = "http://localhost:8000/mcp"
+
+out = Console()
+err = Console(stderr=True)
+
+
+# --- URL / token resolution ---------------------------------------------------
+
+
+def _server_url(args: argparse.Namespace) -> str:
+    return (
+        args.server
+        or os.environ.get("QUICKSCRIBE_MCP_URL")
+        or DEFAULT_URL
+    ).rstrip("/")
+
+
+def _token(args: argparse.Namespace) -> str | None:
+    return args.token or os.environ.get("QUICKSCRIBE_MCP_TOKEN")
+
+
+def _headers(args: argparse.Namespace) -> dict[str, str]:
+    token = _token(args)
+    if token:
+        return {"Authorization": f"Bearer {token}"}
+    return {}
+
+
+def _make_client(args: argparse.Namespace) -> Client:
+    """Create an MCP client with optional bearer token auth."""
+    url = _server_url(args)
+    transport = StreamableHttpTransport(url=url, headers=_headers(args))
+    return Client(transport=transport)
+
+
+# --- helpers ------------------------------------------------------------------
+
+
+def _dump(obj: Any) -> str:
+    """Best-effort JSON dump that copes with pydantic models."""
+    if hasattr(obj, "model_dump"):
+        return json.dumps(obj.model_dump(), indent=2, default=str)
+    if isinstance(obj, list):
+        return json.dumps(
+            [o.model_dump() if hasattr(o, "model_dump") else o for o in obj],
+            indent=2,
+            default=str,
+        )
+    return json.dumps(obj, indent=2, default=str)
+
+
+# --- MCP commands -------------------------------------------------------------
+
+
+async def cmd_tools(args: argparse.Namespace) -> None:
+    """List all MCP tools exposed by the server."""
+    try:
+        async with _make_client(args) as client:
+            tools = await client.list_tools()
+    except Exception as e:
+        err.print(f"[red]ERROR[/red] {_server_url(args)}: {type(e).__name__}: {e}")
+        sys.exit(1)
+    if args.json:
+        print(_dump(tools))
+        return
+    table = Table(title=f"QuickScribe MCP Tools ({len(tools)})")
+    table.add_column("Name", style="cyan")
+    table.add_column("Description")
+    for t in tools:
+        desc = (t.description or "").split("\n")[0]
+        table.add_row(t.name, desc[:80])
+    out.print(table)
+
+
+async def cmd_tool(args: argparse.Namespace) -> None:
+    """Show full schema and description for one tool."""
+    try:
+        async with _make_client(args) as client:
+            tools = await client.list_tools()
+    except Exception as e:
+        err.print(f"[red]ERROR[/red] {_server_url(args)}: {type(e).__name__}: {e}")
+        sys.exit(1)
+    match = next((t for t in tools if t.name == args.name), None)
+    if match is None:
+        err.print(f"[red]Tool not found:[/red] {args.name}")
+        err.print(f"[dim]Available: {', '.join(t.name for t in tools)}[/dim]")
+        sys.exit(1)
+    if args.json:
+        print(_dump(match))
+        return
+    out.print(f"[bold cyan]{match.name}[/bold cyan]")
+    if match.description:
+        out.print(match.description)
+    out.print("\n[bold]Input schema:[/bold]")
+    out.print_json(json.dumps(match.inputSchema, default=str))
+
+
+async def cmd_call(args: argparse.Namespace) -> None:
+    """Call a tool and display the result."""
+    url = _server_url(args)
+    call_args: dict[str, Any] = {}
+    if args.args:
+        try:
+            parsed = json.loads(args.args)
+        except json.JSONDecodeError as e:
+            err.print(f"[red]--args must be valid JSON:[/red] {e}")
+            sys.exit(1)
+        if not isinstance(parsed, dict):
+            err.print("[red]--args must be a JSON object[/red]")
+            sys.exit(1)
+        call_args = parsed
+
+    try:
+        async with _make_client(args) as client:
+            result = await client.call_tool(args.name, call_args)
+    except Exception as e:
+        err.print(f"[red]ERROR[/red] {_server_url(args)}: {type(e).__name__}: {e}")
+        sys.exit(1)
+
+    if args.json:
+        print(_dump(result))
+        return
+
+    content = getattr(result, "content", None) or []
+    for block in content:
+        text = getattr(block, "text", None)
+        if text is not None:
+            # Try to pretty-print as JSON, fall back to raw text
+            try:
+                parsed = json.loads(text)
+                out.print_json(json.dumps(parsed, indent=2, default=str))
+            except (json.JSONDecodeError, TypeError):
+                out.print(text)
+        else:
+            out.print(block)
+    structured = getattr(result, "structuredContent", None)
+    if structured is not None:
+        out.print("\n[bold]structuredContent:[/bold]")
+        out.print_json(json.dumps(structured, default=str))
+    if getattr(result, "isError", False):
+        out.print("[red]<tool reported an error>[/red]")
+        sys.exit(2)
+
+
+async def cmd_health(args: argparse.Namespace) -> None:
+    """Quick health check against the REST API."""
+    base = _server_url(args).replace("/mcp", "")
+    try:
+        r = httpx.get(f"{base}/api/health", timeout=5.0)
+        r.raise_for_status()
+        data = r.json()
+    except httpx.HTTPError as e:
+        err.print(f"[red]ERROR[/red] {e}")
+        sys.exit(1)
+    if args.json:
+        print(json.dumps(data, indent=2))
+        return
+    status = data.get("status", "?")
+    version = data.get("version", "?")
+    color = "green" if status == "ok" else "red"
+    out.print(f"[{color}]{status}[/{color}] — QuickScribe v{version}")
+
+
+# --- entry point --------------------------------------------------------------
+
+
+def _build_parser() -> argparse.ArgumentParser:
+    p = argparse.ArgumentParser(
+        prog="qs-mcp",
+        description="CLI for testing the QuickScribe MCP server.",
+    )
+    p.add_argument(
+        "--server",
+        default=None,
+        help=f"MCP server URL (default: $QUICKSCRIBE_MCP_URL, else {DEFAULT_URL})",
+    )
+    p.add_argument(
+        "--token",
+        default=None,
+        help="MCP bearer token (default: $QUICKSCRIBE_MCP_TOKEN)",
+    )
+    p.add_argument("--json", action="store_true", help="Emit raw JSON output")
+
+    sub = p.add_subparsers(dest="cmd", required=True)
+    sub.add_parser("health", help="Check server health")
+
+    sub.add_parser("tools", help="List all MCP tools")
+
+    sp = sub.add_parser("tool", help="Show schema for one tool")
+    sp.add_argument("name", help="Tool name")
+
+    sp = sub.add_parser("call", help="Call a tool")
+    sp.add_argument("name", help="Tool name")
+    sp.add_argument(
+        "--args",
+        default=None,
+        help='JSON object of tool arguments, e.g. \'{"query":"budget"}\'',
+    )
+
+    return p
+
+
+def main(argv: list[str] | None = None) -> None:
+    args = _build_parser().parse_args(argv)
+
+    sync_cmds = {"health": cmd_health}
+    async_cmds = {"tools": cmd_tools, "tool": cmd_tool, "call": cmd_call}
+
+    if args.cmd in sync_cmds:
+        asyncio.run(sync_cmds[args.cmd](args))
+    else:
+        asyncio.run(async_cmds[args.cmd](args))
+
+
+if __name__ == "__main__":
+    main()
