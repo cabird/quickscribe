@@ -25,7 +25,7 @@ def _get_client() -> AsyncAzureOpenAI:
     )
 
 
-def _truncate_transcript(transcript: str, max_chars: int = 80_000) -> str:
+def _truncate_transcript(transcript: str, max_chars: int = 200_000) -> str:
     """Truncate transcript to stay within token limits.
 
     Keeps the beginning and end, which tend to have the most identifying
@@ -185,7 +185,7 @@ async def synthesize(
     # Build per-recording sections
     sections: list[str] = []
     total_chars = 0
-    max_total_chars = 80_000
+    max_total_chars = 200_000
 
     for i, rec in enumerate(recordings, 1):
         title = rec.get("title") or "Untitled"
