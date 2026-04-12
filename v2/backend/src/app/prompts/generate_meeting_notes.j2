@@ -1,0 +1,99 @@
+You generate structured meeting notes from audio transcripts. Your output is
+pure markdown — no JSON, no code fences, no preamble. Start directly with the
+meeting header.
+
+## Recording Metadata
+Title: {{ title }}
+Date: {{ date }}
+Speakers: {{ speakers }}
+Duration: {{ duration }}
+
+## Transcript
+{{ transcript }}
+
+## Output Format
+
+Produce markdown with the following sections in order. Omit any section
+(except Meeting Header, Executive Summary, Discussion Threads, and Topic Tags)
+if it has no content.
+
+### 1. Meeting Header
+Start with a level-1 heading using the meeting title, then state:
+- **Duration:** {{ duration }}
+- **Attendees:** list of speaker names
+- **Purpose:** one sentence describing why this meeting was held
+
+### 2. Executive Summary
+2-4 sentences capturing the full arc: why the meeting was held, what the group
+worked through, what was resolved, and what remains open. This paragraph must
+stand alone — someone reading only this section should understand the meeting's
+outcome without needing any other section.
+
+### 3. Discussion Threads
+One level-3 subsection per major topic discussed. For each:
+- Open with a framing sentence that sets context
+- Summarize key points with speaker attribution (e.g., "Alice noted that...")
+- Close with an explicit outcome label: **Resolved** (and how), **Deferred**
+  (and why), or **Open** (and what remains unclear)
+- Scale depth to significance: a 25-minute topic gets a full paragraph; a
+  2-minute topic gets 2-3 sentences
+
+### 4. Decisions
+Numbered list of clear, unambiguous statements. Write each decision in active
+voice as a stated fact, not as a description of the discussion
+(e.g., "The team will use PostgreSQL for the new service" — not "The team
+discussed database options"). Attribute each decision to whoever made or
+confirmed it. Omit this section if no decisions were made.
+
+### 5. Action Items
+A markdown table with columns: Action | Owner | Deadline | Notes
+
+- Every row must have a named owner. If no owner was clearly stated in the
+  transcript, use "Unassigned" and explain the ambiguity in the Notes column.
+- Include deadline only if one was stated; otherwise leave blank.
+- Omit this section if no action items were identified.
+
+### 6. Key Quotes
+Verbatim statements worth preserving, cleaned of filler words and false starts.
+Attribute each quote to its speaker with brief context
+(e.g., 'Alice, on the migration timeline: "We cannot slip past March without
+jeopardizing the launch."'). Include as many quotes as genuinely warrant
+preservation — there is no arbitrary limit. Omit this section if no quotes
+are worth preserving.
+
+### 7. Open Questions
+Bulleted list of questions raised but not answered during the meeting.
+Include who raised each question. These are distinct from Parking Lot items,
+which were explicitly deferred.
+
+### 8. Next Steps
+What happens after this meeting — the overall forward motion. Include the next
+meeting date or topic if mentioned.
+
+### 9. Parking Lot
+Bulleted list of items explicitly deferred to a future discussion.
+Include who raised each item.
+
+### 10. Topic Tags
+This MUST be the last section. Write a level-2 heading "## Topic Tags" followed
+by a single line of 3-8 short topic labels, comma-separated
+(e.g., `Azure Search, hiring, paper submission`). This line is parsed
+programmatically — do not use bullet points, numbering, or multiple lines.
+
+## Quality Rules
+- Every action item needs a named owner (or "Unassigned" with a note)
+- Every decision must be stated as a fact in active voice, not a description of discussion
+- Every discussion thread must close with an explicit outcome (Resolved/Deferred/Open)
+- The executive summary must stand alone without other sections
+- Clean transcript artifacts: remove filler words (um, uh, like), false starts, and repeated words
+- Use speaker names consistently throughout. If only "Speaker 1", "Speaker 2" labels are available, use those labels consistently
+- Attribute statements to speakers by name
+- Do NOT include any JSON — output is pure markdown
+- Do NOT add any explanatory preamble — start directly with the meeting header
+
+## Single-speaker recordings
+If the transcript has only one speaker, note in the executive summary that this
+is a single-person monologue or dictation rather than a group meeting. In this
+case, use "Key Takeaways" instead of "Decisions" (since there is no group
+consensus), and frame discussion threads as topics the speaker addressed rather
+than group discussions.

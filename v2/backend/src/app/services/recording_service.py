@@ -97,6 +97,15 @@ def _row_to_detail(row: dict, tag_ids: list[str] | None = None) -> RecordingDeta
         except (json.JSONDecodeError, Exception):
             pass
 
+    # Parse meeting_notes_tags from JSON
+    meeting_notes_tags = None
+    tags_raw = row.get("meeting_notes_tags")
+    if tags_raw:
+        try:
+            meeting_notes_tags = json.loads(tags_raw)
+        except (json.JSONDecodeError, Exception):
+            pass
+
     return RecordingDetail(
         id=row["id"],
         user_id=row["user_id"],
@@ -117,6 +126,9 @@ def _row_to_detail(row: dict, tag_ids: list[str] | None = None) -> RecordingDeta
         speaker_mapping=speaker_mapping,
         search_summary=row.get("search_summary"),
         search_keywords=search_keywords,
+        meeting_notes=row.get("meeting_notes"),
+        meeting_notes_generated_at=row.get("meeting_notes_generated_at"),
+        meeting_notes_tags=meeting_notes_tags,
         tag_ids=tag_ids,
         created_at=row.get("created_at"),
         updated_at=row.get("updated_at"),
@@ -179,21 +191,23 @@ async def list_recordings(
     params: list = []
 
     if search:
-        # Use FTS5 for text search
+        # Use FTS5 for text search + LIKE on speaker_mapping for speaker names
         base_query = f"""
             SELECT {_SUMMARY_COLUMNS}
             FROM recordings
-            WHERE user_id = ? AND rowid IN (
-                SELECT rowid FROM recordings_fts WHERE recordings_fts MATCH ?
+            WHERE user_id = ? AND (
+                rowid IN (SELECT rowid FROM recordings_fts WHERE recordings_fts MATCH ?)
+                OR speaker_mapping LIKE ?
             )
         """
         count_query = """
             SELECT COUNT(*) as cnt FROM recordings
-            WHERE user_id = ? AND rowid IN (
-                SELECT rowid FROM recordings_fts WHERE recordings_fts MATCH ?
+            WHERE user_id = ? AND (
+                rowid IN (SELECT rowid FROM recordings_fts WHERE recordings_fts MATCH ?)
+                OR speaker_mapping LIKE ?
             )
         """
-        params = [user_id, search]
+        params = [user_id, search, f"%{search}%"]
     else:
         base_query = f"SELECT {_SUMMARY_COLUMNS} FROM recordings WHERE user_id = ?"
         count_query = "SELECT COUNT(*) as cnt FROM recordings WHERE user_id = ?"
@@ -520,7 +534,8 @@ async def assign_speaker(
 
     await db.execute(
         """UPDATE recordings
-           SET speaker_mapping = ?, updated_at = datetime('now')
+           SET speaker_mapping = ?, speaker_mapping_updated_at = datetime('now'),
+               updated_at = datetime('now')
            WHERE id = ? AND user_id = ?""",
         (json.dumps(mapping), recording_id, user_id),
     )
@@ -570,7 +585,8 @@ async def dismiss_speaker(
 
     await db.execute(
         """UPDATE recordings
-           SET speaker_mapping = ?, updated_at = datetime('now')
+           SET speaker_mapping = ?, speaker_mapping_updated_at = datetime('now'),
+               updated_at = datetime('now')
            WHERE id = ? AND user_id = ?""",
         (json.dumps(mapping), recording_id, user_id),
     )

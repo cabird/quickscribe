@@ -246,11 +246,14 @@ async def _sync_user(
                     await run_logger.info(f"Skipped (duplicate): {audio_file.filename}")
             else:
                 stats["errors"] += 1
-                msg = f"Error processing {audio_file.id}: {exc}"
+                msg = f"Error processing {audio_file.id}: {type(exc).__name__}: {exc}"
                 logger.exception(msg)
                 run_logs.append(msg)
                 if run_logger:
-                    await run_logger.error(f"Error: {audio_file.filename}: {exc}")
+                    import traceback
+                    tb = traceback.format_exc()
+                    await run_logger.error(f"Error: {audio_file.filename}: {type(exc).__name__}: {exc}")
+                    await run_logger.error(f"Traceback: {tb[-500:]}")
 
     # Update last sync timestamp
     await db.execute(
@@ -530,10 +533,12 @@ async def _handle_transcription_complete(
                 await run_logger.warning("AI enrichment failed for %s: %s" % (recording_id[:8], exc))
 
     # Update recording with all results
+    speaker_mapping_json = json.dumps(speaker_mapping) if speaker_mapping else None
     await db.execute(
         """UPDATE recordings
            SET status = ?, transcript_text = ?, diarized_text = ?,
                transcript_json = ?, token_count = ?, speaker_mapping = ?,
+               speaker_mapping_updated_at = CASE WHEN ? IS NOT NULL THEN datetime('now') ELSE speaker_mapping_updated_at END,
                title = COALESCE(?, title), description = COALESCE(?, description),
                processing_completed = datetime('now'), updated_at = datetime('now')
            WHERE id = ?""",
@@ -543,7 +548,8 @@ async def _handle_transcription_complete(
             diarized_text,
             json.dumps(content),
             token_count,
-            json.dumps(speaker_mapping) if speaker_mapping else None,
+            speaker_mapping_json,
+            speaker_mapping_json,
             title,
             description,
             recording_id,
@@ -562,6 +568,18 @@ async def _handle_transcription_complete(
             logger.warning("Search summary generation failed for %s: %s", recording_id, exc)
             if run_logger:
                 await run_logger.warning("Search summary failed for %s: %s" % (recording_id[:8], exc))
+
+    # Generate meeting notes (non-fatal)
+    if settings.ai_enabled and (diarized_text or transcript_text):
+        try:
+            from app.services import meeting_notes_service
+            await meeting_notes_service.generate_meeting_notes(recording_id, user_id)
+            if run_logger:
+                await run_logger.info("Meeting notes generated for %s" % recording_id[:8])
+        except Exception as exc:
+            logger.warning("Meeting notes generation failed for %s: %s", recording_id, exc)
+            if run_logger:
+                await run_logger.warning("Meeting notes failed for %s: %s" % (recording_id[:8], exc))
 
     # Clean up the transcription job from Azure
     try:

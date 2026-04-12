@@ -69,6 +69,12 @@ CREATE TABLE IF NOT EXISTS recordings (
     search_summary      TEXT,
     search_keywords     TEXT,
 
+    -- Meeting notes (AI-generated)
+    meeting_notes           TEXT,
+    meeting_notes_generated_at TEXT,
+    meeting_notes_tags      TEXT,
+    speaker_mapping_updated_at TEXT,
+
     -- Timestamps
     created_at          TEXT DEFAULT (datetime('now')),
     updated_at          TEXT DEFAULT (datetime('now'))
@@ -373,6 +379,16 @@ async def _migrate_schema(db: aiosqlite.Connection) -> None:
         await db.execute(
             "CREATE UNIQUE INDEX IF NOT EXISTS ix_mcp_tokens_token_hash ON mcp_tokens (token_hash)"
         )
+
+    # Add meeting_notes columns if missing
+    if "meeting_notes" not in columns:
+        await db.execute("ALTER TABLE recordings ADD COLUMN meeting_notes TEXT")
+    if "meeting_notes_generated_at" not in columns:
+        await db.execute("ALTER TABLE recordings ADD COLUMN meeting_notes_generated_at TEXT")
+    if "meeting_notes_tags" not in columns:
+        await db.execute("ALTER TABLE recordings ADD COLUMN meeting_notes_tags TEXT")
+    if "speaker_mapping_updated_at" not in columns:
+        await db.execute("ALTER TABLE recordings ADD COLUMN speaker_mapping_updated_at TEXT")
 
     # Backfill null recorded_at with created_at for uploaded recordings
     await db.execute(

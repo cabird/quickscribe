@@ -276,6 +276,29 @@ async def identify_speakers(recording_id: str, user: CurrentUser):
     return await recording_service.get_recording(user.id, recording_id)
 
 
+@router.post("/{recording_id}/generate-meeting-notes")
+async def generate_meeting_notes(recording_id: str, user: CurrentUser):
+    """Manually trigger meeting notes generation for a recording."""
+    recording = await recording_service.get_recording(user.id, recording_id)
+    if not recording:
+        raise HTTPException(status_code=404, detail="Recording not found")
+    if not recording.diarized_text and not recording.transcript_text:
+        raise HTTPException(status_code=400, detail="Recording has no transcript")
+
+    from app.services import meeting_notes_service
+
+    notes = await meeting_notes_service.generate_meeting_notes(recording_id, user.id)
+    if notes is None:
+        raise HTTPException(status_code=500, detail="Meeting notes generation failed")
+
+    # Re-fetch to get meeting_notes_tags
+    updated = await recording_service.get_recording(user.id, recording_id)
+    return {
+        "meeting_notes": updated.meeting_notes,
+        "meeting_notes_tags": updated.meeting_notes_tags,
+    }
+
+
 @router.post("/{recording_id}/reidentify", response_model=RecordingDetail)
 async def reidentify_speakers(recording_id: str, user: CurrentUser):
     """Clear auto/suggest speaker data and re-run identification.
@@ -328,7 +351,8 @@ async def reidentify_speakers(recording_id: str, user: CurrentUser):
                     entry.pop(key, None)
 
         await db.execute(
-            """UPDATE recordings SET speaker_mapping = ?, updated_at = datetime('now')
+            """UPDATE recordings SET speaker_mapping = ?, speaker_mapping_updated_at = datetime('now'),
+               updated_at = datetime('now')
                WHERE id = ? AND user_id = ?""",
             (json.dumps(mapping), recording_id, user.id),
         )

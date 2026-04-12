@@ -286,6 +286,11 @@ class RecordingDetail(BaseModel):
     search_summary: str | None = None
     search_keywords: list[str] | None = None
 
+    # Meeting notes (AI-generated)
+    meeting_notes: str | None = None
+    meeting_notes_generated_at: datetime | None = None
+    meeting_notes_tags: list[str] | None = None
+
     # Tags
     tag_ids: list[str] | None = None
 

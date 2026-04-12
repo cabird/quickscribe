@@ -512,6 +512,18 @@ export function usePollTranscriptions() {
   });
 }
 
+// -- Meeting notes ----------------------------------------------------------
+
+export function useGenerateMeetingNotes() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (recordingId: string) => api.generateMeetingNotes(recordingId),
+    onSuccess: (_data, recordingId) => {
+      void qc.invalidateQueries({ queryKey: queryKeys.recordings.detail(recordingId) });
+    },
+  });
+}
+
 // -- AI / Chat / Analysis ---------------------------------------------------
 
 export function useChatWithTranscript() {

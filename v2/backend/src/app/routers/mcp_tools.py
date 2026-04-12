@@ -128,7 +128,8 @@ async def get_recording(recording_id: str, user: CurrentUser):
     rows = await db.execute_fetchall(
         """SELECT id, title, description, duration_seconds, recorded_at,
                   source, status, search_summary, search_keywords,
-                  speaker_mapping, token_count
+                  speaker_mapping, token_count, meeting_notes,
+                  meeting_notes_generated_at
            FROM recordings
            WHERE id = ? AND user_id = ? AND status = 'ready'""",
         (recording_id, user.id),
@@ -183,6 +184,8 @@ async def get_recording(recording_id: str, user: CurrentUser):
         "status": row.get("status"),
         "search_summary": row.get("search_summary"),
         "search_keywords": search_keywords,
+        "meeting_notes": row.get("meeting_notes"),
+        "meeting_notes_generated_at": row.get("meeting_notes_generated_at"),
         "speakers": speakers,
         "tag_ids": tag_ids,
         "token_count": row.get("token_count"),
@@ -555,7 +558,8 @@ async def synthesize_recordings(body: McpSynthesizeRequest, user: CurrentUser):
     placeholders = ",".join("?" for _ in body.recording_ids)
     rows = await db.execute_fetchall(
         f"""SELECT id, title, recorded_at, speaker_mapping,
-                   search_summary, diarized_text, transcript_text
+                   search_summary, diarized_text, transcript_text,
+                   meeting_notes
             FROM recordings
             WHERE id IN ({placeholders}) AND user_id = ? AND status = 'ready'""",
         [*body.recording_ids, user.id],
@@ -583,8 +587,8 @@ async def synthesize_recordings(body: McpSynthesizeRequest, user: CurrentUser):
             except (json.JSONDecodeError, AttributeError):
                 pass
 
-        # Use full transcript (diarized preferred), fall back to plain text
-        text = r.get("diarized_text") or r.get("transcript_text") or ""
+        # Prefer meeting notes > diarized > plain text
+        text = r.get("meeting_notes") or r.get("diarized_text") or r.get("transcript_text") or ""
 
         recordings_data.append({
             "title": r.get("title"),

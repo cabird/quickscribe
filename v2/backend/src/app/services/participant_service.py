@@ -171,7 +171,7 @@ async def delete_participant(user_id: str, participant_id: str) -> None:
                     changed = True
             if changed:
                 await db.execute(
-                    "UPDATE recordings SET speaker_mapping = ?, updated_at = datetime('now') WHERE id = ?",
+                    "UPDATE recordings SET speaker_mapping = ?, speaker_mapping_updated_at = datetime('now'), updated_at = datetime('now') WHERE id = ?",
                     (json.dumps(mapping), r["id"]),
                 )
         except (json.JSONDecodeError, AttributeError):
@@ -292,7 +292,7 @@ async def merge_participants(
                     changed = True
             if changed:
                 await db.execute(
-                    "UPDATE recordings SET speaker_mapping = ?, updated_at = datetime('now') WHERE id = ?",
+                    "UPDATE recordings SET speaker_mapping = ?, speaker_mapping_updated_at = datetime('now'), updated_at = datetime('now') WHERE id = ?",
                     (json.dumps(mapping), r["id"]),
                 )
         except (json.JSONDecodeError, AttributeError):

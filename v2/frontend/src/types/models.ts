@@ -81,6 +81,9 @@ export interface Recording {
   speaker_mapping: Record<string, SpeakerMappingEntry> | null;
   search_summary: string | null;
   search_keywords: string[] | null;
+  meeting_notes: string | null;
+  meeting_notes_generated_at: string | null;
+  meeting_notes_tags: string[] | null;
   tags: Tag[];
   collections?: Array<{ id: string; name: string }>;
   created_at: string;

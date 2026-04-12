@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/dialog";
 import {
   ArrowLeft,
+  ClipboardList,
   Copy,
   Download,
   FileText,
@@ -55,7 +56,7 @@ import {
   useAddItemsToCollection,
   useCreateCollection,
 } from "@/lib/queries";
-import { fetchRecordingAudioUrl, generateSearchSummary } from "@/lib/api";
+import { fetchRecordingAudioUrl, generateSearchSummary, generateMeetingNotes } from "@/lib/api";
 import { useQuery } from "@tanstack/react-query";
 import {
   DropdownMenu,
@@ -372,6 +373,11 @@ export default function RecordingDetailPage() {
 
             {/* Actions */}
             <div className="flex shrink-0 items-center gap-1">
+              <MeetingNotesButton
+                recordingId={id!}
+                meetingNotes={recording.meeting_notes}
+                meetingNotesTags={recording.meeting_notes_tags}
+              />
               <SearchSummaryButton
                 recordingId={id!}
                 searchSummary={recording.search_summary}
@@ -621,6 +627,92 @@ function formatDuration(seconds: number): string {
   if (h > 0) return `${h}h ${m}m`;
   if (m > 0) return `${m}m ${s}s`;
   return `${s}s`;
+}
+
+
+function MeetingNotesButton({
+  recordingId,
+  meetingNotes,
+  meetingNotesTags,
+}: {
+  recordingId: string;
+  meetingNotes: string | null;
+  meetingNotesTags: string[] | null;
+}) {
+  const [open, setOpen] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [localNotes, setLocalNotes] = useState<string | null>(meetingNotes ?? null);
+  const [localTags, setLocalTags] = useState<string[] | null>(meetingNotesTags ?? null);
+
+  const handleGenerate = useCallback(async () => {
+    setIsGenerating(true);
+    try {
+      const result = await generateMeetingNotes(recordingId);
+      setLocalNotes(result.meeting_notes);
+      setLocalTags(result.meeting_notes_tags);
+    } catch {
+      // ignore
+    } finally {
+      setIsGenerating(false);
+    }
+  }, [recordingId]);
+
+  const hasNotes = !!localNotes;
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger
+        render={
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            title={hasNotes ? "View meeting notes" : "Generate meeting notes"}
+          />
+        }
+      >
+        <ClipboardList className="h-4 w-4" />
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-2xl max-h-[80vh] overflow-auto">
+        <DialogHeader>
+          <DialogTitle>Meeting Notes</DialogTitle>
+          <DialogDescription>
+            {hasNotes
+              ? "AI-generated structured meeting notes."
+              : "No meeting notes yet. Generate them to get a structured summary with decisions, action items, and more."}
+          </DialogDescription>
+        </DialogHeader>
+
+        {hasNotes && (
+          <div className="space-y-3">
+            <div className="whitespace-pre-wrap text-sm text-muted-foreground leading-relaxed">
+              {localNotes}
+            </div>
+            {localTags && localTags.length > 0 && (
+              <div className="flex flex-wrap gap-1">
+                {localTags.map((tag, i) => (
+                  <Badge key={i} variant="secondary" className="text-xs">
+                    {tag}
+                  </Badge>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        <DialogFooter>
+          <Button
+            variant={hasNotes ? "outline" : "default"}
+            onClick={handleGenerate}
+            disabled={isGenerating}
+          >
+            {isGenerating && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
+            {hasNotes ? "Regenerate" : "Generate"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
 }
 
 

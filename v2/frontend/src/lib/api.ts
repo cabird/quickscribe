@@ -557,6 +557,15 @@ export function deepSearch(
   return { close: () => controller.abort() };
 }
 
+export async function generateMeetingNotes(
+  recordingId: string,
+): Promise<{ meeting_notes: string; meeting_notes_tags: string[] }> {
+  const { data } = await apiClient.post<{ meeting_notes: string; meeting_notes_tags: string[] }>(
+    `/api/recordings/${recordingId}/generate-meeting-notes`,
+  );
+  return data;
+}
+
 export async function generateSearchSummary(
   recordingId: string,
 ): Promise<{ summary: string; keywords: string[] }> {

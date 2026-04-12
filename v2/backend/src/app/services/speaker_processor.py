@@ -478,7 +478,8 @@ async def process_recording(
     # Save updated speaker_mapping
     await db.execute(
         """UPDATE recordings
-           SET speaker_mapping = ?, updated_at = datetime('now')
+           SET speaker_mapping = ?, speaker_mapping_updated_at = datetime('now'),
+               updated_at = datetime('now')
            WHERE id = ?""",
         (json.dumps(existing_mapping), recording_id),
     )
@@ -610,7 +611,8 @@ async def rerate_speakers(user_id: str) -> int:
         if changed:
             await db.execute(
                 """UPDATE recordings
-                   SET speaker_mapping = ?, updated_at = datetime('now')
+                   SET speaker_mapping = ?, speaker_mapping_updated_at = datetime('now'),
+                       updated_at = datetime('now')
                    WHERE id = ?""",
                 (json.dumps(mapping), recording_id),
             )
