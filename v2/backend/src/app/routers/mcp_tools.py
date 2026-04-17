@@ -222,7 +222,7 @@ async def get_transcription(
     verifiable wording or broader extraction, use this endpoint."""
     db = await get_db()
     rows = await db.execute_fetchall(
-        """SELECT diarized_text, transcript_text, token_count
+        """SELECT diarized_text, transcript_text, token_count, speaker_mapping
            FROM recordings
            WHERE id = ? AND user_id = ? AND status = 'ready'""",
         (recording_id, user.id),
@@ -233,6 +233,19 @@ async def get_transcription(
 
     row = dict(rows[0])
     text = row.get("diarized_text") or row.get("transcript_text") or ""
+
+    # Replace "Speaker N" labels with real names from speaker_mapping
+    mapping_raw = row.get("speaker_mapping")
+    if mapping_raw and text:
+        try:
+            mapping = json.loads(mapping_raw)
+            for label, entry in mapping.items():
+                if isinstance(entry, dict):
+                    name = entry.get("displayName")
+                    if name and name != label:
+                        text = text.replace(f"{label}:", f"{name}:")
+        except (json.JSONDecodeError, AttributeError):
+            pass
     total_tokens = row.get("token_count") or (len(text) // 4)
 
     if not text:
