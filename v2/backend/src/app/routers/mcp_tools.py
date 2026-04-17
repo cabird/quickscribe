@@ -491,7 +491,7 @@ async def ai_chat(recording_id: str, body: McpChatRequest, user: CurrentUser):
 
     db = await get_db()
     rows = await db.execute_fetchall(
-        """SELECT diarized_text, transcript_text
+        """SELECT diarized_text, transcript_text, speaker_mapping
            FROM recordings
            WHERE id = ? AND user_id = ? AND status = 'ready'""",
         (recording_id, user.id),
@@ -505,6 +505,19 @@ async def ai_chat(recording_id: str, body: McpChatRequest, user: CurrentUser):
 
     if not transcript_context:
         raise HTTPException(status_code=400, detail="Recording has no transcript")
+
+    # Replace "Speaker N" labels with real names from speaker_mapping
+    mapping_raw = row.get("speaker_mapping")
+    if mapping_raw:
+        try:
+            mapping = json.loads(mapping_raw)
+            for label, entry in mapping.items():
+                if isinstance(entry, dict):
+                    name = entry.get("displayName")
+                    if name and name != label:
+                        transcript_context = transcript_context.replace(f"{label}:", f"{name}:")
+        except (json.JSONDecodeError, AttributeError):
+            pass
 
     from app.services import ai_service
 
