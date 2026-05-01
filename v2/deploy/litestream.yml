@@ -7,4 +7,10 @@ dbs:
         bucket: ${LITESTREAM_BUCKET}
         path: app.db
         sync-interval: 1s
-        snapshot-interval: 24h
+        # Take a fresh snapshot every hour so a corrupted/missing WAL chain
+        # only loses up to ~1 hour of replay rather than up to 24 hours.
+        snapshot-interval: 1h
+        # Keep 48h of point-in-time-restore history. Older snapshots and
+        # WAL segments are pruned to keep blob storage costs in check while
+        # still giving us 2 days to detect & recover from any incident.
+        retention: 48h

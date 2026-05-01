@@ -17,6 +17,14 @@ SCHEMA_SQL = """
 PRAGMA journal_mode=WAL;
 PRAGMA busy_timeout=5000;
 PRAGMA foreign_keys=ON;
+-- Safe with WAL; reduces fsync overhead on every commit. With WAL mode
+-- the database can still recover from a crash because the WAL itself is
+-- fsynced at checkpoint time.
+PRAGMA synchronous=NORMAL;
+-- Disable SQLite's automatic WAL checkpointing. Litestream owns
+-- checkpointing on its own schedule; if the app checkpoints between
+-- Litestream's WAL reads, replicated WAL frames can be lost.
+PRAGMA wal_autocheckpoint=0;
 
 CREATE TABLE IF NOT EXISTS users (
     id              TEXT PRIMARY KEY,
