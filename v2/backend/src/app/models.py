@@ -552,11 +552,228 @@ class McpTokenResponse(BaseModel):
 
 
 class McpSynthesizeRequest(BaseModel):
-    recording_ids: list[str]
-    question: str
+    """Body for synthesize_recordings (POST /api/mcp/synthesize)."""
+
+    recording_ids: list[str] = Field(
+        ...,
+        min_length=1,
+        description=(
+            "Recording IDs to synthesize across. Get these from "
+            "search_recordings. Maximum 20 per call (returns 400 if exceeded). "
+            "Order is not guaranteed in the AI prompt."
+        ),
+    )
+    question: str = Field(
+        ...,
+        min_length=1,
+        description=(
+            "The question or instruction the AI answers across all recordings "
+            "(e.g. 'what recurring themes appear across these meetings?', "
+            "'how did the discussion about X evolve?'). Provide enough context "
+            "for the question to stand alone — the AI sees only this question "
+            "plus the transcripts; no prior conversation is preserved."
+        ),
+    )
 
 
 class McpSpeaker(BaseModel):
     label: str
     display_name: str | None = None
     participant_id: str | None = None
+
+
+# ---------------------------------------------------------------------------
+# MCP — view presets, sort enums, field whitelist
+# ---------------------------------------------------------------------------
+
+
+class McpView(str, Enum):
+    """Convenience presets for the recording fields returned by MCP endpoints.
+
+    - compact: smallest payload — just enough to triage a long list
+    - summary: compact + AI summaries and tag IDs (recommended default for
+      bulk lookups and long search result lists)
+    - full: every field except heavy meeting_notes; preserves backward
+      compatibility for search_recordings clients that don't pass `view`
+    """
+
+    compact = "compact"
+    summary = "summary"
+    full = "full"
+
+
+class McpSortOrder(str, Enum):
+    """Sort order for search_recordings.
+
+    On cascade mode, when `recorded_at_desc` is used (the default) the tier
+    order (title > summary > transcript) is preserved with this sort applied
+    *within* each tier. Any other explicit sort flattens tiers and applies
+    globally to the deduplicated set; `match_tier` is still annotated per row.
+    """
+
+    recorded_at_desc = "recorded_at_desc"
+    recorded_at_asc = "recorded_at_asc"
+    duration_desc = "duration_desc"
+    duration_asc = "duration_asc"
+    token_count_desc = "token_count_desc"
+    token_count_asc = "token_count_asc"
+
+
+class McpTagMatch(str, Enum):
+    """How multiple tag_id filters are combined."""
+
+    any = "any"  # OR — recording matches if it has at least one
+    all = "all"  # AND — recording must have every tag
+
+
+# Whitelist of fields that may be requested via `fields=...` on
+# search_recordings or get_recordings. `id` is always returned even when
+# omitted (it's needed to correlate results).
+#
+# Search-only fields (only meaningful when query is provided):
+#   match_tier
+# Heavy fields (only via explicit `fields` or view=full on get_recordings):
+#   meeting_notes, meeting_notes_generated_at
+ALLOWED_RECORDING_FIELDS: tuple[str, ...] = (
+    "id",
+    "title",
+    "description",
+    "duration_seconds",
+    "recorded_at",
+    "source",
+    "status",
+    "token_count",
+    "created_at",
+    "updated_at",
+    "search_summary",
+    "search_keywords",
+    "speakers",
+    "speaker_count",
+    "unresolved_speaker_count",
+    "speaker_names",
+    "tag_ids",
+    "meeting_notes",
+    "meeting_notes_generated_at",
+    "match_tier",
+)
+
+# Per-view field sets. Used when no explicit `fields=` is provided.
+_VIEW_COMPACT: tuple[str, ...] = (
+    "id", "title", "recorded_at", "duration_seconds",
+    "speakers", "speaker_count", "unresolved_speaker_count",
+    "match_tier", "token_count",
+)
+_VIEW_SUMMARY: tuple[str, ...] = _VIEW_COMPACT + (
+    "description", "search_summary", "tag_ids",
+)
+# `full` keeps every existing field on search_recordings (back-compat) plus
+# the new structured speakers and counts. Heavy meeting_notes is intentionally
+# excluded — get_recordings(view=full) opts in to it explicitly.
+_VIEW_FULL_SEARCH: tuple[str, ...] = (
+    "id", "title", "description", "duration_seconds", "recorded_at",
+    "source", "status", "token_count", "created_at",
+    "search_summary", "search_keywords",
+    "speakers", "speaker_count", "unresolved_speaker_count", "speaker_names",
+    "tag_ids", "match_tier",
+)
+# Used by get_recordings — adds heavy meeting_notes to the full view since
+# this endpoint is for deeper inspection of known IDs.
+_VIEW_FULL_BATCH: tuple[str, ...] = _VIEW_FULL_SEARCH + (
+    "meeting_notes", "meeting_notes_generated_at",
+)
+
+
+def view_field_set(view: "McpView | None", *, batch: bool = False) -> tuple[str, ...]:
+    """Resolve a view preset to its field set.
+
+    `batch=True` returns the get_recordings flavor (full view includes
+    meeting_notes); `batch=False` returns the search_recordings flavor.
+    """
+    if view is None or view == McpView.full:
+        return _VIEW_FULL_BATCH if batch else _VIEW_FULL_SEARCH
+    if view == McpView.summary:
+        return _VIEW_SUMMARY
+    if view == McpView.compact:
+        return _VIEW_COMPACT
+    return _VIEW_FULL_SEARCH
+
+
+# ---------------------------------------------------------------------------
+# MCP — pagination envelope, batch lookup, tags, extended participants
+# ---------------------------------------------------------------------------
+
+
+class McpSearchEnvelope(BaseModel):
+    """Wrapper returned when `paginated=true` on search_recordings."""
+
+    results: list[dict]
+    limit: int
+    offset: int
+    has_more: bool
+    next_offset: int | None = None
+    total: int | None = None  # null in cascade mode (computing it is non-trivial)
+
+
+class McpBatchRequest(BaseModel):
+    """Request body for get_recordings (POST /api/mcp/recordings/batch)."""
+
+    recording_ids: list[str] = Field(
+        min_length=1,
+        max_length=50,
+        description=(
+            "Recording IDs to fetch (1–50). Duplicates are deduped server-side; "
+            "results preserve first-seen order. IDs that don't exist or aren't "
+            "owned by the caller are reported in `missing_ids` (combined "
+            "intentionally to prevent existence probing)."
+        ),
+    )
+    view: McpView | None = Field(
+        default=None,
+        description=(
+            "Field-set preset: 'compact' | 'summary' | 'full'. "
+            "Default for this endpoint is 'summary' (lean by default for batch). "
+            "'full' includes heavy `meeting_notes`. Ignored if `fields` is set."
+        ),
+    )
+    fields: list[str] | None = Field(
+        default=None,
+        description=(
+            "Explicit field whitelist (overrides `view`). Unknown names → 400 "
+            "with the list of valid fields. `id` is always returned. See the "
+            "field catalog in the get_recordings docstring."
+        ),
+    )
+
+
+class McpBatchResponse(BaseModel):
+    """Response from get_recordings."""
+
+    results: list[dict]
+    missing_ids: list[str]
+
+
+class McpTagSummary(BaseModel):
+    """Returned from list_tags."""
+
+    id: str
+    name: str
+    color: str
+    recording_count: int
+
+
+class McpParticipantDetail(BaseModel):
+    """Extended participant shape returned from list_participants /
+    search_participants."""
+
+    id: str
+    display_name: str
+    aliases: list[str] | None = None
+    email: str | None = None
+    role: str | None = None
+    organization: str | None = None
+    relationship: str | None = None
+    notes: str | None = None
+    is_user: bool = False
+    first_seen: str | None = None
+    last_seen: str | None = None
+    recording_count: int = 0

@@ -140,7 +140,7 @@ The `token_count INTEGER` column already exists on the `recordings` table. No sc
 
 ---
 
-## MCP Tools (6 tools)
+## MCP Tools (8 tools)
 
 All tools are read-only. All require a valid MCP bearer token. All filter by the authenticated user's `user_id` (tenant isolation).
 
@@ -157,8 +157,14 @@ The workhorse. Lists, filters, and/or keyword-searches recordings.
 | `query` | str, optional | None | Search text. If omitted, lists all (with filters). |
 | `mode` | enum | `cascade` | Search mode: `title`, `summary`, `full`, `cascade`. Ignored when no query. |
 | `participant_id` | str, optional | None | Filter to recordings featuring this participant |
+| `tag_id` | list[str], optional | `[]` | Repeatable: filter by tag IDs (`?tag_id=a&tag_id=b`) |
+| `tag_match` | enum | `any` | When multiple `tag_id` values are given: `any` (OR) or `all` (AND, recording must have all tags) |
 | `date_from` | date, optional | None | Start of date range (inclusive) |
 | `date_to` | date, optional | None | End of date range (inclusive) |
+| `sort` | enum | `recorded_at_desc` | Sort order: `recorded_at_desc`, `recorded_at_asc`, `duration_desc`, `duration_asc`, `token_count_desc`, `token_count_asc` |
+| `view` | enum, optional | `full` | Field-projection preset: `compact`, `summary`, or `full`. Default preserves legacy shape. |
+| `fields` | list[str], optional | None | Explicit field whitelist (overrides `view` when set). Unknown names → 400. |
+| `paginated` | bool | `false` | When `true`, response is wrapped in an envelope with pagination metadata. |
 | `limit` | int | 20 | Max results (1-100) |
 | `offset` | int | 0 | Pagination offset |
 
@@ -169,6 +175,12 @@ The workhorse. Lists, filters, and/or keyword-searches recordings.
 - **`full`** — FTS5 MATCH on all indexed columns (title, description, diarized_text, transcript_text, search_summary)
 - **`cascade`** (default) — Runs title first; if under `limit`, adds summary matches (deduped); if still under `limit`, adds full-text matches (deduped). Each result is tagged with `match_tier` ("title", "summary", "transcript") indicating which tier matched it.
 
+**Sort × cascade interaction:**
+- When `sort` is omitted (or default `recorded_at_desc`), `cascade` preserves tier order — title matches first, then summary, then transcript, with `recorded_at_desc` *within* each tier.
+- When `sort` is set to anything else, `cascade` flattens the tiers and applies the requested sort across the entire deduplicated set. `match_tier` is still annotated per row.
+
+**Tag filter:** repeatable query param `?tag_id=a&tag_id=b`. Combined with `tag_match=any` (default, OR) or `tag_match=all` (AND — recording must carry every tag listed).
+
 **FTS5 Column Filtering:** SQLite FTS5 supports column filters in MATCH expressions: `title:budget` searches only the title column. For `summary` mode, use `{title description search_summary}:budget`. For `cascade` mode, run three separate queries with increasing column scope.
 
 **FTS5 Query Escaping:** User-provided query strings must be sanitized before use in FTS5 MATCH expressions. Raw punctuation, quotes, and boolean operators (`AND`, `OR`, `NOT`) can cause syntax errors. Normalize by:
@@ -177,22 +189,60 @@ The workhorse. Lists, filters, and/or keyword-searches recordings.
 3. If the sanitized query is empty, fall back to listing without search
 If FTS5 still throws a syntax error, catch the exception and return an empty result set with a 200 (not a 500).
 
-**Response:** Array of:
+**Field projection (`view` and `fields`):**
+
+`view` is a convenience preset (sized for typical agent workloads). `fields` is the precise whitelist (overrides `view` entirely when set). `id` is always included. Unknown field names in `fields` yield `400` with the valid field list — no silent omission. See **Field catalog** below for sizes and semantics.
+
+| `view` value | Fields included |
+|---|---|
+| `compact` | `id`, `title`, `recorded_at`, `duration_seconds`, `speakers`, `match_tier`, `token_count` |
+| `summary` | compact ∪ `description`, `search_summary`, `tag_ids`, `speaker_count`, `unresolved_speaker_count` |
+| `full` (default) | All non-heavy fields including `speaker_names` (legacy), `search_summary`, `search_keywords`, `created_at`, `updated_at`, `source`, `status` |
+
+`view=full` preserves the historical response shape (regression guard) — `speaker_names` is still emitted alongside the new `speakers` array. In `view=compact`, `speaker_names` is dropped (compact is opt-in).
+
+**Response (default — `paginated=false`):** Bare array of records (legacy shape preserved):
+```json
+[
+  {
+    "id": "abc123",
+    "title": "Q1 Budget Review",
+    "description": "Monthly budget discussion with finance team",
+    "duration_seconds": 1842.5,
+    "recorded_at": "2026-03-15T14:30:00",
+    "source": "plaud",
+    "status": "ready",
+    "speaker_names": ["Alice", "Bob", "Carol"],
+    "speakers": [
+      {"label": "Speaker 1", "display_name": "Alice", "participant_id": "p1"},
+      {"label": "Speaker 2", "display_name": "Bob", "participant_id": null}
+    ],
+    "speaker_count": 3,
+    "unresolved_speaker_count": 1,
+    "tag_ids": ["tag1", "tag2"],
+    "token_count": 12450,
+    "search_summary": "Discussion of Q1 budget allocations...",
+    "search_keywords": ["budget", "Q1", "finance"],
+    "created_at": "2026-03-15T14:30:00",
+    "updated_at": "2026-03-15T15:42:00",
+    "match_tier": "title"
+  }
+]
+```
+
+**Response (`paginated=true`):**
 ```json
 {
-  "id": "abc123",
-  "title": "Q1 Budget Review",
-  "description": "Monthly budget discussion with finance team",
-  "duration_seconds": 1842.5,
-  "recorded_at": "2026-03-15T14:30:00",
-  "source": "plaud",
-  "status": "ready",
-  "speaker_names": ["Alice", "Bob", "Carol"],
-  "tag_ids": ["tag1", "tag2"],
-  "token_count": 12450,
-  "match_tier": "title"
+  "results": [...],
+  "limit": 20,
+  "offset": 0,
+  "has_more": true,
+  "next_offset": 20,
+  "total": 47
 }
 ```
+
+`has_more` is computed via internal `limit+1` fetch (no extra COUNT). `total` is populated for `mode != cascade`; `null` in cascade mode (cascade total via UNION CTE is deferred — out of scope for v2).
 
 `match_tier` is only present when a `query` was provided. `token_count` is always present (null if no transcript yet).
 
@@ -200,7 +250,8 @@ If FTS5 still throws a syntax error, catch the exception and return an empty res
 - Participant filter: join through `speaker_mapping` JSON — check if any entry has `participantId` matching the given ID. Use `json_each()` with `json_extract()` (not LIKE, which can produce false positives on substring matches).
 - Date filter: `WHERE COALESCE(recorded_at, created_at) >= ? AND COALESCE(recorded_at, created_at) <= ?`
 - Cascade mode: run up to 3 queries, collect IDs seen so far, exclude them from subsequent tiers. Stop when `limit` reached.
-- Order: by `COALESCE(recorded_at, created_at) DESC` (newest first) within each tier.
+- Order: by `COALESCE(recorded_at, created_at) DESC` (newest first) within each tier — unless `sort` overrides.
+- `speaker_count` / `unresolved_speaker_count` are derived per row from `speaker_mapping` JSON. Malformed JSON is logged at WARNING and treated as zero speakers (never 500).
 
 ### 2. `get_recording`
 
@@ -231,7 +282,42 @@ Full metadata for a single recording, including AI summary and simplified speake
 
 `speakers` is a simplified view of `speaker_mapping` — just label, display_name, and participant_id (if linked). No embeddings, confidence scores, or ML metadata.
 
-### 3. `get_transcription`
+### 3. `get_recordings` (batch)
+
+Bulk lookup. Fetch many recordings by ID in a single round-trip with field-level projection. Designed for "I have a list of IDs from search, now show me exactly these fields for all of them."
+
+**Endpoint:** `POST /api/mcp/recordings/batch`
+
+**Request:**
+```json
+{
+  "recording_ids": ["id1", "id2", "id3"],
+  "view": "summary",
+  "fields": ["title", "search_summary", "speakers"]
+}
+```
+
+**Parameters:**
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `recording_ids` | list[str] | required | 1–50 recording IDs. Empty → 400. >50 → 422. |
+| `view` | enum, optional | `summary` | `compact`, `summary`, `full`. **Note:** default is `summary` here (not `full` like search) to avoid payload bombs. |
+| `fields` | list[str], optional | None | Explicit whitelist; overrides `view`. Unknown names → 400. |
+
+**Response:**
+```json
+{
+  "results": [...],
+  "missing_ids": ["id3"]
+}
+```
+
+`results` shape depends on `view` / `fields`. `view=full` adds `meeting_notes` and `meeting_notes_generated_at` (potentially KB per row — see Field catalog).
+
+`missing_ids` lists IDs that don't exist OR belong to another user — combined intentionally to prevent cross-tenant probing. Duplicate IDs in the request are deduplicated server-side; result order preserves first-seen order from the input.
+
+### 4. `get_transcription`
 
 Diarized transcript text with token-based pagination.
 
@@ -264,7 +350,7 @@ Diarized transcript text with token-based pagination.
 - If `token_offset` exceeds `total_tokens`, return empty text with `has_more: false`.
 - Note: because pagination uses character-to-token approximation, `token_offset` values are approximate. Clients should use the `returned_tokens` from each response to compute the next offset rather than assuming exact token positions.
 
-### 4. `list_participants`
+### 5. `list_participants`
 
 Browse all known speakers for the authenticated user.
 
@@ -279,15 +365,21 @@ Browse all known speakers for the authenticated user.
   "email": "alice@example.com",
   "role": "Engineering Manager",
   "organization": "Acme Corp",
+  "relationship": "colleague",
+  "notes": "Joined Q3 2025",
+  "is_user": false,
+  "first_seen": "2025-09-12T10:00:00",
+  "last_seen": "2026-04-30T16:22:00",
   "recording_count": 15
 }
 ```
 
 **Implementation Notes:**
-- `recording_count`: count of recordings where this participant appears in `speaker_mapping` (any entry with `participantId` matching). Use `json_each()` with `json_extract()` for accurate matching — not LIKE.
+- `recording_count`: count of recordings where this participant appears in `speaker_mapping`. Implemented as a single GROUP BY query that joins `participants` to a derived subquery that groups recordings by `json_extract(je.value, '$.participantId')`. **Do NOT** use a per-row correlated subquery (N+1).
+- All five new fields (`relationship`, `notes`, `is_user`, `first_seen`, `last_seen`) are pulled from existing `participants` columns.
 - Ordered by `display_name` ASC.
 
-### 5. `search_participants`
+### 6. `search_participants`
 
 Fuzzy name search across participants. Errs on the side of recall over precision — returns more matches rather than fewer.
 
@@ -300,7 +392,7 @@ Fuzzy name search across participants. Errs on the side of recall over precision
 | `query` | str | required | Name to search for |
 | `limit` | int | 20 | Max results |
 
-**Response:** Same shape as `list_participants`.
+**Response:** Same shape as `list_participants` (includes the extended fields).
 
 **Implementation Notes:**
 - Search `display_name` and `aliases` (JSON array) using case-insensitive LIKE with wildcards: `%query%`
@@ -309,7 +401,28 @@ Fuzzy name search across participants. Errs on the side of recall over precision
 - Rank results: exact display_name match first, then prefix match, then substring match, then alias matches.
 - The goal is high recall — if in doubt, include the result. Let the LLM client filter.
 
-### 6. `ai_chat`
+### 7. `list_tags`
+
+List the authenticated user's tags with usage counts.
+
+**Endpoint:** `GET /api/mcp/tags`
+
+**Response:** Array of:
+```json
+{
+  "id": "tag1",
+  "name": "1:1",
+  "color": "#3b82f6",
+  "recording_count": 23
+}
+```
+
+**Implementation Notes:**
+- Single LEFT JOIN GROUP BY query (no N+1).
+- `recording_count` only counts recordings where `recordings.user_id = tags.user_id` AND `status='ready'` — defense-in-depth via `COUNT(DISTINCT r.id)` (NULL `r.id` from filtered-out recordings is naturally excluded). `recording_tags` has no `user_id` column, so this double-join is required for tenant isolation.
+- Ordered by `name` ASC.
+
+### 8. `ai_chat`
 
 Ask a question about a specific recording's transcript, powered by the existing AI chat service.
 
@@ -337,6 +450,55 @@ Ask a question about a specific recording's transcript, powered by the existing 
 - For long transcripts, the existing `ai_service.chat()` handles truncation to fit model context limits.
 - Returns 400 if the recording has no transcript yet.
 - Returns 503 if AI is not configured (`ai_enabled == False`).
+
+---
+
+## Field catalog
+
+The same field whitelist applies to `search_recordings` (when `fields=` is used) and `get_recordings`. Token estimates are rough single-recording averages — at 50 IDs they multiply.
+
+```
+Always-included:
+  id                          UUID string (~10 tok)
+
+Identity & metadata (small, ~10–30 tok each):
+  title                       User-visible title; AI-generated if absent
+  recorded_at                 ISO 8601 timestamp
+  duration_seconds            Float seconds
+  source                      "plaud" | "upload" | "paste"
+  status                      "ready" | "failed" | "processing" | …
+  token_count                 Transcript token estimate (integer)
+  created_at, updated_at      ISO 8601 timestamps
+
+Summaries (small to medium):
+  description                 1-sentence AI summary, also shown in UI (~30–80 tok)
+  search_summary              3–5 sentence retrieval-optimized AI summary (~80–200 tok)
+  search_keywords             AI-extracted JSON keyword array (~20–60 tok)
+
+People & tags (scales with N):
+  speakers                    [{label, display_name, participant_id}, …] ~30 tok per speaker
+  speaker_count               Integer count of labels in transcript
+  unresolved_speaker_count    Integer count where participant_id is null
+  speaker_names               (legacy — see deprecation note) flat string array ~5 tok per name
+  tag_ids                     UUID array; resolve via list_tags ~10 tok per tag
+
+Heavy fields — request only when needed:
+  meeting_notes               Full markdown notes (~500–3000+ tok) ⚠
+  meeting_notes_generated_at  ISO timestamp
+
+Search-only:
+  match_tier                  "title" | "summary" | "transcript" (only when query was provided)
+```
+
+For triage at scale, `["title","search_summary","speakers"]` is roughly 150 tok/recording. `["title","meeting_notes"]` at 50 IDs can exceed 100K tok.
+
+---
+
+## Deprecation roadmap
+
+- `speaker_names` (flat list of display names) is preserved on every view today for backward compatibility. New clients should consume `speakers` (structured `[{label, display_name, participant_id}]`). `speaker_names` will be removed from `view=summary` and `view=full` in a future major release; `view=compact` already excludes it. `speaker_count` / `unresolved_speaker_count` provide aggregate stats independent of the deprecation.
+
+
 
 ---
 
