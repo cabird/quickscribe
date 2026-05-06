@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -33,6 +34,11 @@ const queryClient = new QueryClient({
 // ---------------------------------------------------------------------------
 
 export default function App() {
+  // Clear the auth-timeout retry counter on successful mount
+  useEffect(() => {
+    sessionStorage.removeItem("qs_auth_timeout_retries");
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>

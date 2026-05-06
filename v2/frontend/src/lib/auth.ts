@@ -3,6 +3,8 @@ import {
   type SilentRequest,
   PublicClientApplication,
   InteractionRequiredAuthError,
+  BrowserAuthError,
+  BrowserAuthErrorCodes,
 } from "@azure/msal-browser";
 
 // ---------------------------------------------------------------------------
@@ -65,6 +67,17 @@ export async function initializeMsal(): Promise<PublicClientApplication> {
 // Token acquisition
 // ---------------------------------------------------------------------------
 
+/**
+ * Returns true when the error is an MSAL silent-renewal timeout
+ * (iframe blocked by 3rd-party cookie policy, slow network, etc.).
+ */
+export function isMsalTimeout(error: unknown): boolean {
+  if (error instanceof BrowserAuthError) {
+    return error.errorCode === BrowserAuthErrorCodes.timedOut;
+  }
+  return false;
+}
+
 export async function getAccessToken(): Promise<string | null> {
   if (!authEnabled) return null;
 
@@ -79,8 +92,10 @@ export async function getAccessToken(): Promise<string | null> {
     } as SilentRequest);
     return result.accessToken;
   } catch (error) {
-    if (error instanceof InteractionRequiredAuthError) {
-      // MsalAuthenticationTemplate will handle re-auth via redirect
+    if (error instanceof InteractionRequiredAuthError || isMsalTimeout(error)) {
+      // Silent renewal failed (interaction required or iframe timed out).
+      // Return null — the MsalAuthenticationTemplate error boundary in
+      // main.tsx is the single owner of interactive redirect recovery.
       return null;
     }
     throw error;
