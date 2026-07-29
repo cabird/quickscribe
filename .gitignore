@@ -21,8 +21,9 @@ node_modules/
 # Scratch/temporary work directory
 scratch/
 
-# Local experiment workspace (large; not part of the app)
-diarization_experiment/
+# Speaker-ID experiment: keep the code and reports, not the cached audio.
+# (Virtualenvs and __pycache__ are already covered above.)
+diarization_experiment/audio_cache/
 
 # Local copies of production data pulled by v2/deploy/scripts/download-db.sh
 v2/data/

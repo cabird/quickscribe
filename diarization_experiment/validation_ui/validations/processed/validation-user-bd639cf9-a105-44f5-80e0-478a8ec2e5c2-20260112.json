@@ -1,0 +1,735 @@
+{
+  "validator_id": "user-bd639cf9-a105-44f5-80e0-478a8ec2e5c2",
+  "created_at": "2026-01-12T22:01:20.663208",
+  "decisions": [
+    {
+      "item_id": "8218aaa5-f8e0-4c6e-853d-c44ad7b907df::Speaker 2",
+      "decision": "confirmed",
+      "participant_id": "ae3687a4-ef06-4a8d-8a0b-3f8de757aeab",
+      "similarity": 0.7972551584243774,
+      "timestamp": "2026-01-13T06:01:20.349Z"
+    },
+    {
+      "item_id": "1793f692-8f6c-4617-86ae-fa03401410a0::Speaker 2",
+      "decision": "confirmed",
+      "participant_id": "ae3687a4-ef06-4a8d-8a0b-3f8de757aeab",
+      "similarity": 0.7963700890541077,
+      "timestamp": "2026-01-13T06:01:25.474Z"
+    },
+    {
+      "item_id": "d4eda6ed-ff4c-458d-8814-e10c1fa5f564::Speaker 1",
+      "decision": "confirmed",
+      "participant_id": "ae3687a4-ef06-4a8d-8a0b-3f8de757aeab",
+      "similarity": 0.7957245111465454,
+      "timestamp": "2026-01-13T06:01:27.376Z"
+    },
+    {
+      "item_id": "ace3aa02-d15e-4f89-8232-f91e50ea83fa::Speaker 1",
+      "decision": "confirmed",
+      "participant_id": "ae3687a4-ef06-4a8d-8a0b-3f8de757aeab",
+      "similarity": 0.7954853177070618,
+      "timestamp": "2026-01-13T06:01:29.873Z"
+    },
+    {
+      "item_id": "3f1ea4fe-1c92-4db6-9899-e7f2cd71d318::Speaker 2",
+      "decision": "confirmed",
+      "participant_id": "ae3687a4-ef06-4a8d-8a0b-3f8de757aeab",
+      "similarity": 0.7954745888710022,
+      "timestamp": "2026-01-13T06:01:32.645Z"
+    },
+    {
+      "item_id": "204d5451-2e96-432e-9d1d-8ea24cc860f6::Speaker 1",
+      "decision": "confirmed",
+      "participant_id": "ae3687a4-ef06-4a8d-8a0b-3f8de757aeab",
+      "similarity": 0.7953354120254517,
+      "timestamp": "2026-01-13T06:01:35.267Z"
+    },
+    {
+      "item_id": "4fe44e33-c36c-4744-a302-705e341d18f3::Speaker 1",
+      "decision": "confirmed",
+      "participant_id": "ae3687a4-ef06-4a8d-8a0b-3f8de757aeab",
+      "similarity": 0.7952325344085693,
+      "timestamp": "2026-01-13T06:01:39.309Z"
+    },
+    {
+      "item_id": "42326a3d-7f30-4c75-bbc6-751b9c029483::Speaker 3",
+      "decision": "confirmed",
+      "participant_id": "ae3687a4-ef06-4a8d-8a0b-3f8de757aeab",
+      "similarity": 0.7937723398208618,
+      "timestamp": "2026-01-13T06:01:42.148Z"
+    },
+    {
+      "item_id": "2a549606-ec10-4cd7-8891-341b13e664ba::Speaker 2",
+      "decision": "confirmed",
+      "participant_id": "ae3687a4-ef06-4a8d-8a0b-3f8de757aeab",
+      "similarity": 0.7926495671272278,
+      "timestamp": "2026-01-13T06:01:45.800Z"
+    },
+    {
+      "item_id": "38c07d62-1ae9-402e-a1dc-7450911f0609::Speaker 1",
+      "decision": "confirmed",
+      "participant_id": "ae3687a4-ef06-4a8d-8a0b-3f8de757aeab",
+      "similarity": 0.7887622714042664,
+      "timestamp": "2026-01-13T06:01:49.315Z"
+    },
+    {
+      "item_id": "23d60d29-3072-47c1-8400-afc2f2ba9d84::Speaker 3",
+      "decision": "confirmed",
+      "participant_id": "ae3687a4-ef06-4a8d-8a0b-3f8de757aeab",
+      "similarity": 0.7876619696617126,
+      "timestamp": "2026-01-13T06:01:52.357Z"
+    },
+    {
+      "item_id": "26e231cb-8176-4294-a01d-923937a0a00d::Speaker 2",
+      "decision": "confirmed",
+      "participant_id": "ae3687a4-ef06-4a8d-8a0b-3f8de757aeab",
+      "similarity": 0.7854728102684021,
+      "timestamp": "2026-01-13T06:01:54.894Z"
+    },
+    {
+      "item_id": "e9019866-d54c-4a0a-8602-0a6ab12704fb::Speaker 1",
+      "decision": "confirmed",
+      "participant_id": "ae3687a4-ef06-4a8d-8a0b-3f8de757aeab",
+      "similarity": 0.7852737903594971,
+      "timestamp": "2026-01-13T06:01:57.175Z"
+    },
+    {
+      "item_id": "dfbbc601-bc2e-4196-ad00-47e807788a56::Speaker 2",
+      "decision": "confirmed",
+      "participant_id": "ae3687a4-ef06-4a8d-8a0b-3f8de757aeab",
+      "similarity": 0.7851794958114624,
+      "timestamp": "2026-01-13T06:02:00.746Z"
+    },
+    {
+      "item_id": "822fab4a-3ddd-44ec-b1b9-f92a98bd7da2::Speaker 1",
+      "decision": "confirmed",
+      "participant_id": "ae3687a4-ef06-4a8d-8a0b-3f8de757aeab",
+      "similarity": 0.7850661277770996,
+      "timestamp": "2026-01-13T06:02:03.330Z"
+    },
+    {
+      "item_id": "ecd2c08c-193e-4325-aed7-4fece91587b8::Speaker 2",
+      "decision": "confirmed",
+      "participant_id": "ae3687a4-ef06-4a8d-8a0b-3f8de757aeab",
+      "similarity": 0.7811509370803833,
+      "timestamp": "2026-01-13T06:02:08.070Z"
+    },
+    {
+      "item_id": "58d5f63f-3ec5-4eb2-88c1-052c2ff8b231::Speaker 2",
+      "decision": "confirmed",
+      "participant_id": "ae3687a4-ef06-4a8d-8a0b-3f8de757aeab",
+      "similarity": 0.780916690826416,
+      "timestamp": "2026-01-13T06:02:11.251Z"
+    },
+    {
+      "item_id": "e90feff9-9ff1-46dc-9a8e-475d21c1793a::Speaker 1",
+      "decision": "confirmed",
+      "participant_id": "ae3687a4-ef06-4a8d-8a0b-3f8de757aeab",
+      "similarity": 0.7807801961898804,
+      "timestamp": "2026-01-13T06:02:15.133Z"
+    },
+    {
+      "item_id": "cd17c641-1379-4e63-816c-6aced958fa9e::Speaker 2",
+      "decision": "confirmed",
+      "participant_id": "ae3687a4-ef06-4a8d-8a0b-3f8de757aeab",
+      "similarity": 0.7802900075912476,
+      "timestamp": "2026-01-13T06:02:22.226Z"
+    },
+    {
+      "item_id": "15ad2ccc-8637-4b8e-a1de-5076cd91fa20::Speaker 2",
+      "decision": "confirmed",
+      "participant_id": "ae3687a4-ef06-4a8d-8a0b-3f8de757aeab",
+      "similarity": 0.7797842025756836,
+      "timestamp": "2026-01-13T06:02:27.873Z"
+    },
+    {
+      "item_id": "b42dd382-eb22-4b9e-9d0b-e955d54c1072::Speaker 2",
+      "decision": "confirmed",
+      "participant_id": "ae3687a4-ef06-4a8d-8a0b-3f8de757aeab",
+      "similarity": 0.7768046855926514,
+      "timestamp": "2026-01-13T06:02:30.832Z"
+    },
+    {
+      "item_id": "0f40a2d1-9b28-497c-a6d6-9462ce4d48c4::Speaker 2",
+      "decision": "confirmed",
+      "participant_id": "ae3687a4-ef06-4a8d-8a0b-3f8de757aeab",
+      "similarity": 0.7734989523887634,
+      "timestamp": "2026-01-13T06:02:34.303Z"
+    },
+    {
+      "item_id": "39e7b67b-0568-44b2-b15b-4910ec2ecb06::Speaker 3",
+      "decision": "confirmed",
+      "participant_id": "ae3687a4-ef06-4a8d-8a0b-3f8de757aeab",
+      "similarity": 0.7709596157073975,
+      "timestamp": "2026-01-13T06:02:38.741Z"
+    },
+    {
+      "item_id": "7d9373e9-d80d-4131-8576-b99b8f3dd34a::Speaker 1",
+      "decision": "skipped",
+      "participant_id": "ae3687a4-ef06-4a8d-8a0b-3f8de757aeab",
+      "similarity": 0.7700018882751465,
+      "timestamp": "2026-01-13T06:02:56.534Z"
+    },
+    {
+      "item_id": "f5d67e8c-c8f3-46e0-9464-106548b6615e::Speaker 4",
+      "decision": "confirmed",
+      "participant_id": "ae3687a4-ef06-4a8d-8a0b-3f8de757aeab",
+      "similarity": 0.769424557685852,
+      "timestamp": "2026-01-13T06:03:01.579Z"
+    },
+    {
+      "item_id": "591f279e-a23a-4698-88d1-c25a7defdbc8::Speaker 2",
+      "decision": "confirmed",
+      "participant_id": "ae3687a4-ef06-4a8d-8a0b-3f8de757aeab",
+      "similarity": 0.7690956592559814,
+      "timestamp": "2026-01-13T06:03:06.994Z"
+    },
+    {
+      "item_id": "d6b436ee-abed-42d9-98e8-0e3f4cb5ca7b::Speaker 1",
+      "decision": "confirmed",
+      "participant_id": "ae3687a4-ef06-4a8d-8a0b-3f8de757aeab",
+      "similarity": 0.7681576013565063,
+      "timestamp": "2026-01-13T06:03:11.400Z"
+    },
+    {
+      "item_id": "2afb1a78-d3e8-48f1-bbf9-aa31dc363c8c::Speaker 1",
+      "decision": "confirmed",
+      "participant_id": "ae3687a4-ef06-4a8d-8a0b-3f8de757aeab",
+      "similarity": 0.7670117020606995,
+      "timestamp": "2026-01-13T06:03:13.715Z"
+    },
+    {
+      "item_id": "54319253-5ce0-4b1e-98f4-500b30e2b289::Speaker 1",
+      "decision": "confirmed",
+      "participant_id": "ae3687a4-ef06-4a8d-8a0b-3f8de757aeab",
+      "similarity": 0.766129195690155,
+      "timestamp": "2026-01-13T06:03:17.483Z"
+    },
+    {
+      "item_id": "706ad0ca-fc87-4778-bcda-df794a4a014e::Speaker 3",
+      "decision": "skipped",
+      "participant_id": "ae3687a4-ef06-4a8d-8a0b-3f8de757aeab",
+      "similarity": 0.7643489837646484,
+      "timestamp": "2026-01-13T06:03:24.686Z"
+    },
+    {
+      "item_id": "fc5464c0-fdc9-4862-83db-22559d3e745b::Speaker 2",
+      "decision": "skipped",
+      "participant_id": "ae3687a4-ef06-4a8d-8a0b-3f8de757aeab",
+      "similarity": 0.762631356716156,
+      "timestamp": "2026-01-13T06:03:51.006Z"
+    },
+    {
+      "item_id": "ec72e53d-2506-4ede-85a3-0a0e4ed851b0::Speaker 3",
+      "decision": "confirmed",
+      "participant_id": "ae3687a4-ef06-4a8d-8a0b-3f8de757aeab",
+      "similarity": 0.7592446804046631,
+      "timestamp": "2026-01-13T06:03:55.666Z"
+    },
+    {
+      "item_id": "f1c32777-3f30-4d22-8cda-62abcae62097::Speaker 3",
+      "decision": "confirmed",
+      "participant_id": "ae3687a4-ef06-4a8d-8a0b-3f8de757aeab",
+      "similarity": 0.7556133270263672,
+      "timestamp": "2026-01-13T06:04:03.916Z"
+    },
+    {
+      "item_id": "9547b5cb-83ae-41cd-ae6d-fe42268fe1e0::Speaker 1",
+      "decision": "confirmed",
+      "participant_id": "ae3687a4-ef06-4a8d-8a0b-3f8de757aeab",
+      "similarity": 0.7527941465377808,
+      "timestamp": "2026-01-13T06:04:09.546Z"
+    },
+    {
+      "item_id": "0a718651-92a2-4996-a627-a46e650cc95b::Speaker 2",
+      "decision": "rejected",
+      "participant_id": "ae3687a4-ef06-4a8d-8a0b-3f8de757aeab",
+      "similarity": 0.7523943185806274,
+      "timestamp": "2026-01-13T06:04:14.198Z"
+    },
+    {
+      "item_id": "99f314b4-93b2-4964-b4f2-1b05d3757d27::Speaker 2",
+      "decision": "confirmed",
+      "participant_id": "ae3687a4-ef06-4a8d-8a0b-3f8de757aeab",
+      "similarity": 0.7501742243766785,
+      "timestamp": "2026-01-13T06:04:18.576Z"
+    },
+    {
+      "item_id": "82e833bd-c063-4bcb-a98b-7e1be638a703::Speaker 2",
+      "decision": "skipped",
+      "participant_id": "ae3687a4-ef06-4a8d-8a0b-3f8de757aeab",
+      "similarity": 0.7453258633613586,
+      "timestamp": "2026-01-13T06:04:29.707Z"
+    },
+    {
+      "item_id": "bdc7acfc-f4c5-4634-b9d1-52e7a098f09d::Speaker 3",
+      "decision": "confirmed",
+      "participant_id": "ae3687a4-ef06-4a8d-8a0b-3f8de757aeab",
+      "similarity": 0.7439249753952026,
+      "timestamp": "2026-01-13T06:04:34.851Z"
+    },
+    {
+      "item_id": "d94411fc-77f0-431a-ab9f-1a106bab84da::Speaker 1",
+      "decision": "confirmed",
+      "participant_id": "ae3687a4-ef06-4a8d-8a0b-3f8de757aeab",
+      "similarity": 0.7365498542785645,
+      "timestamp": "2026-01-13T06:04:43.545Z"
+    },
+    {
+      "item_id": "92948360-10b6-4fd8-a5ad-043b3434e391::Speaker 1",
+      "decision": "confirmed",
+      "participant_id": "ae3687a4-ef06-4a8d-8a0b-3f8de757aeab",
+      "similarity": 0.735031247138977,
+      "timestamp": "2026-01-13T06:04:49.813Z"
+    },
+    {
+      "item_id": "7a5f1c76-bc00-48e1-bb8d-5356a4c1b311::Speaker 1",
+      "decision": "confirmed",
+      "participant_id": "ae3687a4-ef06-4a8d-8a0b-3f8de757aeab",
+      "similarity": 0.7323906421661377,
+      "timestamp": "2026-01-13T06:04:52.433Z"
+    },
+    {
+      "item_id": "1d082946-c34a-4f68-9670-484031454322::Speaker 2",
+      "decision": "confirmed",
+      "participant_id": "ae3687a4-ef06-4a8d-8a0b-3f8de757aeab",
+      "similarity": 0.731791615486145,
+      "timestamp": "2026-01-13T06:04:58.367Z"
+    },
+    {
+      "item_id": "2b864493-8abe-44c9-8f3a-5f752d696b5f::Speaker 3",
+      "decision": "confirmed",
+      "participant_id": "ae3687a4-ef06-4a8d-8a0b-3f8de757aeab",
+      "similarity": 0.7292629480361938,
+      "timestamp": "2026-01-13T06:05:01.332Z"
+    },
+    {
+      "item_id": "db6c4240-0fb1-47e2-aeaf-a2b9074a0fba::Speaker 1",
+      "decision": "confirmed",
+      "participant_id": "ae3687a4-ef06-4a8d-8a0b-3f8de757aeab",
+      "similarity": 0.7278609275817871,
+      "timestamp": "2026-01-13T06:05:03.833Z"
+    },
+    {
+      "item_id": "6b5d6be9-d694-4be1-847c-a6100917bfc9::Speaker 1",
+      "decision": "confirmed",
+      "participant_id": "ae3687a4-ef06-4a8d-8a0b-3f8de757aeab",
+      "similarity": 0.7263062000274658,
+      "timestamp": "2026-01-13T06:05:06.261Z"
+    },
+    {
+      "item_id": "5c4202b8-7c0a-4d23-877d-b75bfff6d511::Speaker 1",
+      "decision": "skipped",
+      "participant_id": "ae3687a4-ef06-4a8d-8a0b-3f8de757aeab",
+      "similarity": 0.725182294845581,
+      "timestamp": "2026-01-13T06:05:22.378Z"
+    },
+    {
+      "item_id": "3e35baab-72a0-4f83-9e55-b7e63484b9ee::Speaker 1",
+      "decision": "confirmed",
+      "participant_id": "ae3687a4-ef06-4a8d-8a0b-3f8de757aeab",
+      "similarity": 0.721499502658844,
+      "timestamp": "2026-01-13T06:05:26.218Z"
+    },
+    {
+      "item_id": "352bed8b-5270-4448-bfcd-5bcb42e1f651::Speaker 1",
+      "decision": "confirmed",
+      "participant_id": "ae3687a4-ef06-4a8d-8a0b-3f8de757aeab",
+      "similarity": 0.7201202511787415,
+      "timestamp": "2026-01-13T06:05:29.683Z"
+    },
+    {
+      "item_id": "307e0206-aa9a-4058-8894-f24288f10bcf::Speaker 1",
+      "decision": "confirmed",
+      "participant_id": "ae3687a4-ef06-4a8d-8a0b-3f8de757aeab",
+      "similarity": 0.7131767272949219,
+      "timestamp": "2026-01-13T06:05:34.994Z"
+    },
+    {
+      "item_id": "ef1a238f-3355-4aa2-8cd6-418403a0e61f::Speaker 1",
+      "decision": "confirmed",
+      "participant_id": "ae3687a4-ef06-4a8d-8a0b-3f8de757aeab",
+      "similarity": 0.7105321288108826,
+      "timestamp": "2026-01-13T06:05:41.604Z"
+    },
+    {
+      "item_id": "f705db58-0de1-4212-98ea-982f65aeea2c::Speaker 1",
+      "decision": "confirmed",
+      "participant_id": "ae3687a4-ef06-4a8d-8a0b-3f8de757aeab",
+      "similarity": 0.7063264846801758,
+      "timestamp": "2026-01-13T06:05:46.183Z"
+    },
+    {
+      "item_id": "6905cec6-3504-48ba-91ae-568bd00b8edb::Speaker 5",
+      "decision": "confirmed",
+      "participant_id": "ae3687a4-ef06-4a8d-8a0b-3f8de757aeab",
+      "similarity": 0.7016600370407104,
+      "timestamp": "2026-01-13T06:05:50.233Z"
+    },
+    {
+      "item_id": "41b552b7-242c-4a1d-bee1-9df2ebbbbe73::Speaker 3",
+      "decision": "confirmed",
+      "participant_id": "ae3687a4-ef06-4a8d-8a0b-3f8de757aeab",
+      "similarity": 0.6985645294189453,
+      "timestamp": "2026-01-13T06:05:53.326Z"
+    },
+    {
+      "item_id": "fe8fa9aa-ad10-4155-8245-05198a4c09c1::Speaker 2",
+      "decision": "confirmed",
+      "participant_id": "ae3687a4-ef06-4a8d-8a0b-3f8de757aeab",
+      "similarity": 0.6899579763412476,
+      "timestamp": "2026-01-13T06:05:56.849Z"
+    },
+    {
+      "item_id": "200d845b-290e-4af1-8263-eff4211e492e::Speaker 3",
+      "decision": "confirmed",
+      "participant_id": "ae3687a4-ef06-4a8d-8a0b-3f8de757aeab",
+      "similarity": 0.6858949661254883,
+      "timestamp": "2026-01-13T06:06:03.001Z"
+    },
+    {
+      "item_id": "9c9eebbc-2911-4cce-a9f6-df4085367cf2::Speaker 3",
+      "decision": "confirmed",
+      "participant_id": "ae3687a4-ef06-4a8d-8a0b-3f8de757aeab",
+      "similarity": 0.6844509840011597,
+      "timestamp": "2026-01-13T06:06:06.984Z"
+    },
+    {
+      "item_id": "76d20c88-7db8-4798-aacf-ef8cc121f463::Speaker 3",
+      "decision": "confirmed",
+      "participant_id": "ae3687a4-ef06-4a8d-8a0b-3f8de757aeab",
+      "similarity": 0.6749445199966431,
+      "timestamp": "2026-01-13T06:06:11.703Z"
+    },
+    {
+      "item_id": "5b060787-4c8e-4756-bdf1-7a862ee1f2b6::Speaker 2",
+      "decision": "confirmed",
+      "participant_id": "ae3687a4-ef06-4a8d-8a0b-3f8de757aeab",
+      "similarity": 0.6493685245513916,
+      "timestamp": "2026-01-13T06:06:14.178Z"
+    },
+    {
+      "item_id": "18482477-34f1-47b8-bbf2-f38d50312c1c::Speaker 3",
+      "decision": "rejected",
+      "participant_id": "ae3687a4-ef06-4a8d-8a0b-3f8de757aeab",
+      "similarity": 0.6383634805679321,
+      "timestamp": "2026-01-13T06:06:20.576Z"
+    },
+    {
+      "item_id": "044c72c7-6308-4ccb-b5f5-7a32ccd4630d::Speaker 2",
+      "decision": "confirmed",
+      "participant_id": "ae3687a4-ef06-4a8d-8a0b-3f8de757aeab",
+      "similarity": 0.6261321902275085,
+      "timestamp": "2026-01-13T06:06:24.557Z"
+    },
+    {
+      "item_id": "27f512c7-5b33-4884-9fd3-15c46879eb2e::Speaker 1",
+      "decision": "confirmed",
+      "participant_id": "ae3687a4-ef06-4a8d-8a0b-3f8de757aeab",
+      "similarity": 0.622422993183136,
+      "timestamp": "2026-01-13T06:06:32.068Z"
+    },
+    {
+      "item_id": "648da5fe-73b7-434c-b2be-281497bad15f::Speaker 2",
+      "decision": "confirmed",
+      "participant_id": "8a7b4438-0a07-4d98-b4e1-d759a3bda2df",
+      "similarity": 0.7979779839515686,
+      "timestamp": "2026-01-13T06:06:36.554Z"
+    },
+    {
+      "item_id": "a773d288-8d17-428b-8979-aec816971b3d::Speaker 3",
+      "decision": "confirmed",
+      "participant_id": "8a7b4438-0a07-4d98-b4e1-d759a3bda2df",
+      "similarity": 0.7962828874588013,
+      "timestamp": "2026-01-13T06:06:38.646Z"
+    },
+    {
+      "item_id": "5e1e7da5-7853-4639-9b09-bcace74f3228::Speaker 2",
+      "decision": "confirmed",
+      "participant_id": "8a7b4438-0a07-4d98-b4e1-d759a3bda2df",
+      "similarity": 0.7953701019287109,
+      "timestamp": "2026-01-13T06:06:41.317Z"
+    },
+    {
+      "item_id": "090c6544-4a32-4ade-96db-5c2ca714a009::Speaker 3",
+      "decision": "confirmed",
+      "participant_id": "8a7b4438-0a07-4d98-b4e1-d759a3bda2df",
+      "similarity": 0.7942253947257996,
+      "timestamp": "2026-01-13T06:06:44.117Z"
+    },
+    {
+      "item_id": "8575f95e-1aa0-439c-bacf-9992b6189801::Speaker 3",
+      "decision": "confirmed",
+      "participant_id": "8a7b4438-0a07-4d98-b4e1-d759a3bda2df",
+      "similarity": 0.7933027744293213,
+      "timestamp": "2026-01-13T06:06:46.981Z"
+    },
+    {
+      "item_id": "a3724859-834c-4acd-b50e-e3ba9655ad5d::Speaker 1",
+      "decision": "confirmed",
+      "participant_id": "8a7b4438-0a07-4d98-b4e1-d759a3bda2df",
+      "similarity": 0.7926292419433594,
+      "timestamp": "2026-01-13T06:06:49.184Z"
+    },
+    {
+      "item_id": "83b9cf0f-51f7-46e4-b723-f672d5f399c6::Speaker 2",
+      "decision": "confirmed",
+      "participant_id": "8a7b4438-0a07-4d98-b4e1-d759a3bda2df",
+      "similarity": 0.787227988243103,
+      "timestamp": "2026-01-13T06:06:54.414Z"
+    },
+    {
+      "item_id": "58d5f63f-3ec5-4eb2-88c1-052c2ff8b231::Speaker 1",
+      "decision": "confirmed",
+      "participant_id": "8a7b4438-0a07-4d98-b4e1-d759a3bda2df",
+      "similarity": 0.7844319343566895,
+      "timestamp": "2026-01-13T06:06:56.783Z"
+    },
+    {
+      "item_id": "ecd2c08c-193e-4325-aed7-4fece91587b8::Speaker 1",
+      "decision": "confirmed",
+      "participant_id": "8a7b4438-0a07-4d98-b4e1-d759a3bda2df",
+      "similarity": 0.783196210861206,
+      "timestamp": "2026-01-13T06:06:59.031Z"
+    },
+    {
+      "item_id": "6905cec6-3504-48ba-91ae-568bd00b8edb::Speaker 3",
+      "decision": "confirmed",
+      "participant_id": "8a7b4438-0a07-4d98-b4e1-d759a3bda2df",
+      "similarity": 0.7826710343360901,
+      "timestamp": "2026-01-13T06:07:01.203Z"
+    },
+    {
+      "item_id": "d9099779-8980-473e-8ce4-d90c3e33953b::Speaker 2",
+      "decision": "confirmed",
+      "participant_id": "8a7b4438-0a07-4d98-b4e1-d759a3bda2df",
+      "similarity": 0.7823754549026489,
+      "timestamp": "2026-01-13T06:07:04.710Z"
+    },
+    {
+      "item_id": "f1c32777-3f30-4d22-8cda-62abcae62097::Speaker 1",
+      "decision": "confirmed",
+      "participant_id": "8a7b4438-0a07-4d98-b4e1-d759a3bda2df",
+      "similarity": 0.778497576713562,
+      "timestamp": "2026-01-13T06:07:07.212Z"
+    },
+    {
+      "item_id": "23d60d29-3072-47c1-8400-afc2f2ba9d84::Speaker 1",
+      "decision": "confirmed",
+      "participant_id": "8a7b4438-0a07-4d98-b4e1-d759a3bda2df",
+      "similarity": 0.7695679664611816,
+      "timestamp": "2026-01-13T06:07:11.564Z"
+    },
+    {
+      "item_id": "e9019866-d54c-4a0a-8602-0a6ab12704fb::Speaker 5",
+      "decision": "confirmed",
+      "participant_id": "8a7b4438-0a07-4d98-b4e1-d759a3bda2df",
+      "similarity": 0.7678489685058594,
+      "timestamp": "2026-01-13T06:07:15.231Z"
+    },
+    {
+      "item_id": "da1226e8-334f-4586-b5bf-cf5d35521da6::Speaker 2",
+      "decision": "confirmed",
+      "participant_id": "8a7b4438-0a07-4d98-b4e1-d759a3bda2df",
+      "similarity": 0.7665879130363464,
+      "timestamp": "2026-01-13T06:07:19.217Z"
+    },
+    {
+      "item_id": "0b736270-8629-424d-b8c2-067a4d9a03e7::Speaker 5",
+      "decision": "confirmed",
+      "participant_id": "8a7b4438-0a07-4d98-b4e1-d759a3bda2df",
+      "similarity": 0.763647198677063,
+      "timestamp": "2026-01-13T06:07:22.167Z"
+    },
+    {
+      "item_id": "a42220ef-4036-496a-b578-54af8f8f31e2::Speaker 1",
+      "decision": "confirmed",
+      "participant_id": "8a7b4438-0a07-4d98-b4e1-d759a3bda2df",
+      "similarity": 0.7628399133682251,
+      "timestamp": "2026-01-13T06:07:24.544Z"
+    },
+    {
+      "item_id": "a2c638ec-7017-43d6-9c14-5b06a6655d5f::Speaker 3",
+      "decision": "confirmed",
+      "participant_id": "8a7b4438-0a07-4d98-b4e1-d759a3bda2df",
+      "similarity": 0.7572901248931885,
+      "timestamp": "2026-01-13T06:07:26.767Z"
+    },
+    {
+      "item_id": "3e6a535c-b9c3-425e-8d19-60aff43485fa::Speaker 1",
+      "decision": "confirmed",
+      "participant_id": "8a7b4438-0a07-4d98-b4e1-d759a3bda2df",
+      "similarity": 0.7525630593299866,
+      "timestamp": "2026-01-13T06:07:30.501Z"
+    },
+    {
+      "item_id": "8bc33840-fad7-4cc2-9903-f45db9d53e5a::Speaker 2",
+      "decision": "confirmed",
+      "participant_id": "8a7b4438-0a07-4d98-b4e1-d759a3bda2df",
+      "similarity": 0.7410456538200378,
+      "timestamp": "2026-01-13T06:07:33.153Z"
+    },
+    {
+      "item_id": "3c268799-fc3f-42f6-8034-08d21f021aa3::Speaker 1",
+      "decision": "confirmed",
+      "participant_id": "8a7b4438-0a07-4d98-b4e1-d759a3bda2df",
+      "similarity": 0.731852114200592,
+      "timestamp": "2026-01-13T06:07:37.263Z"
+    },
+    {
+      "item_id": "9c9eebbc-2911-4cce-a9f6-df4085367cf2::Speaker 1",
+      "decision": "confirmed",
+      "participant_id": "8a7b4438-0a07-4d98-b4e1-d759a3bda2df",
+      "similarity": 0.7282999157905579,
+      "timestamp": "2026-01-13T06:07:40.834Z"
+    },
+    {
+      "item_id": "48db2f8f-e8bd-42ab-b8d9-f8130dfc8df1::Speaker 3",
+      "decision": "confirmed",
+      "participant_id": "8a7b4438-0a07-4d98-b4e1-d759a3bda2df",
+      "similarity": 0.6931448578834534,
+      "timestamp": "2026-01-13T06:07:45.000Z"
+    },
+    {
+      "item_id": "5c4202b8-7c0a-4d23-877d-b75bfff6d511::Speaker 3",
+      "decision": "skipped",
+      "participant_id": "8a7b4438-0a07-4d98-b4e1-d759a3bda2df",
+      "similarity": 0.6867741346359253,
+      "timestamp": "2026-01-13T06:07:55.150Z"
+    },
+    {
+      "item_id": "394326c1-0e39-409e-b449-7b5d88bfb0ed::Speaker 4",
+      "decision": "confirmed",
+      "participant_id": "8a7b4438-0a07-4d98-b4e1-d759a3bda2df",
+      "similarity": 0.6754013895988464,
+      "timestamp": "2026-01-13T06:07:57.952Z"
+    },
+    {
+      "item_id": "db969800-dd1f-4016-9c95-5cc1c233d0e8::Speaker 4",
+      "decision": "confirmed",
+      "participant_id": "80fed9d3-dd3e-40e5-ab71-2c9a1c489846",
+      "similarity": 0.7979224324226379,
+      "timestamp": "2026-01-13T06:08:04.133Z"
+    },
+    {
+      "item_id": "e8feaa37-b760-4a1d-8724-ad5135eeb519::Speaker 2",
+      "decision": "confirmed",
+      "participant_id": "80fed9d3-dd3e-40e5-ab71-2c9a1c489846",
+      "similarity": 0.7976927757263184,
+      "timestamp": "2026-01-13T06:08:06.795Z"
+    },
+    {
+      "item_id": "58d5f63f-3ec5-4eb2-88c1-052c2ff8b231::Speaker 3",
+      "decision": "confirmed",
+      "participant_id": "80fed9d3-dd3e-40e5-ab71-2c9a1c489846",
+      "similarity": 0.7816499471664429,
+      "timestamp": "2026-01-13T06:08:14.384Z"
+    },
+    {
+      "item_id": "9bea0718-dfac-40d6-904d-32e29286f4af::Speaker 3",
+      "decision": "confirmed",
+      "participant_id": "80fed9d3-dd3e-40e5-ab71-2c9a1c489846",
+      "similarity": 0.7757183313369751,
+      "timestamp": "2026-01-13T06:08:17.985Z"
+    },
+    {
+      "item_id": "5c4202b8-7c0a-4d23-877d-b75bfff6d511::Speaker 2",
+      "decision": "confirmed",
+      "participant_id": "80fed9d3-dd3e-40e5-ab71-2c9a1c489846",
+      "similarity": 0.7640448808670044,
+      "timestamp": "2026-01-13T06:08:25.429Z"
+    },
+    {
+      "item_id": "dfbbc601-bc2e-4196-ad00-47e807788a56::Speaker 1",
+      "decision": "confirmed",
+      "participant_id": "80fed9d3-dd3e-40e5-ab71-2c9a1c489846",
+      "similarity": 0.7580755949020386,
+      "timestamp": "2026-01-13T06:08:30.067Z"
+    },
+    {
+      "item_id": "3c268799-fc3f-42f6-8034-08d21f021aa3::Speaker 3",
+      "decision": "confirmed",
+      "participant_id": "80fed9d3-dd3e-40e5-ab71-2c9a1c489846",
+      "similarity": 0.7575969696044922,
+      "timestamp": "2026-01-13T06:08:33.286Z"
+    },
+    {
+      "item_id": "6d2b9c4f-3a94-4fb7-a8ab-f75d115289ea::Speaker 3",
+      "decision": "confirmed",
+      "participant_id": "80fed9d3-dd3e-40e5-ab71-2c9a1c489846",
+      "similarity": 0.736730694770813,
+      "timestamp": "2026-01-13T06:08:36.358Z"
+    },
+    {
+      "item_id": "d4556a18-233d-4a68-ab63-8181a5b94c76::Speaker 4",
+      "decision": "confirmed",
+      "participant_id": "80fed9d3-dd3e-40e5-ab71-2c9a1c489846",
+      "similarity": 0.6807682514190674,
+      "timestamp": "2026-01-13T06:08:38.748Z"
+    },
+    {
+      "item_id": "307e0206-aa9a-4058-8894-f24288f10bcf::Speaker 5",
+      "decision": "confirmed",
+      "participant_id": "80fed9d3-dd3e-40e5-ab71-2c9a1c489846",
+      "similarity": 0.671425461769104,
+      "timestamp": "2026-01-13T06:08:41.314Z"
+    },
+    {
+      "item_id": "bcce8f19-51b1-4018-a00f-8b57a26e3cf2::Speaker 1",
+      "decision": "confirmed",
+      "participant_id": "fafe5e6d-b462-4080-9855-aebf57b6c152",
+      "similarity": 0.7704436779022217,
+      "timestamp": "2026-01-13T06:08:48.936Z"
+    },
+    {
+      "item_id": "ecda566a-6b0e-44f8-9e9c-e03f6e3b0d50::Speaker 2",
+      "decision": "confirmed",
+      "participant_id": "fafe5e6d-b462-4080-9855-aebf57b6c152",
+      "similarity": 0.7291904091835022,
+      "timestamp": "2026-01-13T06:08:52.630Z"
+    },
+    {
+      "item_id": "706ad0ca-fc87-4778-bcda-df794a4a014e::Speaker 1",
+      "decision": "confirmed",
+      "participant_id": "fafe5e6d-b462-4080-9855-aebf57b6c152",
+      "similarity": 0.7223536968231201,
+      "timestamp": "2026-01-13T06:08:55.737Z"
+    },
+    {
+      "item_id": "d6c70ebb-2b90-49b6-a336-9bf3a650079f::Speaker 2",
+      "decision": "rejected",
+      "participant_id": "fafe5e6d-b462-4080-9855-aebf57b6c152",
+      "similarity": 0.6955498456954956,
+      "timestamp": "2026-01-13T06:09:02.042Z"
+    },
+    {
+      "item_id": "e9019866-d54c-4a0a-8602-0a6ab12704fb::Speaker 2",
+      "decision": "confirmed",
+      "participant_id": "fd753406-9fab-4b33-a00f-f4e51f4f31fa",
+      "similarity": 0.7677011489868164,
+      "timestamp": "2026-01-13T06:09:09.418Z"
+    },
+    {
+      "item_id": "f703566a-8669-4ea9-b2dc-f742c375ae96::Speaker 3",
+      "decision": "confirmed",
+      "participant_id": "fd753406-9fab-4b33-a00f-f4e51f4f31fa",
+      "similarity": 0.7564746141433716,
+      "timestamp": "2026-01-13T06:09:14.495Z"
+    },
+    {
+      "item_id": "ab560f5a-73d0-4ece-ad3b-bf559a7032e2::Speaker 2",
+      "decision": "confirmed",
+      "participant_id": "fd753406-9fab-4b33-a00f-f4e51f4f31fa",
+      "similarity": 0.7339625954627991,
+      "timestamp": "2026-01-13T06:09:19.985Z"
+    },
+    {
+      "item_id": "0629d909-af7c-481f-9c24-7537bed8fa95::Speaker 4",
+      "decision": "confirmed",
+      "participant_id": "fd753406-9fab-4b33-a00f-f4e51f4f31fa",
+      "similarity": 0.6651526689529419,
+      "timestamp": "2026-01-13T06:09:24.384Z"
+    }
+  ],
+  "updated_at": "2026-01-12T22:09:24.405383"
+}

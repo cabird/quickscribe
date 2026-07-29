@@ -1,0 +1,17 @@
+# Recordings to exclude from embedding extraction
+# One recording ID per line
+# Comments start with #
+
+# Bad diarization - speakers mislabeled throughout
+fbc9d31e-6308-4330-b6d4-9768d01670d0  # Team AI Usage and Recruitment Strategy Discussion (2025-06-04)
+17ef022d-476b-4886-b78d-0fc85c3e0a24  # Team Meeting: Model Updates and Future Plans (2025-06-05)
+e1466245-b5a5-49e6-ad8a-3f38156da4e2  # Data Analysis and Visualization Challenges in Python (2025-06-05)
+e35794c2-7ac4-4535-8bca-2b03bcd5ae81  # Exploring AI Tools for Coding Efficiency (2025-05-16)
+fd1e0e22-302c-4efd-92c5-2a0a21753df2  # Progress Update on Vibe Coding Research Project (2025-07-02) - segment timing off
+cb7dce78-2b1e-4659-98e3-514c3510c3dd  # Exploring AI's Role in Software Development (2025-05-15) - segment timing off
+1a1a95ae-c733-4e4c-8427-6dcea62171cb  # Exploring AI's Impact on Software Development (2025-06-17) - split recording, timing off
+150bbaf6-03cd-4819-b1ec-d4acc75692ab  # 2025-07-01 09:30:24 (2025-07-01)
+9a64d10f-0447-48dc-beee-82f3c53a8485  # Casual Conversations and Daily Life Musings (2025-05-15)
+b5ca5581-f0f0-4c04-85e9-c8af63e59e6c  # Tech Troubleshooting and AI Coding Tool Discussion (2025-06-10) - split >90min
+ad5df6f4-c576-4b92-83fb-263e070d656c  # Team Transition Discussion: Exploring New Opportunities (2025-05-19) - bad diarization
+1be37397-62de-4828-bb67-2a0e1e798bfb  # Interview Protocol Updates and Early Findings - bad diarization

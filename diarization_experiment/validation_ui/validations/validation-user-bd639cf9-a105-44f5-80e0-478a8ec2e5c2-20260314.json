@@ -1,0 +1,115 @@
+{
+  "validator_id": "user-bd639cf9-a105-44f5-80e0-478a8ec2e5c2",
+  "created_at": "2026-03-14T16:45:14.272185",
+  "decisions": [
+    {
+      "item_id": "33e248c3-5444-476d-9880-a7801e79d33f::Speaker 1",
+      "decision": "skipped",
+      "participant_id": "ae3687a4-ef06-4a8d-8a0b-3f8de757aeab",
+      "similarity": 0.6548420190811157,
+      "timestamp": "2026-03-14T23:45:14.800Z",
+      "phase": "known_match",
+      "training_quality": null,
+      "reassigned_from": null,
+      "reassigned_from_name": null,
+      "reassigned_to_name": null
+    },
+    {
+      "item_id": "5a5c6b2f-b03a-426c-b128-ec69972a70e9::Speaker 2",
+      "decision": "skipped",
+      "participant_id": "8a7b4438-0a07-4d98-b4e1-d759a3bda2df",
+      "similarity": 0.6563593745231628,
+      "timestamp": "2026-03-14T23:45:26.882Z",
+      "phase": "known_match",
+      "training_quality": null,
+      "reassigned_from": null,
+      "reassigned_from_name": null,
+      "reassigned_to_name": null
+    },
+    {
+      "item_id": "1793f692-8f6c-4617-86ae-fa03401410a0::Speaker 1",
+      "decision": "skipped",
+      "participant_id": "193f5e31-9af1-4fed-8d45-07e37627ae48",
+      "timestamp": "2026-03-14T23:46:30.775Z",
+      "phase": "cluster_confirm",
+      "cluster_id": "cluster-2",
+      "training_quality": null,
+      "reassigned_from": null,
+      "reassigned_from_name": null,
+      "reassigned_to_name": null
+    },
+    {
+      "item_id": "c61703e4-9088-4eae-9f60-e065eb4e2feb::Speaker 5",
+      "decision": "skipped",
+      "participant_id": "193f5e31-9af1-4fed-8d45-07e37627ae48",
+      "timestamp": "2026-03-14T23:46:33.213Z",
+      "phase": "cluster_confirm",
+      "cluster_id": "cluster-2",
+      "training_quality": null,
+      "reassigned_from": null,
+      "reassigned_from_name": null,
+      "reassigned_to_name": null
+    },
+    {
+      "item_id": "9faaf852-87d5-46a9-ae96-6e2859a48aaf::Speaker 1",
+      "decision": "confirmed",
+      "participant_id": "193f5e31-9af1-4fed-8d45-07e37627ae48",
+      "timestamp": "2026-03-14T23:46:38.807Z",
+      "phase": "cluster_confirm",
+      "cluster_id": "cluster-2",
+      "training_quality": true,
+      "reassigned_from": null,
+      "reassigned_from_name": null,
+      "reassigned_to_name": null
+    },
+    {
+      "item_id": "27f512c7-5b33-4884-9fd3-15c46879eb2e::Speaker 3",
+      "decision": "skipped",
+      "participant_id": "193f5e31-9af1-4fed-8d45-07e37627ae48",
+      "timestamp": "2026-03-14T23:46:43.528Z",
+      "phase": "cluster_confirm",
+      "cluster_id": "cluster-2",
+      "training_quality": null,
+      "reassigned_from": null,
+      "reassigned_from_name": null,
+      "reassigned_to_name": null
+    },
+    {
+      "item_id": "afe1a27e-512f-4528-856b-404ca3d2fa22::Speaker 5",
+      "decision": "skipped",
+      "participant_id": "febf551c-98d2-4fe8-a878-60412e2f265e",
+      "timestamp": "2026-03-14T23:47:16.941Z",
+      "phase": "cluster_confirm",
+      "cluster_id": "cluster-3",
+      "training_quality": null,
+      "reassigned_from": null,
+      "reassigned_from_name": null,
+      "reassigned_to_name": null
+    },
+    {
+      "item_id": "33e248c3-5444-476d-9880-a7801e79d33f::Speaker 2",
+      "decision": "confirmed",
+      "participant_id": "febf551c-98d2-4fe8-a878-60412e2f265e",
+      "timestamp": "2026-03-14T23:47:22.090Z",
+      "phase": "cluster_confirm",
+      "cluster_id": "cluster-3",
+      "training_quality": true,
+      "reassigned_from": null,
+      "reassigned_from_name": null,
+      "reassigned_to_name": null
+    },
+    {
+      "item_id": "1d082946-c34a-4f68-9670-484031454322::Speaker 1",
+      "decision": "skipped",
+      "participant_id": "febf551c-98d2-4fe8-a878-60412e2f265e",
+      "timestamp": "2026-03-14T23:47:23.982Z",
+      "phase": "cluster_confirm",
+      "cluster_id": "cluster-3",
+      "training_quality": null,
+      "reassigned_from": null,
+      "reassigned_from_name": null,
+      "reassigned_to_name": null
+    }
+  ],
+  "updated_at": "2026-03-14T16:47:24.064016"
+}

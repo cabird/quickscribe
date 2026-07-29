@@ -1,0 +1,45 @@
+# Speaker Identification Experiment Config
+#
+# This config lets you control exactly which participants to learn
+# and which recordings to use for validation.
+
+# User ID for the experiment
+user_id: "user-bd639cf9-a105-44f5-80e0-478a8ec2e5c2"
+
+# Participants to build voice profiles for
+# You can specify by name, id, or both
+learn:
+  participants:
+    - name: "Chris Bird"
+    - name: "Rob"
+    - name: "Courtney"
+    # - id: "ae3687a4-ef06-4a8d-8a0b-3f8de757aeab"  # Can also use ID directly
+
+  # Optional: limit recordings used for learning per participant
+  # Useful for testing with less data
+  max_recordings_per_participant: null  # null = use all available
+
+  # Optional: exclude specific recordings from learning (save for validation)
+  exclude_recording_ids: []
+
+# Recordings to validate against
+# The experiment will try to identify speakers in these recordings
+validate:
+  # Specify recordings by ID or title (partial match supported)
+  recordings:
+    - title: "Nicole"  # Partial title match
+    # - id: "cdf4ea03-3187-4c7b-b5db-4fd8c4a61bfd"
+
+  # Or use criteria-based selection
+  # max_recordings: 5  # Pick up to N recordings that have unlabeled speakers
+
+# Similarity thresholds for identification
+thresholds:
+  high: 0.78   # >= this: auto-identify with high confidence
+  low: 0.68    # >= this: suggest (medium confidence), below = unknown
+
+# Output settings
+output:
+  profiles_file: "speaker_profiles.json"
+  results_file: "experiment_results.json"
+  audio_cache_dir: "./audio_cache"

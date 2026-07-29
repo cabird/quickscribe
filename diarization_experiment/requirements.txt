@@ -1,0 +1,19 @@
+# Speaker Identification Experiment
+# Uses ECAPA-TDNN for speaker embeddings
+
+# Core ML/Audio dependencies
+torch>=2.0.0
+torchaudio>=2.0.0
+speechbrain>=1.0.0
+
+# Azure storage for downloading audio files
+azure-storage-blob>=12.19.0
+
+# Data processing
+numpy>=1.24.0
+
+# Install shared_quickscribe_py in editable mode separately:
+# pip install -e ../shared_quickscribe_py
+
+# Optional: for faster embedding search with many speakers
+# faiss-cpu>=1.7.0
