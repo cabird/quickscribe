@@ -225,14 +225,13 @@ npm run dev             # Vite dev server on :5173
 ### Deploy to Azure
 
 ```bash
-# 1. Bump version
-echo "2.8.0" > v2/backend/VERSION
-
-# 2. Build and push (deps layer cached if uv.lock unchanged)
+# 1. Build and push. This AUTO-BUMPS the patch number in backend/VERSION and
+#    tags the image with the result, so do not bump it by hand first.
+#    (Deps layer is cached if uv.lock is unchanged.)
 cd v2/deploy/scripts
 ./02-build-push.sh
 
-# 3. Deploy and verify
+# 2. Deploy and verify
 ./03-deploy-app.sh
 ```
 
@@ -240,7 +239,7 @@ cd v2/deploy/scripts
 
 ```bash
 # Tail logs
-az webapp log tail --name quickscribe-v2 --resource-group QuickScribeResourceGroup
+az webapp log tail --name QuickScribeWebApp --resource-group QuickScribeResourceGroup
 
 # Download live DB for inspection
 ./deploy/scripts/download-db.sh

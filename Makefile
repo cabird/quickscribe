@@ -24,14 +24,15 @@ help:
 	@echo "  lint          - Lint backend (ruff) and frontend (eslint)"
 	@echo ""
 	@echo "  version       - Show the version that will be deployed"
-	@echo "  build-push    - Build image and push to ACR (reads VERSION)"
+	@echo "  build-push    - Build image and push to ACR (auto-bumps patch VERSION)"
 	@echo "  deploy-app    - Point the web app at the new image and verify"
 	@echo "  deploy        - build-push then deploy-app"
 	@echo "  set-secrets   - Push env vars from .env to the web app"
 	@echo "  download-db   - Download the live SQLite DB for inspection"
 	@echo ""
 	@echo "Deploy workflow:"
-	@echo "  echo 2.8.9 > $(BACKEND_DIR)/VERSION && make deploy"
+	@echo "  make deploy    (build-push bumps the patch version itself;"
+	@echo "                  do not edit VERSION first or you skip a version)"
 	@echo ""
 
 setup:

@@ -89,16 +89,24 @@ make deploy        # build-push then deploy-app
 
 ### Deploying
 
-`v2/backend/VERSION` is the single source of truth for the deployed version —
-always bump it (not `pyproject.toml`), then:
-
 ```bash
-echo 2.8.9 > v2/backend/VERSION
 make deploy
 ```
 
-`03-deploy-app.sh` polls `/api/health` until the reported version matches, so a
-failed rollout surfaces as a timeout rather than a silent no-op.
+`02-build-push.sh` **auto-increments the patch version** in `v2/backend/VERSION`
+and tags the image with the result — do not bump it by hand first or you will
+skip a version. Edit `VERSION` manually only when changing the major or minor
+number, and set it to one below the value you want released.
+
+`v2/backend/VERSION` is the source of truth for the deployed version, not
+`pyproject.toml`.
+
+`03-deploy-app.sh` stops the app, swaps the image, then starts it — deliberately
+*not* `az webapp restart`, because App Service keeps the old container alive
+during warm-up and two live containers would both write to the same Litestream
+destination and split the database. It then polls `/api/health` until the
+reported version matches, so a failed rollout surfaces as a timeout rather than
+a silent no-op.
 
 ### Tests
 
