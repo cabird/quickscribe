@@ -1,176 +1,74 @@
 # QuickScribe Root Makefile
-# Orchestrates building, running, and deploying all components
+# QuickScribe v2 is the only live system. See v2/SYSTEM_DESCRIPTION.md.
 
-BACKEND_DIR = backend
-FRONTEND_DIR = v3_frontend
-SHARED_PY_DIR = shared_quickscribe_py
-PLAUD_DIR = plaud_sync_service
+V2_DIR       = v2
+BACKEND_DIR  = $(V2_DIR)/backend
+FRONTEND_DIR = $(V2_DIR)/frontend
+SCRIPTS_DIR  = $(V2_DIR)/deploy/scripts
 
-.PHONY: help setup build run-dev run-local build-containers run-local-container deploy-azure deploy-backend deploy-plaud clean bump-version bump-version-backend bump-version-plaud
+.PHONY: help setup run-backend run-frontend build test lint deploy build-push deploy-app set-secrets download-db version
 
-# Default target
 default: help
 
 help:
 	@echo "=========================================="
-	@echo "QuickScribe Project Makefile"
+	@echo "QuickScribe (v2)"
 	@echo "=========================================="
 	@echo ""
-	@echo "Available targets:"
+	@echo "  help          - Show this help message (default)"
+	@echo "  setup         - Install backend + frontend dependencies"
+	@echo "  run-backend   - Run FastAPI with reload on :8000"
+	@echo "  run-frontend  - Run Vite dev server on :5173"
+	@echo "  build         - Build the frontend bundle"
+	@echo "  test          - Run backend tests"
+	@echo "  lint          - Lint backend (ruff) and frontend (eslint)"
 	@echo ""
-	@echo "  help                 - Show this help message (default)"
-	@echo "  build                - Build all components (models, frontend assets)"
-	@echo "  run-dev              - Run full dev environment (frontend dev server + backend)"
-	@echo "  run-local            - Run backend locally (serves built frontend assets)"
-	@echo "  build-containers     - Build all Docker container images"
-	@echo "  run-local-container  - Run backend in Docker container locally"
-	@echo "  deploy-backend       - Deploy backend (web app) to Azure"
-	@echo "  deploy-plaud         - Deploy plaud sync service to Azure"
-	@echo "  deploy-azure         - Deploy both backend and plaud service to Azure"
-	@echo "  clean                - Clean all build artifacts"
-	@echo "  bump-version-backend - Bump backend version"
-	@echo "  bump-version-plaud   - Bump plaud service version"
-	@echo "  bump-version         - Bump all versions (backend + plaud)"
+	@echo "  version       - Show the version that will be deployed"
+	@echo "  build-push    - Build image and push to ACR (reads VERSION)"
+	@echo "  deploy-app    - Point the web app at the new image and verify"
+	@echo "  deploy        - build-push then deploy-app"
+	@echo "  set-secrets   - Push env vars from .env to the web app"
+	@echo "  download-db   - Download the live SQLite DB for inspection"
 	@echo ""
-	@echo "Common workflows:"
-	@echo "  Development:   make build && make run-dev"
-	@echo "  Local testing: make build && make run-local"
-	@echo "  Docker test:   make build-containers && make run-local-container"
-	@echo "  Deploy all:    make bump-version && make build && make deploy-azure"
-	@echo "  Deploy backend: make bump-version-backend && make build && make deploy-backend"
+	@echo "Deploy workflow:"
+	@echo "  echo 2.8.9 > $(BACKEND_DIR)/VERSION && make deploy"
 	@echo ""
 
-# Build all components
-build:
-	@echo "=========================================="
-	@echo "Building all components"
-	@echo "=========================================="
-	@echo ""
-	@echo "=== Building backend models ==="
-	cd $(BACKEND_DIR) && make build
-	@echo ""
-	@echo "=== Building shared_quickscribe_py models ==="
-	cd $(SHARED_PY_DIR) && make build
-	@echo ""
-	@echo "=== Building frontend and copying to backend ==="
-	cd $(FRONTEND_DIR) && ./deploy.sh
-	@echo ""
-	@echo "✓ All components built successfully!"
-
-# Install shared library for local development
 setup:
-	@echo "Installing shared_quickscribe_py in editable mode..."
-	cd $(BACKEND_DIR) && make setup
+	cd $(BACKEND_DIR) && uv sync
+	cd $(FRONTEND_DIR) && npm install
 
-# Run full development environment (frontend dev server + backend)
-run-dev: setup
-	@echo "=========================================="
-	@echo "Starting full development environment"
-	@echo "=========================================="
-	@echo ""
-	@echo "Frontend dev server: http://localhost:5173"
-	@echo "Backend API: http://localhost:8000"
-	@echo ""
-	@echo "Starting backend..."
-	cd $(BACKEND_DIR) && ./startup.sh &
-	@echo "Starting frontend dev server..."
+run-backend:
+	cd $(BACKEND_DIR) && uv run uvicorn app.main:app --reload --port 8000
+
+run-frontend:
 	cd $(FRONTEND_DIR) && npm run dev
 
-# Run backend locally (serves built frontend assets)
-run-local: setup
-	@echo "=========================================="
-	@echo "Starting backend (serves frontend assets)"
-	@echo "=========================================="
-	@echo ""
-	@echo "Application: http://localhost:8000"
-	@echo ""
-	cd $(BACKEND_DIR) && ./startup.sh
+build:
+	cd $(FRONTEND_DIR) && npm run build
 
-# Build all Docker containers
-build-containers:
-	@echo "=========================================="
-	@echo "Building Docker containers"
-	@echo "=========================================="
-	@echo ""
-	@echo "=== Building backend container ==="
-	cd $(BACKEND_DIR) && make build_container
-	@echo ""
-	@echo "=== Building plaud sync service container ==="
-	cd $(PLAUD_DIR) && make build
-	@echo ""
-	@echo "✓ All containers built successfully!"
+test:
+	cd $(BACKEND_DIR) && PYTHONPATH=src uv run pytest tests/
 
-# Run backend in Docker container locally
-run-local-container:
-	@echo "=========================================="
-	@echo "Running backend in Docker container"
-	@echo "=========================================="
-	@echo ""
-	cd $(BACKEND_DIR) && make deploy_local
+lint:
+	cd $(BACKEND_DIR) && uv run ruff check .
+	cd $(FRONTEND_DIR) && npm run lint
 
-# Deploy backend to Azure
-deploy-backend: build
-	@echo "=========================================="
-	@echo "Deploying backend (web app) to Azure"
-	@echo "=========================================="
-	@echo ""
-	cd $(BACKEND_DIR) && make deploy_azure
-	@echo ""
-	@echo "✓ Backend deployed!"
+version:
+	@cat $(BACKEND_DIR)/VERSION
 
-# Deploy plaud service to Azure
-deploy-plaud:
-	@echo "=========================================="
-	@echo "Deploying plaud sync service to Azure"
-	@echo "=========================================="
-	@echo ""
-	cd $(PLAUD_DIR) && make azure-deploy
-	@echo ""
-	@echo "✓ Plaud service deployed!"
+build-push:
+	cd $(SCRIPTS_DIR) && ./02-build-push.sh
 
-# Deploy both to Azure
-deploy-azure: deploy-backend deploy-plaud
-	@echo ""
-	@echo "✓ All services deployed!"
+deploy-app:
+	cd $(SCRIPTS_DIR) && ./03-deploy-app.sh
 
-# Clean all build artifacts
-clean:
-	@echo "=========================================="
-	@echo "Cleaning all build artifacts"
-	@echo "=========================================="
+deploy: build-push deploy-app
 	@echo ""
-	@echo "=== Cleaning backend ==="
-	cd $(BACKEND_DIR) && make clean
-	@echo ""
-	@echo "=== Cleaning shared_quickscribe_py ==="
-	cd $(SHARED_PY_DIR) && make clean
-	@echo ""
-	@echo "=== Cleaning frontend ==="
-	cd $(FRONTEND_DIR) && rm -rf dist node_modules/.vite
-	@echo ""
-	@echo "✓ All artifacts cleaned!"
+	@echo "✓ Deployed $$(cat $(BACKEND_DIR)/VERSION)"
 
-# Bump backend version only
-bump-version-backend:
-	@echo "=========================================="
-	@echo "Bumping backend version"
-	@echo "=========================================="
-	@echo ""
-	cd $(BACKEND_DIR) && make bump_version
-	@echo ""
-	@echo "✓ Backend version bumped!"
+set-secrets:
+	cd $(SCRIPTS_DIR) && ./set-secrets.sh
 
-# Bump plaud service version only
-bump-version-plaud:
-	@echo "=========================================="
-	@echo "Bumping plaud service version"
-	@echo "=========================================="
-	@echo ""
-	cd $(PLAUD_DIR) && make bump_version
-	@echo ""
-	@echo "✓ Plaud service version bumped!"
-
-# Bump all versions
-bump-version: bump-version-backend bump-version-plaud
-	@echo ""
-	@echo "✓ All versions bumped!"
+download-db:
+	cd $(SCRIPTS_DIR) && ./download-db.sh

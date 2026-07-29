@@ -21,15 +21,16 @@ node_modules/
 # Scratch/temporary work directory
 scratch/
 
-# Build artifacts
-shared_quickscribe_py/build/
-shared_quickscribe_py/dist/
+# Local experiment workspace (large; not part of the app)
+diarization_experiment/
+
+# Local copies of production data pulled by v2/deploy/scripts/download-db.sh
+v2/data/
+v2/exports/
+
+# Screenshots and scratch files
+*.png
+foo
 
 # Generated reports
 scripts/consistency_report.json
-
-# Production secrets - NEVER commit
-backend/production_settings.json
-
-# Plaud sync deploy packages
-plaud_sync_service/plaud_deploy_*/

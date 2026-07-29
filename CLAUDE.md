@@ -6,10 +6,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 | Resource | Location | Description |
 |----------|----------|-------------|
-| **Backend Docs** | [`backend/SYSTEM_DESCRIPTION.md`](./backend/SYSTEM_DESCRIPTION.md) | Flask API architecture, routes, database handlers |
-| **Frontend Docs** | [`v3_frontend/SYSTEM_DESCRIPTION.md`](./v3_frontend/SYSTEM_DESCRIPTION.md) | React/TypeScript architecture, components, services |
-| **Plaud Sync Docs** | [`plaud_sync_service/SYSTEM_DESCRIPTION.md`](./plaud_sync_service/SYSTEM_DESCRIPTION.md) | Container Apps Job, transcription polling, sync workflow |
-| **Shared Library Docs** | [`shared_quickscribe_py/SYSTEM_DESCRIPTION.md`](./shared_quickscribe_py/SYSTEM_DESCRIPTION.md) | Shared models, handlers, Azure services |
+| **System Description** | [`v2/SYSTEM_DESCRIPTION.md`](./v2/SYSTEM_DESCRIPTION.md) | Architecture, services, deploy scripts, runtime details |
+| **Backend** | `v2/backend/` | FastAPI + async SQLite (aiosqlite) |
+| **Frontend** | `v2/frontend/` | React 18 / TypeScript / Vite / Tailwind / shadcn |
+| **Deploy** | `v2/deploy/` | Dockerfile, Litestream config, deploy scripts |
 | **Development TODOs** | [`TODOs`](./TODOs) | Current development priorities |
 
 ## General Instructions
@@ -26,357 +26,192 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-QuickScribe is a full-stack audio transcription application with the following components:
+QuickScribe is a personal audio transcription application. It syncs recordings from
+Plaud devices, transcribes them via Azure Speech Services, and layers AI features
+(summaries, meeting notes, chat, speaker identification) on top.
 
-| Component | Directory | Technology | Purpose |
-|-----------|-----------|------------|---------|
-| **Backend** | `backend/` | Flask 3.0 / Python 3.11 | REST API, authentication, AI features |
-| **Frontend** | `v3_frontend/` | React 18 / TypeScript / Vite | Web application UI |
-| **Plaud Sync** | `plaud_sync_service/` | Python / Container Apps Job | Scheduled Plaud device sync & transcription |
-| **Shared Library** | `shared_quickscribe_py/` | Python package | Shared models, handlers, Azure clients |
-| **Shared Models** | `shared/Models.ts` | TypeScript | Source of truth for data models |
+**`v2/` is the only live system.** It is deployed as a single Docker container on
+the `QuickScribeWebApp` Azure App Service. The earlier v1 stack (a Flask backend,
+a separate React frontend, a Plaud sync Container Apps Job, and a CosmosDB
+database) was fully decommissioned in July 2026 — its Azure resources were deleted
+and its source removed from this repo. If you need it, it is in git history.
 
-### Architecture Overview
+### Architecture
 
 ```
-┌─────────────────┐     ┌─────────────────────┐     ┌────────────────────┐
-│   v3_frontend   │────▶│      backend        │◀────│  plaud_sync_service│
-│   (React SPA)   │     │   (Flask API)       │     │  (Container Job)   │
-└─────────────────┘     └─────────┬───────────┘     └─────────┬──────────┘
-                                  │                           │
-                    ┌─────────────▼───────────────────────────▼──────────┐
-                    │              shared_quickscribe_py                  │
-                    │  (CosmosDB handlers, Azure services, Plaud client) │
-                    └─────────────────────────────────────────────────────┘
-                                           │
-               ┌───────────────────────────┼───────────────────────────┐
-               ▼                           ▼                           ▼
-        ┌──────────────┐          ┌──────────────┐          ┌──────────────┐
-        │ Azure CosmosDB│          │ Azure Blob   │          │ Azure Speech │
-        │ (Data store)  │          │ Storage      │          │ Services     │
-        └──────────────┘          └──────────────┘          └──────────────┘
+┌──────────────────────────────────────────────────────────────┐
+│              QuickScribeWebApp (App Service)                  │
+│  ┌────────────────┐  ┌──────────────┐  ┌──────────────────┐  │
+│  │ React SPA      │  │ FastAPI      │  │ APScheduler      │  │
+│  │ (served static)│──│ /api, /mcp   │──│ in-process jobs  │  │
+│  └────────────────┘  └──────┬───────┘  └──────────────────┘  │
+│                             │                                 │
+│                    ┌────────▼─────────┐   ┌───────────────┐  │
+│                    │ SQLite (WAL,FTS5)│──▶│  Litestream   │  │
+│                    │  /app/data/app.db│   │ (replication) │  │
+│                    └──────────────────┘   └───────┬───────┘  │
+└───────────────────────────────────────────────────┼──────────┘
+                    │              │                │
+                    ▼              ▼                ▼
+            ┌──────────────┐ ┌───────────┐ ┌────────────────┐
+            │ Azure Speech │ │Azure OpenAI│ │  Blob Storage  │
+            │ (transcribe) │ │ (AI feats) │ │ (audio + repl) │
+            └──────────────┘ └───────────┘ └────────────────┘
 ```
+
+### Critical constraints
+
+- **Single instance only.** SQLite plus Litestream tolerates exactly one writer.
+  Scaling the App Service beyond one replica corrupts the replica (this has
+  happened before — a second App Service pointed at the same Litestream
+  destination caused split-brain and had to be deleted).
+- **The container filesystem is ephemeral** (`WEBSITES_ENABLE_APP_SERVICE_STORAGE=false`),
+  so Litestream *is* the durability mechanism, not a convenience backup.
+- **Never let the app checkpoint the WAL.** `PRAGMA wal_autocheckpoint=0` is set
+  deliberately; Litestream owns checkpointing. Opening a second SQLite connection
+  without replicating that pragma can destroy replicated WAL frames.
 
 ---
 
 ## Key Commands
 
-### Root Makefile Commands (Recommended)
-
 ```bash
-# Show all available commands
-make help
+make help          # List all targets
+make setup         # Install backend + frontend dependencies
+make run-backend   # FastAPI with reload on :8000
+make run-frontend  # Vite dev server on :5173
+make test          # Backend tests
+make lint          # ruff + eslint
 
-# Build all components (models + frontend)
-make build
-
-# Run full dev environment (frontend dev server + backend)
-make run-dev
-
-# Run backend locally (serves built frontend)
-make run-local
-
-# Build all Docker containers
-make build-containers
-
-# Deploy to Azure
-make deploy-azure        # Both backend and plaud service
-make deploy-backend      # Backend only
-make deploy-plaud        # Plaud sync service only
-
-# Version management
-make bump-version        # Bump all versions
-make bump-version-backend
-make bump-version-plaud
+make version       # Show version that will be deployed
+make deploy        # build-push then deploy-app
 ```
 
-### Backend Development
+### Deploying
+
+`v2/backend/VERSION` is the single source of truth for the deployed version —
+always bump it (not `pyproject.toml`), then:
 
 ```bash
-cd backend
-source venv/bin/activate  # IMPORTANT: Always activate venv
-
-# Run development server
-make local_run
-# OR: cd src && python app.py
-
-# Build Python models from TypeScript
-make build
-
-# Run tests
-python run_tests.py unit
-python run_tests.py integration
-python run_tests.py fast    # Quick tests (excludes slow)
-python run_tests.py all     # Full suite with coverage
-
-# Docker operations
-make build_container
-make deploy_local
-make compose_up
+echo 2.8.9 > v2/backend/VERSION
+make deploy
 ```
 
-### Frontend Development
+`03-deploy-app.sh` polls `/api/health` until the reported version matches, so a
+failed rollout surfaces as a timeout rather than a silent no-op.
+
+### Tests
 
 ```bash
-cd v3_frontend
-
-npm install              # Install dependencies
-npm run dev              # Start dev server (port 3000)
-npm run build            # Production build
-npm run sync-models      # Sync from /shared/Models.ts
-npm run lint             # ESLint
-npm run format           # Prettier
-npm run deploy:build-and-copy  # Build and deploy to backend
+cd v2/backend && PYTHONPATH=src uv run pytest tests/
 ```
 
-### Plaud Sync Service
-
-```bash
-cd plaud_sync_service
-
-# Build and deploy
-make build               # Build Docker image
-make azure-deploy        # Deploy to Azure Container Apps
-
-# Test scripts
-python scripts/test_plaud_sync.py --max-recordings 5
-python scripts/cleanup_test_run.py --latest
-python scripts/view_jobs.py
-python scripts/clear_locks.py
-```
+`PYTHONPATH=src` is required — the app package is not installed.
+`asyncio_mode = "auto"` is configured, so async tests need no decorator.
 
 ---
 
-## Shared Models Workflow
+## Database
 
-Models are defined in TypeScript and generated for Python/Frontend:
+Async SQLite via `aiosqlite`, WAL mode, FTS5 for search. Schema lives in
+`SCHEMA_SQL` / `FTS_SCHEMA_SQL` in `v2/backend/src/app/database.py` and is applied
+idempotently on startup, with ad-hoc migrations in `_migrate_schema()`.
 
-```
-shared/Models.ts (Source of Truth)
-        │
-        ├──▶ make build (in backend/)
-        │    └──▶ shared_quickscribe_py/cosmos/models.py (Python)
-        │
-        └──▶ npm run sync-models (in v3_frontend/)
-             └──▶ v3_frontend/src/types/models.ts (TypeScript copy)
-```
+| Table | Purpose |
+|-------|---------|
+| `recordings` | Recording metadata **and** transcript columns (`transcript_text`, `diarized_text`, `transcript_json`, `speaker_mapping`) |
+| `recordings_fts` | FTS5 index over titles, summaries, transcript text |
+| `participants` / `speaker_profiles` | People and their ECAPA-TDNN voice embeddings |
+| `collections` / `collection_items` | User-defined groupings |
+| `tags` / `recording_tags` | Tagging |
+| `sync_runs` / `run_logs` | Sync job history (pruned daily, see below) |
+| `users`, `mcp_tokens`, `deleted_plaud_ids`, `search_traces` | Auth, MCP access, dedup, search debugging |
 
-**Workflow when changing models:**
-1. Edit `shared/Models.ts`
-2. Run `make build` in `backend/` directory
-3. Run `npm run dev` or `npm run sync-models` in `v3_frontend/`
-4. Update handlers if new fields need special processing
-
----
-
-## Database (CosmosDB)
-
-### Containers
-
-| Container | Partition Key | Purpose |
-|-----------|---------------|---------|
-| `recordings` | `userId` | Audio recording metadata |
-| `users` | `id` | User profiles, Plaud settings |
-| `transcriptions` | `userId` | Transcript text, speaker diarization |
-| `job_executions` | `partitionKey` | Plaud sync job logs |
-| `deleted_items` | `userId` | Soft-delete tracking |
-
-### Handler Pattern
-
-Handlers are in `shared_quickscribe_py/cosmos/`:
-
-```python
-from shared_quickscribe_py.cosmos import get_recording_handler, Recording
-
-handler = get_recording_handler()  # Flask request-scoped
-recording = handler.get_recording(recording_id, user_id)
-handler.save_recording(recording)
-```
+The app shares **one** `aiosqlite` connection via `await get_db()`. Because of
+that, avoid awaiting between a write and its `commit()` — an unrelated coroutine
+can otherwise have its in-flight write committed by your code.
 
 ---
 
-## API Routes (Backend)
+## Background Jobs
 
-| Blueprint | Prefix | File | Purpose |
-|-----------|--------|------|---------|
-| `api_bp` | `/api` | `routes/api.py` | Core CRUD, uploads, tags |
-| `ai_bp` | `/api/ai` | `routes/ai_routes.py` | AI analysis, chat, speaker inference |
-| `local_bp` | `/api/local` | `routes/local_routes.py` | Local dev utilities |
-| `admin_bp` | `/api/admin` | `routes/admin.py` | Admin operations |
-| `participant_bp` | `/api/participants` | `routes/participant_routes.py` | Participant management |
+Registered in `v2/backend/src/app/scheduler/jobs.py` (APScheduler, in-process):
 
-### Key Endpoints
+| Job | Interval | Purpose |
+|-----|----------|---------|
+| `plaud_sync_job` | `sync_interval_minutes` (15) | Pull new recordings from Plaud |
+| `poll_transcriptions_job` | 5 min | Poll Azure Speech for completed jobs |
+| `refresh_meeting_notes_job` | 60 min | Generate/regenerate meeting notes |
+| `prune_run_history_job` | 24 h | Delete `sync_runs` older than `run_history_retention_days` (30) |
 
-**Recordings**
-- `GET /api/recordings` - List user's recordings
-- `GET /api/recording/<id>` - Get recording details
-- `POST /api/upload` - Upload audio file
-- `PUT /api/recording/<id>` - Update recording
-- `GET /api/recording/<id>/audio-url` - Get streaming URL
+`sync_runs` previously grew unbounded and reached 25k rows / 88 MB, which also
+inflated every hourly Litestream snapshot. Any new per-run bookkeeping table needs
+a retention story from the start.
 
-**AI Features**
-- `POST /api/ai/chat` - Chat with transcript context
-- `GET /api/ai/infer_speaker_names/<id>` - AI speaker inference
-- `POST /api/recording/<id>/postprocess` - Trigger AI post-processing
+---
+
+## Plaud Integration
+
+`v2/backend/src/app/services/plaud_client.py` talks to the Plaud API.
+
+**Parse defensively.** Plaud adds fields to its API without notice; v1 crashed for
+three weeks because it did `AudioFile(**file_data)` against a fixed dataclass.
+`_parse_audio_file()` filters to known dataclass fields first — preserve that
+behavior when touching this code.
+
+Known quirk: Plaud `.opus` files are actually MP3.
 
 ---
 
 ## Authentication
 
-- **Azure AD** authentication via MSAL
-- Frontend acquires token → Backend validates JWT
-- Token validation in `backend/src/auth.py`
-- JWKS caching with 24-hour TTL
-
-**Frontend auth toggle:**
-- `VITE_AUTH_ENABLED=true` for production
-- `VITE_AUTH_ENABLED=false` for local development without auth
+- Azure AD via MSAL in the frontend, JWT validation in FastAPI (`app/auth.py`).
+- API keys for uploads; opaque bearer tokens for MCP (`mcp_tokens`).
+- EasyAuth is **not** used.
+- `auth_disabled=True` in settings bypasses auth for local dev and tests.
 
 ---
 
-## Plaud Sync Service Architecture
+## MCP Server
 
-Runs as **Azure Container Apps Job** (not HTTP server):
-
-```
-Cron Schedule → Container Start → JobExecutor → Exit
-                                       │
-                    ┌──────────────────┼──────────────────┐
-                    ▼                  ▼                  ▼
-           TranscriptionPoller   PlaudProcessor    LoggingHandler
-           (poll Azure Speech)   (download/upload)  (CosmosDB logs)
-```
-
-**Key Features:**
-- Concurrent job prevention via CosmosDB locks
-- Automatic chunking for large files (>300MB or >2 hours)
-- Deleted items blocking (prevents re-syncing deleted recordings)
-- AI post-processing (title, description generation)
+Exposed at `/mcp` with bearer-token auth, offering read-only tools for search,
+recording/transcript retrieval, participants, tags, AI chat, meeting notes, and
+cross-recording synthesis.
 
 ---
 
 ## Configuration
 
-### Feature Flags (shared_quickscribe_py/config/settings.py)
+`v2/backend/src/app/config.py` (`pydantic-settings`, reads `.env`). Feature
+availability is derived from whether credentials are present:
 
 ```python
-from shared_quickscribe_py.config import get_settings
+from app.config import get_settings
 
 settings = get_settings()
-if settings.ai_enabled:
-    # Azure OpenAI available
-if settings.plaud_enabled:
-    # Plaud integration available
-```
-
-Available flags: `ai_enabled`, `cosmos_enabled`, `blob_storage_enabled`, `speech_services_enabled`, `plaud_enabled`, `azure_ad_auth_enabled`, `assemblyai_enabled`
-
-### Environment Variables
-
-**Backend (.env)**
-```bash
-AZURE_COSMOS_ENDPOINT=...
-AZURE_COSMOS_KEY=...
-AZURE_STORAGE_CONNECTION_STRING=...
-AZURE_OPENAI_API_ENDPOINT=...
-AZURE_OPENAI_API_KEY=...
-AZURE_CLIENT_ID=...  # Azure AD
-```
-
-**Frontend (.env)**
-```bash
-VITE_API_URL=                     # Empty for production
-VITE_AUTH_ENABLED=true
-VITE_AZURE_CLIENT_ID=...
-VITE_AZURE_TENANT_ID=...
+if settings.ai_enabled:      # azure_openai_endpoint and api_key both set
+    ...
 ```
 
 ---
 
 ## Common Patterns
 
-### Pydantic Model Usage
-
-```python
-# Good: Use model attributes directly
-user.plaudSettings.enableSync = True
-handler.save_user(user)
-
-# Bad: Don't treat models as dicts
-user.plaudSettings['enableSync'] = True  # ❌
-```
-
-### Frontend Styling (Fluent UI)
+### Frontend styling (Tailwind + shadcn)
 
 ```typescript
-import { makeStyles, mergeClasses, tokens } from '@fluentui/react-components';
+import { cn } from "@/lib/utils";
 
-const useStyles = makeStyles({
-  container: { padding: tokens.spacingHorizontalM },
-});
-
-// Good: Use mergeClasses
-className={mergeClasses(styles.container, isActive && styles.active)}
-
-// Bad: Don't use template literals
-className={`${styles.container} ${styles.active}`}  // ❌
+// Good: merge conditionally with cn()
+className={cn("mt-0.5 text-[13px]", isActive && "font-semibold")}
 ```
 
-### Safe Field Access
+### Safe field access
 
 ```typescript
-// Always provide fallbacks for optional fields
 {recording.title || recording.original_filename}
-{field && <Component />}
 recording?.description
 ```
-
----
-
-## Development Workflows
-
-### Local Development
-
-```bash
-# Terminal 1: Backend
-cd backend && source venv/bin/activate && make local_run
-
-# Terminal 2: Frontend
-cd v3_frontend && npm run dev
-
-# Frontend at http://localhost:3000 (proxies to backend at 5050)
-```
-
-### Full Stack with Docker
-
-```bash
-make build              # Build all components
-make build-containers   # Build Docker images
-make run-local-container  # Run in Docker
-```
-
-### Testing
-
-```bash
-# Backend tests
-cd backend && source venv/bin/activate
-python run_tests.py fast
-
-# Plaud sync test with cleanup
-cd plaud_sync_service
-python scripts/test_plaud_sync.py --max-recordings 3
-python scripts/cleanup_test_run.py --latest
-```
-
----
-
-## Known Quirks
-
-1. **Plaud `.opus` files**: Actually MP3 format - handled automatically
-2. **Frontend port**: Dev server on 3000, proxies `/api` and `/plaud` to backend on 5050
-3. **Virtual environment**: Backend and scripts require `source venv/bin/activate`
-4. **Model sync**: Frontend models auto-sync on `npm run dev` / `npm run build`
-5. **Azure Speech API**: Uses v3.2 endpoint with custom client in `plaud_sync_service/azure_speech/`
 
 ---
 
@@ -384,12 +219,13 @@ python scripts/cleanup_test_run.py --latest
 
 | What | Where |
 |------|-------|
-| TypeScript models (source) | `shared/Models.ts` |
-| Python models (generated) | `shared_quickscribe_py/cosmos/models.py` |
-| Frontend models (synced) | `v3_frontend/src/types/models.ts` |
-| Database handlers | `shared_quickscribe_py/cosmos/*_handler.py` |
-| Backend routes | `backend/src/routes/*.py` |
-| LLM prompts | `backend/prompts.yaml`, `plaud_sync_service/src/prompts.yaml` |
-| API version | `backend/src/api_version.py` |
-| Frontend components | `v3_frontend/src/components/` |
-| Frontend services | `v3_frontend/src/services/` |
+| DB schema & connection | `v2/backend/src/app/database.py` |
+| Settings | `v2/backend/src/app/config.py` |
+| API routes | `v2/backend/src/app/routers/` |
+| Business logic | `v2/backend/src/app/services/` |
+| Background jobs | `v2/backend/src/app/scheduler/jobs.py` |
+| LLM prompts | `v2/backend/src/app/prompts/` |
+| Version (source of truth) | `v2/backend/VERSION` |
+| Frontend components | `v2/frontend/src/components/` |
+| Dockerfile / Litestream | `v2/deploy/` |
+| Deploy scripts | `v2/deploy/scripts/` |
