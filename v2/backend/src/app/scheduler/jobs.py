@@ -87,6 +87,60 @@ async def refresh_meeting_notes_job() -> None:
         logger.exception("Meeting notes refresh job failed")
 
 
+async def prune_run_history_job() -> None:
+    """Delete sync_runs (and cascaded run_logs) older than the retention window.
+
+    Without this, sync_runs grows by ~96 rows/day forever, which also inflates
+    every hourly Litestream snapshot of the database.
+
+    Done as a single statement and a single commit rather than in batches. The
+    app shares one aiosqlite connection across all callers, so awaiting between
+    a DELETE and its commit would let an unrelated coroutine's in-flight write
+    get committed by this job (and vice versa). One statement keeps that window
+    as small as every other writer in the app. Measured against a copy of the
+    production database, deleting a full 22k-row backlog plus its cascaded
+    run_logs took ~1.6s -- well inside busy_timeout -- and steady-state runs
+    only remove ~96 rows.
+    """
+    from app.database import get_db
+
+    settings = get_settings()
+    retention_days = settings.run_history_retention_days
+    if retention_days <= 0:
+        logger.info("Run history pruning disabled (retention_days=%d)", retention_days)
+        return
+
+    try:
+        db = await get_db()
+        cursor = await db.execute(
+            """DELETE FROM sync_runs
+               WHERE julianday(COALESCE(started_at, created_at))
+                     < julianday('now', ?)""",
+            (f"-{retention_days} days",),
+        )
+        deleted = cursor.rowcount or 0
+        await db.commit()
+
+        if deleted:
+            rows = await db.execute_fetchall(
+                "SELECT (SELECT COUNT(*) FROM sync_runs) AS runs,"
+                " (SELECT COUNT(*) FROM run_logs) AS logs"
+            )
+            remaining = dict(rows[0])
+            logger.info(
+                "Run history pruned: %d sync_runs older than %d days deleted "
+                "(%d runs, %d run_logs remaining)",
+                deleted, retention_days,
+                remaining["runs"], remaining["logs"],
+            )
+        else:
+            logger.info(
+                "Run history pruning: nothing older than %d days", retention_days
+            )
+    except Exception:
+        logger.exception("Run history pruning job failed")
+
+
 def start_scheduler() -> None:
     """Register jobs and start the scheduler."""
     settings = get_settings()
@@ -116,10 +170,22 @@ def start_scheduler() -> None:
         max_instances=1,
     )
 
+    scheduler.add_job(
+        prune_run_history_job,
+        "interval",
+        hours=24,
+        id="prune_run_history",
+        replace_existing=True,
+        max_instances=1,
+    )
+
     scheduler.start()
     logger.info(
-        "Scheduler started — sync every %d min, polling every 5 min, meeting notes every 60 min",
+        "Scheduler started — sync every %d min, polling every 5 min, "
+        "meeting notes every 60 min, run-history pruning every 24h "
+        "(retention %d days)",
         settings.sync_interval_minutes,
+        settings.run_history_retention_days,
     )
 
 

@@ -73,6 +73,11 @@ class Settings(BaseSettings):
     max_recordings_per_sync: int | None = None
     max_speaker_id_per_user: int = 10
 
+    # --- Run history retention ---
+    # sync_runs rows (and their cascaded run_logs) older than this are pruned
+    # daily. Set to 0 to disable pruning entirely.
+    run_history_retention_days: int = 30
+
     # --- Deep Search ---
     deep_search_batch_token_limit: int = 50_000
     deep_search_max_candidates: int = 10
