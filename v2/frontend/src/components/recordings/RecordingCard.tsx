@@ -1,11 +1,6 @@
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { Calendar, Clock, Timer, Hash, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { RecordingSummary } from "@/types/models";
@@ -157,15 +152,15 @@ export function RecordingCard({
 
       {/* Description */}
       {description && (
-        <Tooltip>
-          <TooltipTrigger render={<p className={cn("mt-0.5 text-[13px] text-gray-600 line-clamp-2", (showCheckbox || isChecked) && "pl-5")} />}>{description}</TooltipTrigger>
-          <TooltipContent side="bottom" className="max-w-xs">
-            <p className="text-sm">{description}</p>
-          </TooltipContent>
-        </Tooltip>
+        <p
+          className={cn(
+            "mt-0.5 text-[13px] text-gray-600 line-clamp-2",
+            (showCheckbox || isChecked) && "pl-5"
+          )}
+        >
+          {description}
+        </p>
       )}
-
-      {/* Tag IDs (placeholder — full tag display needs tag lookup) */}
     </Card>
   );
 }

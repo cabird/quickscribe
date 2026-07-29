@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -43,6 +43,7 @@ import { AudioPlayer } from "@/components/recordings/AudioPlayer";
 import type { AudioPlayerHandle } from "@/components/recordings/AudioPlayer";
 import { TranscriptView } from "@/components/recordings/TranscriptView";
 import { ChatPanel } from "@/components/recordings/ChatPanel";
+import { resolveTranscript } from "@/lib/transcript";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import {
   useRecording,
@@ -147,11 +148,13 @@ export default function RecordingDetailPage() {
     navigate("/recordings");
   }, [id, deleteMutation, navigate]);
 
+  const resolved = useMemo(() => resolveTranscript(recording), [recording]);
+  const resolvedTranscriptText = resolved.text;
+
   const handleCopyTranscript = useCallback(() => {
     if (!recording) return;
-    const text = recording.diarized_text || recording.transcript_text || "";
-    navigator.clipboard.writeText(text).catch(() => {});
-  }, [recording]);
+    navigator.clipboard.writeText(resolvedTranscriptText).catch(() => {});
+  }, [recording, resolvedTranscriptText]);
 
   const handleExport = useCallback(() => {
     if (!recording) return;
@@ -173,7 +176,7 @@ export default function RecordingDetailPage() {
       "",
       "---",
       "",
-      recording.diarized_text || recording.transcript_text || "No transcript available",
+      resolvedTranscriptText || "No transcript available",
     ]
       .filter(Boolean)
       .join("\n");
@@ -332,11 +335,7 @@ export default function RecordingDetailPage() {
     ? formatDuration(recording.duration_seconds)
     : null;
 
-  const speakerNames = recording.speaker_mapping
-    ? Object.values(recording.speaker_mapping)
-        .map((s) => s.displayName)
-        .filter(Boolean)
-    : [];
+  const speakerNames = resolved.speakerNames;
 
   return (
     <div ref={chatContainerRef} className="flex h-full min-w-0 overflow-hidden">

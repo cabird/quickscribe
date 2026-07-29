@@ -199,8 +199,13 @@ function McpTokensCard() {
     try {
       await createMutation.mutateAsync(newTokenName.trim());
       setNewTokenName("");
-    } catch {
-      setCreateError("Failed to create token. You may have reached the 10-token limit.");
+    } catch (err: unknown) {
+      const detail =
+        (err as { response?: { data?: { detail?: string } } })?.response?.data
+          ?.detail;
+      setCreateError(
+        detail ?? "Failed to create token. You may have reached the 10-token limit.",
+      );
     }
   };
 
@@ -242,7 +247,16 @@ function McpTokensCard() {
       )}
       {error && (
         <p className="py-4 text-center text-sm text-destructive">
-          Failed to load MCP tokens.
+          Failed to load MCP tokens.{" "}
+          {(error as { response?: { data?: { detail?: string } } })?.response
+            ?.data?.detail && (
+            <span className="block text-xs">
+              {
+                (error as { response?: { data?: { detail?: string } } })
+                  .response!.data!.detail
+              }
+            </span>
+          )}
         </p>
       )}
 

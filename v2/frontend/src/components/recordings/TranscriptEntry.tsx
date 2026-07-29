@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 import { Pencil, Play, Pause } from "lucide-react";
 import { SpeakerDropdown } from "./SpeakerDropdown";
 import { SpeakerConfidenceBadge } from "./SpeakerConfidenceBadge";
-import type { TranscriptEntryData } from "@/hooks/use-transcript-parser";
+import type { TranscriptEntryData } from "@/lib/transcript";
 import type { Participant, SpeakerMappingEntry } from "@/types/models";
 
 const SPEAKER_COLORS = [

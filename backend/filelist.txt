@@ -9,7 +9,7 @@ src/auth.py
 src/blob_util.py
 src/config.py
 src/frontend-dist/assets
-src/frontend-dist/assets/index-2hoA3xYY.js
+src/frontend-dist/assets/index-2BgVHe48.js
 src/frontend-dist/assets/index-Uv9gkJv4.css
 src/frontend-dist/favicon.png
 src/frontend-dist/index.html
@@ -25,6 +25,7 @@ src/routes/ai_routes.py
 src/routes/api.py
 src/routes/local_routes.py
 src/routes/participant_routes.py
+src/speaker_profile_updater.py
 src/static/styles.css
 src/templates/base.html
 src/templates/index.html

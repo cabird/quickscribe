@@ -55,6 +55,17 @@ apiClient.interceptors.request.use(async (config) => {
     const token = await getAccessToken();
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
+    } else {
+      // No token available — redirect to login instead of sending
+      // an unauthenticated request that will just 401.
+      const msal = getMsalInstance();
+      const accounts = msal.getAllAccounts();
+      if (accounts.length > 0) {
+        await msal.logoutRedirect({ account: accounts[0] });
+      } else {
+        window.location.href = "/";
+      }
+      return Promise.reject(new axios.Cancel("Authentication required — redirecting to login."));
     }
   }
   return config;
@@ -68,9 +79,12 @@ apiClient.interceptors.response.use(
       const msal = getMsalInstance();
       const accounts = msal.getAllAccounts();
       if (accounts.length > 0) {
-        // Clear cached tokens and force re-login
         await msal.logoutRedirect({ account: accounts[0] });
+      } else {
+        // No accounts at all — force a fresh login via the root page
+        window.location.href = "/";
       }
+      return Promise.reject(new axios.Cancel("Session expired — redirecting to login."));
     }
     return Promise.reject(error);
   },

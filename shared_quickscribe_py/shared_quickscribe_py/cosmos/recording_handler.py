@@ -126,6 +126,24 @@ class RecordingHandler:
         logger.info(f"Found {len(recordings)} recordings")
         return recordings
 
+    def get_recording_summaries(self, user_id: str) -> List[dict]:
+        """
+        Get recording summaries for list view. Uses field projection to only
+        fetch the fields needed for display, reducing data transfer from CosmosDB.
+        """
+        query = (
+            "SELECT c.id, c.title, c.original_filename, c.description, "
+            "c.recorded_timestamp, c.upload_timestamp, c.duration, c.token_count, "
+            "c.transcription_id, c.transcription_status, c.transcoding_status, "
+            "c.source, c.user_id "
+            "FROM c WHERE c.partitionKey = 'recording' AND c.user_id = @user_id "
+            "ORDER BY c.recorded_timestamp DESC"
+        )
+        parameters = [{"name": "@user_id", "value": user_id}]
+        items = list(self.container.query_items(query=query, parameters=parameters, partition_key="recording"))
+        logger.info(f"Found {len(items)} recording summaries")
+        return items
+
     def get_recordings_by_ids(self, recording_ids: List[str]) -> List[Recording]:
         """
         Get multiple recordings by their IDs in a single query.

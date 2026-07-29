@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo } from "react";
 import { TranscriptEntry } from "./TranscriptEntry";
-import { useTranscriptParser } from "@/hooks/use-transcript-parser";
+import { resolveTranscript } from "@/lib/transcript";
 import type { AudioPlayerHandle } from "./AudioPlayer";
 import type { Participant, Recording, SpeakerMappingEntry } from "@/types/models";
 
@@ -35,29 +35,9 @@ export function TranscriptView({
 }: TranscriptViewProps) {
   const highlightedEntryId = externalHighlightedEntryId;
 
-  const speakerMapping = useMemo(() => {
-    if (!recording.speaker_mapping) return null;
-    try {
-      return typeof recording.speaker_mapping === "string"
-        ? JSON.parse(recording.speaker_mapping)
-        : recording.speaker_mapping;
-    } catch {
-      return null;
-    }
-  }, [recording.speaker_mapping]);
-
-  const transcriptJsonStr =
-    typeof recording.transcript_json === "string"
-      ? recording.transcript_json
-      : recording.transcript_json != null
-        ? JSON.stringify(recording.transcript_json)
-        : null;
-
-  const entries = useTranscriptParser(
-    transcriptJsonStr,
-    recording.diarized_text,
-    recording.transcript_text,
-    speakerMapping,
+  const { entries, speakerMapping } = useMemo(
+    () => resolveTranscript(recording),
+    [recording]
   );
 
   // Build speaker index map for consistent coloring

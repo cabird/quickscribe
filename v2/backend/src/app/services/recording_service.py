@@ -544,10 +544,11 @@ async def assign_speaker(
     embedding = mapping[speaker_label].get("embedding")
     if manually_verified and embedding and participant_id:
         try:
+            import numpy as np
             from app.services import profile_store
+            emb_array = np.array(embedding, dtype=np.float32)
             await profile_store.update_profile_with_embedding(
-                user_id, participant_id, display_name or "Unknown",
-                embedding, recording_id,
+                user_id, participant_id, emb_array, recording_id,
             )
         except Exception as e:
             logger.warning("Failed to update speaker profile: %s", e)
