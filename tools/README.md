@@ -2,6 +2,11 @@
 
 A CLI tool for exploring and modifying Azure CosmosDB and Blob Storage. Designed for both humans and LLMs.
 
+> **Note:** the `cosmos` subcommands are dead. The `quickscribecosmosdb` account
+> belonged to the retired v1 stack and was deleted in July 2026; QuickScribe v2
+> uses SQLite (see `v2/SYSTEM_DESCRIPTION.md`). Only the `blob` subcommands still
+> work — Blob Storage remains in use for audio and Litestream replication.
+
 ## Quick Start
 
 ```bash
