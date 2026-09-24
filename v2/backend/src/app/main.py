@@ -65,6 +65,8 @@ async def lifespan(app: FastAPI):
 
     # Shutdown
     stop_scheduler()
+    from app.services.sync_service import cancel_background_tasks
+    await cancel_background_tasks()
     await close_db()
     logger.info("Shutdown complete")
 
@@ -212,21 +214,37 @@ mcp.mount_http()  # Serves at /mcp
 # Static files / SPA catch-all
 # ---------------------------------------------------------------------------
 
+def spa_response(full_path: str, frontend_dir: Path):
+    """Response for a non-API path: a built static file, else index.html."""
+    # Don't intercept API or MCP routes
+    if full_path.startswith("api/") or full_path == "mcp" or full_path.startswith("mcp/"):
+        return JSONResponse(status_code=404, content={"detail": "Not found"})
+    # Serve actual static files if they exist (never outside frontend_dir)
+    root = frontend_dir.resolve()
+    if full_path:
+        try:
+            file_path = (root / full_path).resolve()
+            if (
+                file_path != root / "index.html"
+                and file_path.is_relative_to(root)
+                and file_path.is_file()
+            ):
+                return FileResponse(file_path)
+        except (OSError, ValueError):  # e.g. embedded NUL, name too long
+            pass
+    # Fall back to index.html for SPA routing. no-cache makes the browser
+    # revalidate it on every load, so a deploy's new hashed /assets bundle
+    # is picked up by a normal reload instead of a stale cached index.html.
+    index = root / "index.html"
+    if index.is_file():
+        return FileResponse(index, headers={"Cache-Control": "no-cache"})
+    return JSONResponse(status_code=404, content={"detail": "Frontend not built"})
+
+
 if FRONTEND_DIR.is_dir():
     app.mount("/assets", StaticFiles(directory=FRONTEND_DIR / "assets"), name="assets")
 
     @app.get("/{full_path:path}", include_in_schema=False)
     async def spa_catch_all(request: Request, full_path: str):
         """Serve index.html for all non-API paths (SPA routing)."""
-        # Don't intercept API or MCP routes
-        if full_path.startswith("api/") or full_path == "mcp" or full_path.startswith("mcp/"):
-            return JSONResponse(status_code=404, content={"detail": "Not found"})
-        # Serve actual static files if they exist
-        file_path = FRONTEND_DIR / full_path
-        if full_path and file_path.is_file():
-            return FileResponse(file_path)
-        # Fall back to index.html for SPA routing
-        index = FRONTEND_DIR / "index.html"
-        if index.is_file():
-            return FileResponse(index)
-        return JSONResponse(status_code=404, content={"detail": "Frontend not built"})
+        return spa_response(full_path, FRONTEND_DIR)

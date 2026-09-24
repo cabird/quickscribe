@@ -135,6 +135,8 @@ class UserProfile(BaseModel):
     api_key: str | None = None
     created_at: datetime | None = None
     last_login: datetime | None = None
+    # Mirrors the server-wide PLAUD_ENABLED setting, not a per-user value
+    plaud_server_enabled: bool = True
 
 
 class Recording(BaseModel):
@@ -257,6 +259,33 @@ class RecordingSummary(BaseModel):
     tag_ids: list[str] | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
+
+
+class SearchResult(RecordingSummary):
+    """A recording matched by keyword search, with why it matched.
+
+    Highlighted spans in title_highlight and snippets are wrapped in
+    \u0002 ... \u0003 (search_service.HL_START / HL_END).
+    """
+
+    rank: float | None = None  # BM25, lower is better; None for filter-only searches
+    title_highlight: str | None = None
+    snippets: list[str] = Field(default_factory=list)
+
+
+class SearchPerson(BaseModel):
+    """How one @term in the query resolved to participants."""
+
+    term: str
+    participant_ids: list[str]
+    names: list[str]
+
+
+class SearchResponse(BaseModel):
+    data: list[SearchResult]
+    total: int
+    people: list[SearchPerson] = Field(default_factory=list)
+    took_ms: int
 
 
 class RecordingDetail(BaseModel):
@@ -446,6 +475,9 @@ class SyncRunDetail(BaseModel):
 
 class DeepSearchRequest(BaseModel):
     question: str = Field(min_length=3, max_length=2000)
+    # "Ask AI" from the Search page: answer from these recordings (the top
+    # keyword-search results) instead of routing over the whole library.
+    recording_ids: list[str] | None = Field(default=None, max_length=25)
 
 
 class TagMapEntry(BaseModel):

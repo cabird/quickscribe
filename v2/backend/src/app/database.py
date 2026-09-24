@@ -5,6 +5,8 @@ Uses aiosqlite for async access. WAL mode enabled for concurrent reads.
 
 from __future__ import annotations
 
+import hashlib
+
 import aiosqlite
 from pathlib import Path
 
@@ -290,6 +292,142 @@ END;
 """
 
 
+# ---------------------------------------------------------------------------
+# Search index (the Search page and the Recordings-list search box)
+# ---------------------------------------------------------------------------
+#
+# Two FTS5 indexes over the same documents: search_fts is stemmed (porter),
+# so "litigation" finds "litigate"; search_exact_fts is not, and serves quoted
+# phrases, which mean exact. Both are external-content tables over the
+# search_docs view, so no extra copy of the transcripts is stored.
+#
+# Keeping them in sync: the BEFORE triggers remove the row as it is currently
+# indexed (the view still shows the old values), the AFTER triggers add it
+# back with the new values. Only changes to indexed columns fire them, so
+# status/metadata updates don't re-tokenize a 100k-character transcript.
+#
+# Column order matters: search_service.BM25_WEIGHTS and the snippet column
+# numbers follow it.
+
+SEARCH_INDEX_COLUMNS = ("title", "summary", "notes", "description", "speakers", "transcript")
+_SEARCH_WATCHED = "title, search_summary, meeting_notes, description, speaker_mapping, diarized_text, transcript_text"
+_SEARCH_COLS = ", ".join(SEARCH_INDEX_COLUMNS)
+
+
+def _search_triggers(table: str) -> str:
+    return f"""
+CREATE TRIGGER IF NOT EXISTS {table}_ai AFTER INSERT ON recordings BEGIN
+    INSERT INTO {table}(rowid, {_SEARCH_COLS})
+    SELECT doc_id, {_SEARCH_COLS} FROM search_docs WHERE doc_id = new.rowid;
+END;
+CREATE TRIGGER IF NOT EXISTS {table}_bd BEFORE DELETE ON recordings BEGIN
+    INSERT INTO {table}({table}, rowid, {_SEARCH_COLS})
+    SELECT 'delete', doc_id, {_SEARCH_COLS} FROM search_docs WHERE doc_id = old.rowid;
+END;
+CREATE TRIGGER IF NOT EXISTS {table}_bu BEFORE UPDATE OF {_SEARCH_WATCHED} ON recordings BEGIN
+    INSERT INTO {table}({table}, rowid, {_SEARCH_COLS})
+    SELECT 'delete', doc_id, {_SEARCH_COLS} FROM search_docs WHERE doc_id = old.rowid;
+END;
+CREATE TRIGGER IF NOT EXISTS {table}_au AFTER UPDATE OF {_SEARCH_WATCHED} ON recordings BEGIN
+    INSERT INTO {table}(rowid, {_SEARCH_COLS})
+    SELECT doc_id, {_SEARCH_COLS} FROM search_docs WHERE doc_id = new.rowid;
+END;
+"""
+
+
+SEARCH_SCHEMA_SQL = f"""
+CREATE VIEW IF NOT EXISTS search_docs AS
+SELECT
+    r.rowid AS doc_id,
+    r.title AS title,
+    r.search_summary AS summary,
+    r.meeting_notes AS notes,
+    r.description AS description,
+    (SELECT group_concat(json_extract(je.value, '$.displayName'), ' ')
+       FROM json_each(CASE WHEN json_valid(r.speaker_mapping) THEN r.speaker_mapping END) AS je
+      WHERE je.type = 'object') AS speakers,
+    COALESCE(r.diarized_text, r.transcript_text) AS transcript
+FROM recordings r;
+
+CREATE VIRTUAL TABLE IF NOT EXISTS search_fts USING fts5(
+    {_SEARCH_COLS},
+    content='search_docs', content_rowid='doc_id',
+    tokenize='porter unicode61 remove_diacritics 2'
+);
+CREATE VIRTUAL TABLE IF NOT EXISTS search_exact_fts USING fts5(
+    {_SEARCH_COLS},
+    content='search_docs', content_rowid='doc_id',
+    tokenize='unicode61 remove_diacritics 2'
+);
+{_search_triggers("search_fts")}
+{_search_triggers("search_exact_fts")}
+"""
+
+
+# Changing anything in SEARCH_SCHEMA_SQL changes this, which makes the next
+# startup drop and rebuild the search index.
+SEARCH_SCHEMA_VERSION = hashlib.sha256(SEARCH_SCHEMA_SQL.encode()).hexdigest()[:16]
+
+_SEARCH_DROP_SQL = "\n".join(
+    [f"DROP TRIGGER IF EXISTS {t}_{s};" for t in ("search_fts", "search_exact_fts")
+     for s in ("ai", "bd", "bu", "au")]
+    + ["DROP TABLE IF EXISTS search_fts;", "DROP TABLE IF EXISTS search_exact_fts;",
+       "DROP VIEW IF EXISTS search_docs;"]
+)
+
+
+async def _ensure_search_index(db: aiosqlite.Connection) -> None:
+    """Create or rebuild the search indexes when needed.
+
+    Rebuilds when the schema version changed, or when the index holds a
+    different number of documents than `recordings` (e.g. an earlier build
+    was interrupted). The whole rebuild is one transaction, so a crash or
+    SQLITE_BUSY leaves either the old index or the new one, never an empty
+    index marked as built.
+
+    Note: the indexes are keyed on recordings.rowid, so anything that
+    renumbers rowids (VACUUM on this rowid table, a table rebuild) or
+    INSERT OR REPLACE into recordings (its implicit delete fires no
+    triggers) needs a rebuild -- bump the schema or drop search_meta.
+    """
+    await db.execute(
+        "CREATE TABLE IF NOT EXISTS search_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)"
+    )
+    await db.commit()
+    row = await (await db.execute(
+        "SELECT value FROM search_meta WHERE key = 'schema_version'"
+    )).fetchone()
+    healthy = False
+    if row and row[0] == SEARCH_SCHEMA_VERSION:
+        counts = await (await db.execute(
+            "SELECT (SELECT COUNT(*) FROM recordings),"
+            " (SELECT COUNT(*) FROM search_fts_docsize),"
+            " (SELECT COUNT(*) FROM search_exact_fts_docsize)"
+        )).fetchone()
+        healthy = counts[0] == counts[1] == counts[2]
+    if healthy:
+        return
+
+    populate = "\n".join(
+        f"INSERT INTO {t}(rowid, {_SEARCH_COLS}) SELECT doc_id, {_SEARCH_COLS} FROM search_docs;"
+        for t in ("search_fts", "search_exact_fts")
+    )
+    # Populate with INSERT ... SELECT rather than FTS5's 'rebuild' command,
+    # which can't read the view ("no such table: main.json_each").
+    script = f"""BEGIN;
+{_SEARCH_DROP_SQL}
+{SEARCH_SCHEMA_SQL}
+{populate}
+INSERT OR REPLACE INTO search_meta (key, value) VALUES ('schema_version', '{SEARCH_SCHEMA_VERSION}');
+COMMIT;"""
+    try:
+        await db.executescript(script)
+    except BaseException:
+        if db.in_transaction:
+            await db.rollback()
+        raise
+
+
 async def get_db() -> aiosqlite.Connection:
     """Get the database connection singleton."""
     global _db
@@ -424,6 +562,7 @@ async def init_db() -> aiosqlite.Connection:
 
     # Run migrations for existing databases
     await _migrate_schema(_db)
+    await _ensure_search_index(_db)
 
     return _db
 

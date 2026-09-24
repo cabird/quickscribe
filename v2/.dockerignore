@@ -1,0 +1,15 @@
+# Build context is v2/. Keep local environments, build output and secrets out
+# of the image and out of `az acr build` uploads.
+**/.venv
+**/node_modules
+**/__pycache__
+**/.pytest_cache
+**/.ruff_cache
+frontend/dist
+.env
+.env.*
+**/.env
+**/.env.*
+backend/data
+backend/experiments
+deploy/scripts/config.local.sh

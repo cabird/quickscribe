@@ -1,0 +1,43 @@
+# Base image: OS packages, Litestream, and the full Python venv (incl. PyTorch).
+#
+# Built and pushed by 02-build-push.sh as
+#   $ACR/quickscribe-deps:<hash of this file + pyproject.toml + uv.lock>
+# only when that tag doesn't already exist. The app image (Dockerfile) builds
+# FROM it, so a normal deploy never reinstalls PyTorch, and because the tag is
+# content-addressed, App Service reuses its cached copy of these ~2 GB of
+# layers and only pulls the thin app layers on top.
+#
+# Everything the app image needs from the OS or venv belongs here, owned by
+# appuser already: a `chown -R` over the venv in the app image would rewrite
+# every file into a new multi-GB layer on every deploy.
+
+FROM python:3.12-slim
+
+# System deps: ffmpeg for audio, libsndfile1 for speaker-id/soundfile
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends ffmpeg libsndfile1 && \
+    rm -rf /var/lib/apt/lists/*
+
+# Litestream (SQLite -> Blob replication; see entrypoint.sh)
+ARG LITESTREAM_VERSION=0.3.14
+RUN apt-get update && apt-get install -y --no-install-recommends wget ca-certificates && \
+    wget -q "https://github.com/benbjohnson/litestream/releases/download/v${LITESTREAM_VERSION}/litestream-v${LITESTREAM_VERSION}-linux-amd64.tar.gz" -O /tmp/litestream.tar.gz && \
+    tar -xzf /tmp/litestream.tar.gz -C /usr/local/bin litestream && \
+    rm /tmp/litestream.tar.gz && \
+    apt-get purge -y wget && apt-get autoremove -y && rm -rf /var/lib/apt/lists/*
+
+RUN useradd --create-home --shell /bin/bash appuser && \
+    mkdir -p /app/data && \
+    chown appuser:appuser /app /app/data
+
+WORKDIR /app
+
+# The project is a uv "virtual" project (no [build-system]), so this installs
+# only third-party dependencies; app code is imported via PYTHONPATH=/app/src.
+COPY --from=ghcr.io/astral-sh/uv:0.11.2 /uv /usr/local/bin/uv
+COPY backend/pyproject.toml backend/uv.lock ./
+RUN uv sync --frozen --no-dev --no-install-project && \
+    chown -R appuser:appuser /app/.venv && \
+    rm /usr/local/bin/uv
+
+ENV PATH="/app/.venv/bin:$PATH"

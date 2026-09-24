@@ -2,10 +2,12 @@ import {
   useQuery,
   useMutation,
   useQueryClient,
+  keepPreviousData,
   type UseQueryOptions,
 } from "@tanstack/react-query";
 import * as api from "./api";
 import type {
+  KeywordSearchParams,
   RecordingFilters,
   SyncRunFilters,
   UpdateRecordingRequest,
@@ -50,6 +52,7 @@ export const queryKeys = {
     detail: (id: string) => ["recordings", "detail", id] as const,
     search: (query: string) => ["recordings", "search", query] as const,
   },
+  keywordSearch: (params: KeywordSearchParams) => ["keywordSearch", params] as const,
   participants: {
     all: ["participants"] as const,
     list: () => ["participants", "list"] as const,
@@ -131,6 +134,19 @@ export function useRecordingSearch(
   });
 }
 
+// -- Keyword search ---------------------------------------------------------
+
+export function useKeywordSearch(params: KeywordSearchParams, enabled = true) {
+  return useQuery({
+    queryKey: queryKeys.keywordSearch(params),
+    queryFn: ({ signal }) => api.keywordSearch(params, signal),
+    enabled,
+    staleTime: 30_000,
+    // Keep showing the previous results while the next keystroke's arrive
+    placeholderData: keepPreviousData,
+  });
+}
+
 // -- Participants -----------------------------------------------------------
 
 export function useParticipants(
@@ -176,6 +192,9 @@ export function useSyncRuns(
   return useQuery({
     queryKey: queryKeys.syncRuns.list(filters),
     queryFn: () => api.fetchSyncRuns(filters),
+    // Keep the list live while any visible run is still going
+    refetchInterval: (query) =>
+      query.state.data?.data.some((run) => run.status === "running") ? 3000 : false,
     ...options,
   });
 }
@@ -212,7 +231,10 @@ export function useVersion(
   return useQuery({
     queryKey: queryKeys.version.current,
     queryFn: () => api.fetchVersion(),
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    // Drives UpdateBanner: re-check every 5 min, and on window focus once
+    // it's a minute old (refetchOnWindowFocus is on by default).
+    staleTime: 60 * 1000,
+    refetchInterval: 5 * 60 * 1000,
     ...options,
   });
 }

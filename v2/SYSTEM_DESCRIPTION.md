@@ -52,7 +52,8 @@ v2/
 │   │   └── types/models.ts     # TypeScript type definitions
 │   └── package.json
 ├── deploy/
-│   ├── Dockerfile              # Multi-stage build (deps → app → frontend → runtime)
+│   ├── Dockerfile.deps         # Base image: OS pkgs + Litestream + venv (PyTorch), hash-tagged
+│   ├── Dockerfile              # App image FROM the deps image (frontend build + app source)
 │   ├── entrypoint.sh           # Litestream restore + uvicorn start
 │   ├── litestream.yml          # SQLite → Azure Blob replication config
 │   ├── bicep/main.bicep        # Azure infrastructure template
@@ -119,26 +120,39 @@ Backend: ~9,000 lines Python. Frontend: ~7,700 lines TypeScript.
 - **Config reads**: `config.py._read_version()` reads VERSION file, falls back to pyproject.toml
 - **Docker**: VERSION file copied separately from pyproject.toml to avoid busting deps cache on version bumps
 
-### Docker Build (deploy/Dockerfile)
+### Docker Build (deploy/Dockerfile.deps + deploy/Dockerfile)
 
-Multi-stage build optimized for layer caching:
+Two images, so the ~2 GB PyTorch venv is built once and reused:
 
-| Stage | Contents | Rebuilds when |
-|-------|----------|---------------|
-| `deps` | All Python deps from uv.lock (including PyTorch CPU) | uv.lock or pyproject.toml changes |
-| `builder` | App source installed into venv | Backend source changes |
-| `frontend-builder` | React build (npm install + vite build) | Frontend source changes |
-| `litestream` | Litestream v0.3.13 binary | Never (pinned) |
-| `runtime` | python:3.12-slim + ffmpeg + libsndfile1 + all above | Any above changes |
+| Image | Contents | Rebuilt when |
+|-------|----------|--------------|
+| `quickscribe-deps:<hash>` (`Dockerfile.deps`) | python:3.12-slim, ffmpeg, libsndfile1, Litestream, `appuser`, full venv from uv.lock (incl. PyTorch CPU) | Hash of `Dockerfile.deps` + `pyproject.toml` + `uv.lock` changes, or `DEPS_REBUILD=1` |
+| `quickscribe-v2:<version>` (`Dockerfile`) | `FROM` the deps image + React build + `backend/src` + config + `VERSION` | Every deploy |
 
-**Key optimization**: Version bumps only change the tiny `VERSION` file copy, not the deps layer. Pushes to ACR reuse cached layers.
+`02-build-push.sh` computes the hash, builds the deps image only if that tag is
+missing from ACR, then builds the app image with `--build-arg DEPS_IMAGE=...`.
+It uses local Docker if available, otherwise `az acr build` (no local layer
+cache, which is why the deps image exists). Because the deps tag is
+content-addressed, App Service keeps its cached deps layers and a normal deploy
+pulls only the thin app layers.
+
+- Nothing in the app image may `chown -R` or otherwise touch the venv: that
+  rewrites every file into a new multi-GB layer. Put OS/venv changes in
+  `Dockerfile.deps`, already owned by `appuser`.
+- Only versioned tags are pushed, never `:latest`. ACR has a continuous-deploy
+  webhook (`quickscribecd`) on `:latest`; a CD-triggered restart overlaps old
+  and new containers (Litestream split-brain). `DOCKER_ENABLE_CI=false` on the
+  app as a second guard.
+- Frontend MSAL settings (`VITE_AUTH_ENABLED`, `VITE_AZURE_CLIENT_ID`,
+  `VITE_AZURE_TENANT_ID`) are passed as build args from `config.local.sh`; the
+  build refuses to run if auth is enabled but they are unset.
 
 ### Pinned Versions
 
 - Python deps: All pinned via `uv.lock` (96 packages)
 - uv: `0.11.2`
 - Node: `22.14-slim`
-- Litestream: `0.3.13`
+- Litestream: `0.3.14`
 - PyTorch: `2.4.1` (CPU-only from pytorch-cpu index)
 - SpeechBrain: `1.0.3`
 
@@ -227,12 +241,15 @@ npm run dev             # Vite dev server on :5173
 ```bash
 # 1. Build and push. This AUTO-BUMPS the patch number in backend/VERSION and
 #    tags the image with the result, so do not bump it by hand first.
-#    (Deps layer is cached if uv.lock is unchanged.)
+#    (Deps image is reused if Dockerfile.deps/pyproject.toml/uv.lock are unchanged.)
 cd v2/deploy/scripts
 ./02-build-push.sh
 
 # 2. Deploy and verify
 ./03-deploy-app.sh
+
+# App settings can be changed in the same stopped window (no overlapping restart):
+DEPLOY_APP_SETTINGS="KEY=value" ./03-deploy-app.sh
 ```
 
 ### Useful Commands
@@ -265,7 +282,8 @@ curl -X POST https://quickscribe-v2.azurewebsites.net/api/recordings/upload \
 
 - **VERSION file** is the source of truth for deployed version. Always bump this, not pyproject.toml version.
 - **uv.lock** must be regenerated (`uv lock`) when changing dependencies in pyproject.toml.
-- **Docker `--network host`** is required for builds (DNS resolution fails otherwise in this WSL environment).
+- **Docker `--network host`** is passed for local Docker builds (DNS failed without it on the old WSL machine). Without local Docker, builds run in ACR via `az acr build`.
+- **Deploy target** is pinned by `SUBSCRIPTION` in `deploy/scripts/config.local.sh` (gitignored); all deploy commands go through the `azs` wrapper in `config.sh`.
 - **Azure Speech requires mono audio**. The `_transcode_to_mp3()` function in sync_service.py handles this with `-ac 1`.
 - **API key auth** only works on the `/api/recordings/upload` endpoint. All other endpoints require Azure AD Bearer tokens.
 - **Config secrets** are in Azure App Service settings, not in the container. Use `set-secrets.sh` to update.

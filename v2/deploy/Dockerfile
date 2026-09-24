@@ -1,81 +1,56 @@
-# Stage 1: Python dependencies (cached unless uv.lock changes)
-FROM python:3.12-slim AS deps
-
-COPY --from=ghcr.io/astral-sh/uv:0.11.2 /uv /usr/local/bin/uv
-
-WORKDIR /app
-
-# Copy ONLY dependency files — this layer rebuilds only when deps change
-COPY backend/pyproject.toml backend/uv.lock ./
-RUN uv sync --frozen --no-dev --no-install-project
+# App image. Builds FROM the deps base image (Dockerfile.deps), which holds the
+# OS packages and the full Python venv including PyTorch. 02-build-push.sh
+# computes DEPS_IMAGE from a hash of Dockerfile.deps + pyproject.toml + uv.lock
+# and builds it first only if that tag is missing, so a normal deploy only
+# builds and ships the thin layers below.
+ARG DEPS_IMAGE
 
 
-# Stage 2: App source (thin layer, changes every deploy)
-FROM deps AS builder
-
-COPY backend/src/ ./src/
-RUN uv sync --frozen --no-dev
-
-
-# Stage 3: Frontend builder
+# Stage 1: Frontend builder
 FROM node:22.14-slim AS frontend-builder
 
 WORKDIR /app/frontend
 COPY frontend/package.json frontend/package-lock.json* ./
 RUN npm install
 COPY frontend/ ./
+# MSAL settings are baked into the bundle at build time. Pass them as build
+# args (see 02-build-push.sh) rather than relying on an untracked .env file.
+ARG VITE_AUTH_ENABLED
+ARG VITE_AZURE_CLIENT_ID
+ARG VITE_AZURE_TENANT_ID
+# Stamped into the bundle so a stale window can tell it's out of date
+ARG VITE_APP_VERSION
+ENV VITE_AUTH_ENABLED=$VITE_AUTH_ENABLED \
+    VITE_AZURE_CLIENT_ID=$VITE_AZURE_CLIENT_ID \
+    VITE_AZURE_TENANT_ID=$VITE_AZURE_TENANT_ID \
+    VITE_APP_VERSION=$VITE_APP_VERSION
+# Without it the bundle reports "dev" and the update banner never shows
+RUN test -n "$VITE_APP_VERSION" || (echo "VITE_APP_VERSION build arg is required" && exit 1)
 RUN npm run build
 
 
-# Stage 4: Litestream binary
-FROM debian:bookworm-slim AS litestream
-
-ARG LITESTREAM_VERSION=0.3.14
-RUN apt-get update && apt-get install -y --no-install-recommends wget ca-certificates && \
-    wget -q "https://github.com/benbjohnson/litestream/releases/download/v${LITESTREAM_VERSION}/litestream-v${LITESTREAM_VERSION}-linux-amd64.tar.gz" -O /tmp/litestream.tar.gz && \
-    tar -xzf /tmp/litestream.tar.gz -C /usr/local/bin && \
-    rm /tmp/litestream.tar.gz
-
-
-# Stage 5: Runtime
-FROM python:3.12-slim AS runtime
-
-# System deps: ffmpeg for audio, libsndfile1 for speaker-id/soundfile
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends ffmpeg libsndfile1 && \
-    rm -rf /var/lib/apt/lists/*
+# Stage 2: Runtime
+FROM ${DEPS_IMAGE} AS runtime
 
 WORKDIR /app
 
-# Copy Python virtual environment from builder
-COPY --from=builder /app/.venv /app/.venv
-
-# Copy Litestream binary
-COPY --from=litestream /usr/local/bin/litestream /usr/local/bin/litestream
-
 # Copy frontend build
-COPY --from=frontend-builder /app/frontend/dist /app/frontend-dist/
+COPY --from=frontend-builder --chown=appuser:appuser /app/frontend/dist /app/frontend-dist/
 
 # Copy backend source
-COPY backend/src/ /app/src/
-
-# Copy VERSION file (small, changes on version bump without busting deps cache)
-COPY backend/VERSION /app/VERSION
+COPY --chown=appuser:appuser backend/src/ /app/src/
 
 # Copy deploy config files
-COPY deploy/litestream.yml /app/litestream.yml
-COPY deploy/entrypoint.sh /app/entrypoint.sh
-RUN chmod +x /app/entrypoint.sh
+COPY --chown=appuser:appuser deploy/litestream.yml /app/litestream.yml
+# entrypoint.sh is committed with mode 755 (classic builder has no --chmod)
+COPY --chown=appuser:appuser deploy/entrypoint.sh /app/entrypoint.sh
 
-# Create non-root user and data directory
-RUN useradd --create-home --shell /bin/bash appuser && \
-    mkdir -p /app/data && \
-    chown -R appuser:appuser /app
+# Copy VERSION file last (changes on every deploy)
+COPY --chown=appuser:appuser backend/VERSION /app/VERSION
 
 USER appuser
 
-# Environment
-ENV PATH="/app/.venv/bin:$PATH"
+# Environment (PATH to the venv is set in the deps image)
 ENV PYTHONPATH="/app/src"
 ENV DATABASE_PATH=/app/data/app.db
 ENV PYTHONUNBUFFERED=1

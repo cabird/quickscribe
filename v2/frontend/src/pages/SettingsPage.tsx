@@ -512,6 +512,13 @@ function PlaudCard({ user }: { user: UserProfile }) {
       </div>
       <Separator className="my-3" />
 
+      {!user.plaud_server_enabled && (
+        <div className="mb-4 rounded-md bg-amber-50 p-3 text-xs text-amber-800">
+          <strong>Plaud sync is disabled on this server</strong> (PLAUD_ENABLED=false).
+          No recordings will sync until it is re-enabled, whatever the settings below say.
+        </div>
+      )}
+
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div>

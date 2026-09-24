@@ -131,3 +131,59 @@ class TestPruneRunHistory:
             await prune_run_history_job()
 
         assert await _counts(test_db) == (0, 0)
+
+
+# ---------------------------------------------------------------------------
+# Server-wide Plaud switch (PLAUD_ENABLED)
+# ---------------------------------------------------------------------------
+
+
+def _plaud_settings(enabled: bool) -> Settings:
+    s = _settings(30)
+    s.plaud_enabled = enabled
+    return s
+
+
+class TestPlaudServerSwitch:
+    @pytest.mark.parametrize("enabled", [True, False])
+    def test_scheduler_registers_plaud_job_only_when_enabled(self, enabled: bool):
+        from app.scheduler import jobs
+
+        with (
+            patch("app.scheduler.jobs.get_settings", return_value=_plaud_settings(enabled)),
+            patch.object(jobs.scheduler, "start"),
+        ):
+            try:
+                jobs.start_scheduler()
+                job_ids = {j.id for j in jobs.scheduler.get_jobs()}
+            finally:
+                jobs.scheduler.remove_all_jobs()
+
+        assert ("plaud_sync" in job_ids) is enabled
+        assert "poll_transcriptions" in job_ids
+
+    async def test_run_sync_refused_when_disabled(self, test_db: aiosqlite.Connection):
+        from fastapi import HTTPException
+
+        from app.services import sync_service
+
+        with (
+            patch("app.services.sync_service.get_settings", return_value=_plaud_settings(False)),
+            patch("app.services.sync_service.get_db", return_value=test_db),
+        ):
+            with pytest.raises(HTTPException) as exc:
+                await sync_service.run_sync(trigger="manual")
+
+        assert exc.value.status_code == 409
+        assert "PLAUD_ENABLED" in exc.value.detail
+        assert await _counts(test_db) == (0, 0)  # no sync_run recorded
+        assert sync_service._sync_running is False
+
+    @pytest.mark.parametrize("enabled", [True, False])
+    async def test_profile_reports_server_switch(self, test_user, enabled: bool):
+        from app.routers.settings import get_profile
+
+        with patch("app.routers.settings.get_settings", return_value=_plaud_settings(enabled)):
+            profile = await get_profile(test_user)
+
+        assert profile.plaud_server_enabled is enabled

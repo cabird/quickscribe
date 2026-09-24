@@ -498,7 +498,9 @@ async def search_collection(
         yield {"event": "done", "data": ""}
 
 
-async def deep_search(question: str, user_id: str) -> AsyncGenerator[dict, None]:
+async def deep_search(
+    question: str, user_id: str, recording_ids: list[str] | None = None
+) -> AsyncGenerator[dict, None]:
     """Run the 3-tier deep search pipeline, yielding SSE events for progress.
 
     Event types:
@@ -520,13 +522,17 @@ async def deep_search(question: str, user_id: str) -> AsyncGenerator[dict, None]
     _trace_log: list[dict] = []
 
     try:
-        # ----- Tier 1: Router -----
-        yield {"event": "status", "data": "Searching recording summaries..."}
-
-        router_result, tag_map = await _tier1_router(
-            question, user_id, trace_log=_trace_log,
-            search_id=search_id,
-        )
+        # ----- Tier 1: Router (skipped when the caller already chose the
+        # recordings, e.g. "Ask AI" over keyword-search results) -----
+        if recording_ids:
+            yield {"event": "status", "data": "Reading the selected recordings..."}
+            router_result, tag_map = await _scoped_candidates(recording_ids, user_id)
+        else:
+            yield {"event": "status", "data": "Searching recording summaries..."}
+            router_result, tag_map = await _tier1_router(
+                question, user_id, trace_log=_trace_log,
+                search_id=search_id,
+            )
 
         # Emit trace events for tier 1 calls
         for entry in _trace_log:
@@ -652,6 +658,38 @@ async def deep_search(question: str, user_id: str) -> AsyncGenerator[dict, None]
 # ---------------------------------------------------------------------------
 # Tier 1: Router
 # ---------------------------------------------------------------------------
+
+
+async def _scoped_candidates(recording_ids: list[str], user_id: str) -> tuple[dict, dict]:
+    """Treat the given recordings, in the given order, as the candidates."""
+    db = await get_db()
+    placeholders = ",".join("?" for _ in recording_ids)
+    rows = {
+        dict(r)["id"]: dict(r)
+        for r in await db.execute_fetchall(
+            f"""SELECT id, title, recorded_at, speaker_mapping FROM recordings
+                WHERE user_id = ? AND status = 'ready' AND id IN ({placeholders})""",
+            (user_id, *recording_ids),
+        )
+    }
+    used_tags: set[str] = set()
+    tag_map: dict[str, dict] = {}
+    candidates = []
+    for rec_id in dict.fromkeys(recording_ids):  # dedupe, keep order
+        row = rows.get(rec_id)
+        if not row:
+            continue
+        tag = generate_unique_tag(used_tags)
+        used_tags.add(tag)
+        entry = {
+            "recording_id": rec_id,
+            "title": row.get("title") or "Untitled",
+            "date": row.get("recorded_at") or "",
+            "speakers": _extract_speaker_names_list(row.get("speaker_mapping")),
+        }
+        tag_map[tag] = entry
+        candidates.append({**entry, "tag": tag, "score": 1.0, "why": "Selected search result"})
+    return {"answered": False, "candidates": candidates}, tag_map
 
 
 async def _tier1_router(

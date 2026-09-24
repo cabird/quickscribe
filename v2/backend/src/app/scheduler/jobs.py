@@ -17,9 +17,14 @@ async def plaud_sync_job() -> None:
     """Sync recordings from Plaud for all enabled users."""
     from app.services import sync_service
 
+    from fastapi import HTTPException
+
     logger.info("Starting scheduled Plaud sync")
     try:
         await sync_service.run_sync(trigger="scheduled")
+    except HTTPException as exc:
+        # e.g. a manual sync is already running
+        logger.info("Scheduled Plaud sync skipped: %s", exc.detail)
     except Exception:
         logger.exception("Plaud sync job failed")
 
@@ -145,13 +150,16 @@ def start_scheduler() -> None:
     """Register jobs and start the scheduler."""
     settings = get_settings()
 
-    scheduler.add_job(
-        plaud_sync_job,
-        "interval",
-        minutes=settings.sync_interval_minutes,
-        id="plaud_sync",
-        replace_existing=True,
-    )
+    if settings.plaud_enabled:
+        scheduler.add_job(
+            plaud_sync_job,
+            "interval",
+            minutes=settings.sync_interval_minutes,
+            id="plaud_sync",
+            replace_existing=True,
+        )
+    else:
+        logger.warning("Plaud sync disabled on this server (PLAUD_ENABLED=false)")
 
     scheduler.add_job(
         poll_transcriptions_job,
@@ -181,10 +189,10 @@ def start_scheduler() -> None:
 
     scheduler.start()
     logger.info(
-        "Scheduler started — sync every %d min, polling every 5 min, "
+        "Scheduler started — Plaud sync %s, polling every 5 min, "
         "meeting notes every 60 min, run-history pruning every 24h "
         "(retention %d days)",
-        settings.sync_interval_minutes,
+        f"every {settings.sync_interval_minutes} min" if settings.plaud_enabled else "disabled",
         settings.run_history_retention_days,
     )
 

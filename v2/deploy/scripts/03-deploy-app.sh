@@ -13,6 +13,22 @@ FULL_IMAGE="$ACR_LOGIN_SERVER/$IMAGE_NAME:$APP_VERSION"
 
 echo "Deploying $FULL_IMAGE"
 
+# Refuse to stop the app for an image that was never pushed (e.g. 02 failed).
+if ! azs acr repository show --name "$ACR_NAME" --image "$IMAGE_NAME:$APP_VERSION" --output none 2>/dev/null; then
+    echo "ERROR: $FULL_IMAGE not found in $ACR_NAME. Run 02-build-push.sh first."
+    exit 1
+fi
+
+APP_STOPPED=false
+on_exit() {
+    if [ "$APP_STOPPED" = true ]; then
+        echo ""
+        echo "!!! Deploy aborted with $APP_NAME STOPPED. Fix and rerun, or:"
+        echo "!!!   az webapp start --name $APP_NAME --resource-group $RESOURCE_GROUP${SUBSCRIPTION:+ --subscription $SUBSCRIPTION}"
+    fi
+}
+trap on_exit EXIT
+
 # IMPORTANT: We stop → set image → start (instead of `webapp restart`) to avoid
 # Litestream split-brain. Azure App Service's normal "restart" lifecycle keeps
 # the old container alive during warm-up of the new one. With Litestream
@@ -23,10 +39,11 @@ echo "Deploying $FULL_IMAGE"
 # the old container has fully released its Litestream lease before the new
 # one starts. See deploy/scripts/README.md for details.
 echo "Stopping web app to prevent Litestream split-brain..."
-az webapp stop \
+azs webapp stop \
     --name "$APP_NAME" \
     --resource-group "$RESOURCE_GROUP" \
     --output none
+APP_STOPPED=true
 
 # Wait for the container to fully stop. App Service reports "Stopped" almost
 # immediately, but the container can take 10–30s to actually release. Poll
@@ -43,7 +60,25 @@ done
 # Extra safety margin so any in-flight Litestream WAL flush can complete.
 sleep 10
 
-az webapp config container set \
+# App settings changed while the app is stopped don't trigger an overlapping
+# restart. Pass them as DEPLOY_APP_SETTINGS="KEY=value KEY2=value2".
+if [ -n "${DEPLOY_APP_SETTINGS:-}" ]; then
+    echo "Applying app settings: $DEPLOY_APP_SETTINGS"
+    # shellcheck disable=SC2086
+    azs webapp config appsettings set \
+        --name "$APP_NAME" \
+        --resource-group "$RESOURCE_GROUP" \
+        --settings $DEPLOY_APP_SETTINGS \
+        --output none
+fi
+
+STATE=$(azs webapp show --name "$APP_NAME" --resource-group "$RESOURCE_GROUP" --query state -o tsv)
+if [ "$STATE" != "Stopped" ]; then
+    echo "ERROR: expected $APP_NAME to be Stopped before swapping the image, found '$STATE'."
+    exit 1
+fi
+
+azs webapp config container set \
     --name "$APP_NAME" \
     --resource-group "$RESOURCE_GROUP" \
     --container-image-name "$FULL_IMAGE" \
@@ -51,10 +86,11 @@ az webapp config container set \
     --output none
 
 echo "Starting web app..."
-az webapp start \
+azs webapp start \
     --name "$APP_NAME" \
     --resource-group "$RESOURCE_GROUP" \
     --output none
+APP_STOPPED=false
 
 HEALTH_URL="https://$APP_NAME.azurewebsites.net/api/health"
 MAX_ATTEMPTS=30

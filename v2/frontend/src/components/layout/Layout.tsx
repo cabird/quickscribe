@@ -1,5 +1,6 @@
 import { Outlet } from "react-router-dom";
 import { NavigationRail } from "./NavigationRail";
+import { UpdateBanner } from "./UpdateBanner";
 import { useIsMobile } from "@/hooks/useIsMobile";
 
 /**
@@ -16,17 +17,21 @@ export function Layout() {
       {/* Sidebar (desktop only — hidden via Tailwind on mobile) */}
       <NavigationRail />
 
-      {/* Main content */}
-      <main
-        className={
-          "flex-1 overflow-y-auto" +
-          // On mobile add bottom padding so content isn't hidden behind the
-          // fixed bottom navigation bar.
-          (isMobile ? " pb-16" : "")
-        }
-      >
-        <Outlet />
-      </main>
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+        <UpdateBanner />
+
+        {/* Main content */}
+        <main
+          className={
+            "min-h-0 flex-1 overflow-y-auto" +
+            // On mobile add bottom padding so content isn't hidden behind the
+            // fixed bottom navigation bar.
+            (isMobile ? " pb-16" : "")
+          }
+        >
+          <Outlet />
+        </main>
+      </div>
     </div>
   );
 }

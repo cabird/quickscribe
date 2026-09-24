@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
+import { isAxiosError } from "axios";
 import { useNavigate, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
@@ -13,7 +14,7 @@ import { Play, RefreshCw, Radio } from "lucide-react";
 import { JobCard } from "@/components/jobs/JobCard";
 import JobDetailPage from "./JobDetailPage";
 import { useIsMobile } from "@/hooks/useIsMobile";
-import { useSyncRuns, useTriggerSync, usePollTranscriptions } from "@/lib/queries";
+import { useCurrentUser, useSyncRuns, useTriggerSync, usePollTranscriptions } from "@/lib/queries";
 import type { SyncRunStatus, SyncRunTrigger, SyncRunType, SyncRunSummary } from "@/types/models";
 
 export default function JobsPage() {
@@ -35,6 +36,8 @@ export default function JobsPage() {
 
   const { data: syncRunsResponse, isLoading, refetch } = useSyncRuns(filters);
   const triggerSyncMutation = useTriggerSync();
+  const { data: user } = useCurrentUser();
+  const plaudServerDisabled = user?.plaud_server_enabled === false;
   const pollMutation = usePollTranscriptions();
 
   const jobs: SyncRunSummary[] = useMemo(
@@ -53,18 +56,36 @@ export default function JobsPage() {
     [isMobile, navigate]
   );
 
-  const handleSyncNow = useCallback(async () => {
-    await triggerSyncMutation.mutateAsync();
-    // Refetch at multiple intervals to catch the job once it starts
-    setTimeout(() => refetch(), 2000);
-    setTimeout(() => refetch(), 5000);
-    setTimeout(() => refetch(), 10000);
-  }, [triggerSyncMutation, refetch]);
+  // Both endpoints return the new run's ID immediately and do the work in the
+  // background: select it so its live log streams in the detail pane. The
+  // list refreshes itself (mutation invalidation + polling while running).
+  // A 409 (already running, Plaud disabled, speech not configured) is shown
+  // under the buttons rather than swallowed.
+  const [actionError, setActionError] = useState<string | null>(null);
 
-  const handlePollNow = useCallback(async () => {
-    await pollMutation.mutateAsync();
-    setTimeout(() => refetch(), 2000);
-  }, [pollMutation, refetch]);
+  const startRun = useCallback(
+    async (start: () => Promise<{ run_id: string }>) => {
+      setActionError(null);
+      try {
+        const { run_id } = await start();
+        navigate(`/jobs/${run_id}`, { replace: !isMobile });
+      } catch (err) {
+        const detail = isAxiosError(err) ? err.response?.data?.detail : undefined;
+        setActionError(typeof detail === "string" ? detail : "Could not start the job");
+      }
+    },
+    [navigate, isMobile]
+  );
+
+  const handleSyncNow = useCallback(
+    () => startRun(() => triggerSyncMutation.mutateAsync()),
+    [startRun, triggerSyncMutation]
+  );
+
+  const handlePollNow = useCallback(
+    () => startRun(() => pollMutation.mutateAsync()),
+    [startRun, pollMutation]
+  );
 
   // On mobile, if we have a selectedId, show detail only
   if (isMobile && selectedId) {
@@ -80,7 +101,8 @@ export default function JobsPage() {
           size="sm"
           className="h-8 gap-1 text-xs"
           onClick={handleSyncNow}
-          disabled={triggerSyncMutation.isPending}
+          disabled={triggerSyncMutation.isPending || plaudServerDisabled}
+          title={plaudServerDisabled ? "Plaud sync is disabled on this server" : undefined}
         >
           <Play className="h-3.5 w-3.5" />
           Sync Now
@@ -106,6 +128,10 @@ export default function JobsPage() {
           <RefreshCw className="h-3.5 w-3.5" />
         </Button>
       </div>
+
+      {actionError && (
+        <div className="border-b px-3 py-2 text-xs text-destructive">{actionError}</div>
+      )}
 
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-1.5 border-b px-3 py-2">

@@ -66,6 +66,9 @@ class Settings(BaseSettings):
     speaker_id_model_path: str = "/app/pretrained_models/spkrec-ecapa-voxceleb"
 
     # --- Plaud ---
+    # Server-wide kill switch (PLAUD_ENABLED). When False the Plaud sync job is
+    # not scheduled and manual triggers are refused, regardless of the per-user
+    # users.plaud_enabled flag.
     plaud_enabled: bool = True
 
     # --- Sync ---

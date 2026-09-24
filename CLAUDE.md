@@ -135,6 +135,15 @@ idempotently on startup, with ad-hoc migrations in `_migrate_schema()`.
 | `sync_runs` / `run_logs` | Sync job history (pruned daily, see below) |
 | `users`, `mcp_tokens`, `deleted_plaud_ids`, `search_traces` | Auth, MCP access, dedup, search debugging |
 
+**Search** (`services/search_service.py`, `GET /api/search`, the Search page and the
+Recordings-list box) is plain ranked FTS5, no LLM: two external-content indexes over the
+`search_docs` view (`search_fts` stemmed, `search_exact_fts` for quoted phrases), kept in sync
+by triggers on `recordings` and rebuilt on startup when `SEARCH_SCHEMA_SQL` changes (version
+hash in `search_meta`). They are keyed on `recordings.rowid`, so don't `INSERT OR REPLACE`
+into `recordings` or `VACUUM` without forcing a rebuild. "Ask AI" (`deep_search.py`) is the
+LLM fallback; from the Search page it is scoped to the top keyword results. The older
+`recordings_fts` index still serves MCP and collections.
+
 The app shares **one** `aiosqlite` connection via `await get_db()`. Because of
 that, avoid awaiting between a write and its `commit()` — an unrelated coroutine
 can otherwise have its in-flight write committed by your code.
@@ -151,6 +160,11 @@ Registered in `v2/backend/src/app/scheduler/jobs.py` (APScheduler, in-process):
 | `poll_transcriptions_job` | 5 min | Poll Azure Speech for completed jobs |
 | `refresh_meeting_notes_job` | 60 min | Generate/regenerate meeting notes |
 | `prune_run_history_job` | 24 h | Delete `sync_runs` older than `run_history_retention_days` (30) |
+
+`plaud_sync_job` is only registered when the server-wide `PLAUD_ENABLED` setting
+is true (the default); when false, manual triggers also return 409 and the UI
+shows sync as disabled. Per-user sync is separately gated by `users.plaud_enabled`
+and `users.plaud_token`.
 
 `sync_runs` previously grew unbounded and reached 25k rows / 88 MB, which also
 inflated every hourly Litestream snapshot. Any new per-run bookkeeping table needs

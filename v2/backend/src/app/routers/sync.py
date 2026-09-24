@@ -18,16 +18,16 @@ CurrentUser = Annotated[User, Depends(get_current_user)]
 
 @router.post("/trigger", status_code=202)
 async def trigger_sync(user: CurrentUser):
-    """Manually trigger a Plaud sync for the current user."""
-    run = await sync_service.run_sync(trigger="manual", user_id=user.id)
-    return {"run_id": run.id, "message": "Sync started"}
+    """Manually trigger a Plaud sync for the current user (runs in background)."""
+    run_id = await sync_service.start_sync(trigger="manual", user_id=user.id)
+    return {"run_id": run_id, "message": "Sync started"}
 
 
-@router.post("/poll", status_code=200)
+@router.post("/poll", status_code=202)
 async def poll_transcriptions(user: CurrentUser):
-    """Manually trigger a poll for pending transcriptions."""
-    completed = await sync_service.poll_pending_transcriptions()
-    return {"completed": completed, "count": len(completed)}
+    """Manually trigger a poll for pending transcriptions (runs in background)."""
+    run_id = await sync_service.start_poll()
+    return {"run_id": run_id, "message": "Poll started"}
 
 
 @router.get("/runs", response_model=PaginatedResponse)

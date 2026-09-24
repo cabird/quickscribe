@@ -11,11 +11,36 @@ from fastapi.responses import StreamingResponse
 from app.auth import get_current_user
 from app.database import get_db
 from app.models import DeepSearchRequest, User
-from app.services import deep_search, search_summary_service
+from app.models import SearchResponse
+from app.services import deep_search, search_service, search_summary_service
 
 router = APIRouter(prefix="/api/search", tags=["search"])
 
 CurrentUser = Annotated[User, Depends(get_current_user)]
+
+
+@router.get("", response_model=SearchResponse)
+async def keyword_search(
+    user: CurrentUser,
+    q: str = Query("", max_length=500),
+    person_id: list[str] = Query(default_factory=list),
+    tag_id: list[str] = Query(default_factory=list),
+    date_from: str | None = None,
+    date_to: str | None = None,
+    limit: int = Query(50, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+):
+    """Fast ranked keyword search (no LLM). See search_service for the syntax."""
+    return await search_service.search(
+        user.id,
+        q,
+        person_ids=person_id,
+        tag_ids=tag_id,
+        date_from=date_from,
+        date_to=date_to,
+        limit=limit,
+        offset=offset,
+    )
 
 
 @router.post("/deep")
@@ -26,7 +51,7 @@ async def deep_search_endpoint(body: DeepSearchRequest, user: CurrentUser):
     """
 
     async def event_stream():
-        async for event in deep_search.deep_search(body.question, user.id):
+        async for event in deep_search.deep_search(body.question, user.id, recording_ids=body.recording_ids):
             event_type = event.get("event", "status")
             data = event.get("data", "")
             # Serialize data to JSON if it's a dict/list

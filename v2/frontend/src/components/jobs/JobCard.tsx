@@ -1,6 +1,7 @@
 import { formatDistanceToNow } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
+import { parseRunStats, summarizeRunStats } from "@/lib/jobs";
 import { cn } from "@/lib/utils";
 import type { SyncRunSummary, SyncRunType } from "@/types/models";
 
@@ -41,7 +42,8 @@ export function JobCard({ job, isSelected, onClick }: JobCardProps) {
     ? formatDurationMs(new Date(job.finished_at).getTime() - startDate.getTime())
     : "running...";
 
-  const stats = job.stats ? parseSummary(job.stats) : null;
+  const stats = parseRunStats(job.stats_json);
+  const statParts = stats && job.type ? summarizeRunStats(job.type, stats) : [];
 
   return (
     <Card
@@ -84,37 +86,24 @@ export function JobCard({ job, isSelected, onClick }: JobCardProps) {
         <span>{duration}</span>
       </div>
 
-      {stats && (stats.downloaded > 0 || stats.transcribed > 0 || stats.errors > 0) && (
-        <div className="mt-1.5 flex items-center gap-3 text-xs">
-          {stats.downloaded > 0 && (
-            <span className="text-muted-foreground">
-              {stats.downloaded} downloaded
+      {statParts.length > 0 && (
+        <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs">
+          {statParts.map((part) => (
+            <span
+              key={part.label}
+              className={cn(
+                "text-muted-foreground",
+                part.tone === "success" && "text-emerald-600 dark:text-emerald-400",
+                part.tone === "destructive" && "text-destructive"
+              )}
+            >
+              {part.label}
             </span>
-          )}
-          {stats.transcribed > 0 && (
-            <span className="text-muted-foreground">
-              {stats.transcribed} transcribed
-            </span>
-          )}
-          {stats.errors > 0 && (
-            <span className="text-destructive">
-              {stats.errors} errors
-            </span>
-          )}
+          ))}
         </div>
       )}
     </Card>
   );
-}
-
-function parseSummary(
-  stats: Record<string, number>
-): { downloaded: number; transcribed: number; errors: number } {
-  return {
-    downloaded: stats.recordings_downloaded ?? 0,
-    transcribed: stats.recordings_transcribed ?? 0,
-    errors: stats.recordings_failed ?? 0,
-  };
 }
 
 function formatDurationMs(ms: number): string {

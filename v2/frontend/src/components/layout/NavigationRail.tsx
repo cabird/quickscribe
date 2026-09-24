@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { useCurrentUser, useVersion } from "@/lib/queries";
+import { APP_VERSION } from "@/lib/appVersion";
 import { authEnabled, getMsalInstance } from "@/lib/auth";
 import { LogOut } from "lucide-react";
 
@@ -367,9 +368,9 @@ function DesktopSidebar() {
             "text-[11px] text-white/40 select-text",
             collapsed ? "text-center" : "px-2"
           )}
-          title={`API Version: ${version ?? "..."}`}
+          title={`App v${APP_VERSION} · Server v${version ?? "..."}`}
         >
-          {version ? `v${version}` : ""}
+          v{APP_VERSION}
         </p>
       </div>
     </aside>

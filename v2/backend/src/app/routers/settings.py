@@ -8,6 +8,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException
 
 from app.auth import get_current_user
+from app.config import get_settings
 from app.database import get_db
 from app.models import (
     AnalysisTemplate,
@@ -31,7 +32,7 @@ CurrentUser = Annotated[User, Depends(get_current_user)]
 @router.get("", response_model=UserProfile)
 async def get_profile(user: CurrentUser):
     """Get the current user's profile (excludes sensitive fields)."""
-    return UserProfile(**user.model_dump())
+    return UserProfile(**user.model_dump(), plaud_server_enabled=get_settings().plaud_enabled)
 
 
 @router.put("/settings", response_model=UserProfile)
@@ -54,7 +55,7 @@ async def update_settings(body: PlaudSettingsUpdate, user: CurrentUser):
     )
     await db.commit()
     row = await db.execute_fetchall("SELECT * FROM users WHERE id = ?", (user.id,))
-    return UserProfile(**dict(row[0]))
+    return UserProfile(**dict(row[0]), plaud_server_enabled=get_settings().plaud_enabled)
 
 
 # ---------------------------------------------------------------------------

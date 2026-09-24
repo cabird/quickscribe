@@ -1,6 +1,8 @@
 import axios, { type AxiosInstance } from "axios";
 import { authEnabled, getAccessToken, getMsalInstance } from "./auth";
 import type {
+  KeywordSearchParams,
+  SearchResponse,
   AnalysisRequest,
   AnalysisResponse,
   AssignSpeakerRequest,
@@ -431,8 +433,8 @@ export async function triggerSync(): Promise<SyncTriggerResponse> {
   return data;
 }
 
-export async function pollTranscriptions(): Promise<{ completed: string[]; count: number }> {
-  const { data } = await apiClient.post<{ completed: string[]; count: number }>(
+export async function pollTranscriptions(): Promise<SyncTriggerResponse> {
+  const { data } = await apiClient.post<SyncTriggerResponse>(
     `/api/sync/poll`,
   );
   return data;
@@ -501,10 +503,21 @@ export async function fetchSearchHistory(
 
 // -- Deep Search ------------------------------------------------------------
 
+export async function keywordSearch(
+  params: KeywordSearchParams,
+  signal?: AbortSignal,
+): Promise<SearchResponse> {
+  const query = new URLSearchParams({ q: params.q, limit: String(params.limit ?? 50) });
+  for (const id of params.personIds ?? []) query.append("person_id", id);
+  const { data } = await apiClient.get<SearchResponse>(`/api/search?${query}`, { signal });
+  return data;
+}
+
 export function deepSearch(
   question: string,
   onEvent: (event: { event: string; data: string }) => void,
   getToken?: () => Promise<string | null>,
+  recordingIds?: string[],
 ): { close: () => void } {
   // We can't use EventSource directly because it doesn't support POST or auth headers.
   // Use fetch with ReadableStream instead.
@@ -521,7 +534,9 @@ export function deepSearch(
       const response = await fetch(`${baseURL}/api/search/deep`, {
         method: "POST",
         headers,
-        body: JSON.stringify({ question }),
+        body: JSON.stringify(
+          recordingIds?.length ? { question, recording_ids: recordingIds } : { question },
+        ),
         signal: controller.signal,
       });
 

@@ -55,6 +55,8 @@ export interface UserProfile {
   api_key: string | null;
   created_at: string | null;
   last_login: string | null;
+  /** Server-wide PLAUD_ENABLED switch; when false no user's Plaud sync runs. */
+  plaud_server_enabled: boolean;
 }
 
 export interface Recording {
@@ -196,7 +198,8 @@ export interface SyncRun {
   status: SyncRunStatus;
   trigger: SyncRunTrigger;
   type: SyncRunType;
-  stats: SyncRunStats | null;
+  /** JSON object of numeric counters; parse with parseRunStats(). */
+  stats_json: string | null;
   error_message: string | null;
   logs: SyncRunLogEntry[] | null;
   users_processed: string[] | null;
@@ -210,21 +213,13 @@ export interface SyncRunSummary {
   status: SyncRunStatus;
   trigger: SyncRunTrigger;
   type: SyncRunType;
-  stats: SyncRunStats | null;
+  /** JSON object of numeric counters; parse with parseRunStats(). */
+  stats_json: string | null;
   error_message: string | null;
   created_at: string;
 }
 
 export type SyncRunDetail = SyncRun;
-
-export interface SyncRunStats {
-  transcriptions_checked: number;
-  recordings_found: number;
-  recordings_downloaded: number;
-  recordings_transcribed: number;
-  recordings_failed: number;
-  [key: string]: number;
-}
 
 export interface SyncRunLogEntry {
   timestamp: string;
@@ -288,6 +283,33 @@ export interface AnalysisResponse {
 // ---------------------------------------------------------------------------
 // Deep Search
 // ---------------------------------------------------------------------------
+
+/** Fast keyword search (GET /api/search). Highlights are wrapped in \u0002…\u0003. */
+export interface SearchResult extends RecordingSummary {
+  rank: number | null;
+  title_highlight: string | null;
+  snippets: string[];
+}
+
+/** How one @term in the query resolved to participants. */
+export interface SearchPerson {
+  term: string;
+  participant_ids: string[];
+  names: string[];
+}
+
+export interface SearchResponse {
+  data: SearchResult[];
+  total: number;
+  people: SearchPerson[];
+  took_ms: number;
+}
+
+export interface KeywordSearchParams {
+  q: string;
+  personIds?: string[];
+  limit?: number;
+}
 
 export interface DeepSearchTagMapEntry {
   recording_id: string;

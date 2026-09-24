@@ -7,9 +7,11 @@ import { Card } from "@/components/ui/card";
 import { ArrowLeft } from "lucide-react";
 import { LogViewer } from "@/components/jobs/LogViewer";
 import { useIsMobile } from "@/hooks/useIsMobile";
-import { useSyncRun } from "@/lib/queries";
+import { useQueryClient } from "@tanstack/react-query";
+import { queryKeys, useSyncRun } from "@/lib/queries";
 import { fetchRunLogs } from "@/lib/api";
-import type { RunLogEntry, SyncRunStats, SyncRunType } from "@/types/models";
+import { parseRunStats, type RunStats } from "@/lib/jobs";
+import type { RunLogEntry, SyncRunType } from "@/types/models";
 
 const STATUS_VARIANT: Record<string, "default" | "secondary" | "destructive"> = {
   completed: "default",
@@ -45,6 +47,23 @@ export default function JobDetailPage() {
   const prevRunIdRef = useRef<string | null>(null);
 
   const isRunning = job?.status === "running";
+
+  // When this run finishes, refresh the job list so its card stops saying
+  // "running" right away (the list's own polling pauses in hidden tabs).
+  const queryClient = useQueryClient();
+  const prevStatusRef = useRef<{ id: string | undefined; status: string | undefined }>({
+    id: undefined,
+    status: undefined,
+  });
+  useEffect(() => {
+    const prev = prevStatusRef.current;
+    const status = job?.status;
+    if (prev.id === id && prev.status === "running" && status && status !== "running") {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.syncRuns.all });
+    }
+    prevStatusRef.current = { id, status };
+  }, [id, job?.status, queryClient]);
+  const stats = parseRunStats(job?.stats_json);
 
   // Reset logs when selected run changes
   useEffect(() => {
@@ -180,7 +199,7 @@ export default function JobDetailPage() {
         )}
 
         {/* Stats grid */}
-        {job.stats && <StatsGrid stats={job.stats} />}
+        {stats && <StatsGrid stats={stats} />}
       </div>
 
       {/* Scrollable log viewer fills remaining space */}
@@ -197,7 +216,7 @@ export default function JobDetailPage() {
   );
 }
 
-function StatsGrid({ stats }: { stats: SyncRunStats }) {
+function StatsGrid({ stats }: { stats: RunStats }) {
   const entries = Object.entries(stats).filter(
     ([key]) => typeof stats[key] === "number"
   );

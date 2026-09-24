@@ -190,28 +190,34 @@ async def list_recordings(
     offset = (page - 1) * per_page
     params: list = []
 
-    if search:
-        # Use FTS5 for text search + LIKE on speaker_mapping for speaker names
-        base_query = f"""
-            SELECT {_SUMMARY_COLUMNS}
-            FROM recordings
-            WHERE user_id = ? AND (
-                rowid IN (SELECT rowid FROM recordings_fts WHERE recordings_fts MATCH ?)
-                OR speaker_mapping LIKE ?
-            )
-        """
-        count_query = """
-            SELECT COUNT(*) as cnt FROM recordings
-            WHERE user_id = ? AND (
-                rowid IN (SELECT rowid FROM recordings_fts WHERE recordings_fts MATCH ?)
-                OR speaker_mapping LIKE ?
-            )
-        """
-        params = [user_id, search, f"%{search}%"]
-    else:
-        base_query = f"SELECT {_SUMMARY_COLUMNS} FROM recordings WHERE user_id = ?"
-        count_query = "SELECT COUNT(*) as cnt FROM recordings WHERE user_id = ?"
-        params = [user_id]
+    if search and search.strip():
+        # Same ranked keyword search as the Search page (includes recordings
+        # still processing, so a just-uploaded one can be found by title)
+        from app.services import search_service
+
+        found = await search_service.search(
+            user_id,
+            search,
+            date_from=date_from,
+            date_to=date_to,
+            limit=per_page,
+            offset=offset,
+            with_snippets=False,
+            ready_only=False,
+        )
+        return PaginatedResponse(
+            data=[
+                RecordingSummary(**r.model_dump(include=set(RecordingSummary.model_fields)))
+                for r in found.data
+            ],
+            total=found.total,
+            page=page,
+            per_page=per_page,
+        )
+
+    base_query = f"SELECT {_SUMMARY_COLUMNS} FROM recordings WHERE user_id = ?"
+    count_query = "SELECT COUNT(*) as cnt FROM recordings WHERE user_id = ?"
+    params = [user_id]
 
     # Date range filters
     if date_from:

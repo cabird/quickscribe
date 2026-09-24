@@ -6,6 +6,7 @@ Logs each sync run to the sync_runs table. Idempotent by design.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import tempfile
@@ -34,8 +35,37 @@ from app.services.speech_client import SpeechClient
 
 logger = logging.getLogger(__name__)
 
-# Concurrency guard — prevents overlapping sync runs
+# Concurrency guards — prevent overlapping sync runs / overlapping polls
 _sync_running = False
+_poll_running = False
+
+# Strong references to fire-and-forget tasks started by manual triggers;
+# asyncio only keeps weak references, so an unreferenced task can be GC'd.
+_background_tasks: set[asyncio.Task] = set()
+
+
+def _spawn(coro) -> None:
+    task = asyncio.create_task(coro)
+    _background_tasks.add(task)
+    task.add_done_callback(_on_task_done)
+
+
+def _on_task_done(task: asyncio.Task) -> None:
+    _background_tasks.discard(task)
+    if not task.cancelled() and task.exception() is not None:
+        logger.error("Background run failed", exc_info=task.exception())
+
+
+async def cancel_background_tasks() -> None:
+    """Cancel in-flight manual runs at shutdown, before the DB closes.
+
+    Their rows stay 'running' and are marked aborted on the next startup.
+    """
+    tasks = list(_background_tasks)
+    for task in tasks:
+        task.cancel()
+    if tasks:
+        await asyncio.gather(*tasks, return_exceptions=True)
 
 
 async def _create_sync_run(trigger: str, run_type: str = "plaud_sync") -> str:
@@ -83,6 +113,35 @@ async def _finish_sync_run(
     await db.commit()
 
 
+async def _begin_sync(trigger: str) -> str:
+    """Check the guards, claim the sync slot, and create the run row.
+
+    Raises:
+        HTTPException 409 if Plaud sync is disabled server-wide or a sync is
+        already running.
+    """
+    global _sync_running
+
+    if not get_settings().plaud_enabled:
+        raise HTTPException(
+            status_code=409,
+            detail="Plaud sync is disabled on this server (PLAUD_ENABLED=false)",
+        )
+
+    if _sync_running:
+        raise HTTPException(
+            status_code=409,
+            detail="A sync is already in progress",
+        )
+
+    _sync_running = True
+    try:
+        return await _create_sync_run(trigger, run_type="plaud_sync")
+    except BaseException:
+        _sync_running = False
+        raise
+
+
 async def run_sync(trigger: str = "scheduled", user_id: str | None = None) -> SyncRun:
     """Run a full Plaud sync cycle for all enabled users (or a specific user).
 
@@ -98,17 +157,26 @@ async def run_sync(trigger: str = "scheduled", user_id: str | None = None) -> Sy
     Returns:
         The SyncRun record for this execution.
     """
+    run_id = await _begin_sync(trigger)
+    return await _execute_sync(run_id, trigger, user_id)
+
+
+async def start_sync(trigger: str = "manual", user_id: str | None = None) -> str:
+    """Start a sync in the background and return its run ID immediately.
+
+    Used by the manual trigger so the UI can select the run and stream its
+    log while it is still running.
+    """
+    run_id = await _begin_sync(trigger)
+    _spawn(_execute_sync(run_id, trigger, user_id))
+    return run_id
+
+
+async def _execute_sync(run_id: str, trigger: str, user_id: str | None) -> SyncRun:
+    """Do the sync work for an already-created run. Releases the sync slot."""
     global _sync_running
 
-    if _sync_running:
-        raise HTTPException(
-            status_code=409,
-            detail="A sync is already in progress",
-        )
-
-    _sync_running = True
     settings = get_settings()
-    run_id = await _create_sync_run(trigger, run_type="plaud_sync")
     run_logger = RunLogger(run_id)
     run_logs: list[str] = []
     stats = {"users": 0, "new_recordings": 0, "skipped": 0, "errors": 0}
@@ -229,6 +297,9 @@ async def _sync_user(
         await run_logger.info(summary)
     stats["skipped"] += already_imported + previously_deleted
 
+    # Duplicates (already imported under this plaud_id) are summarised in one
+    # log line rather than one line each -- the same handful recur every sync.
+    duplicates = 0
     for audio_file in new_recordings:
         try:
             was_processed = await _process_new_recording(user_id, token, audio_file, run_logger)
@@ -237,13 +308,11 @@ async def _sync_user(
                 run_logs.append(f"Processed: {audio_file.filename}")
             else:
                 stats["skipped"] += 1
-                if run_logger:
-                    await run_logger.info(f"Skipped (duplicate): {audio_file.filename}")
+                duplicates += 1
         except Exception as exc:
             if "UNIQUE constraint failed: recordings.plaud_id" in str(exc):
                 stats["skipped"] += 1
-                if run_logger:
-                    await run_logger.info(f"Skipped (duplicate): {audio_file.filename}")
+                duplicates += 1
             else:
                 stats["errors"] += 1
                 msg = f"Error processing {audio_file.id}: {type(exc).__name__}: {exc}"
@@ -254,6 +323,11 @@ async def _sync_user(
                     tb = traceback.format_exc()
                     await run_logger.error(f"Error: {audio_file.filename}: {type(exc).__name__}: {exc}")
                     await run_logger.error(f"Traceback: {tb[-500:]}")
+
+    if duplicates and run_logger:
+        await run_logger.info(
+            f"Skipped {duplicates} duplicate(s) already in the database"
+        )
 
     # Update last sync timestamp
     await db.execute(
@@ -407,16 +481,7 @@ async def _process_new_recording(
     return True
 
 
-async def poll_pending_transcriptions() -> list[str]:
-    """Check status of all pending transcription jobs and process completed ones.
-
-    Returns:
-        List of recording IDs that completed processing.
-    """
-    settings = get_settings()
-    if not settings.speech_enabled:
-        return []
-
+async def _pending_transcriptions() -> list[dict]:
     db = await get_db()
     rows = await db.execute_fetchall(
         """SELECT id, user_id, provider_job_id, original_filename
@@ -424,66 +489,151 @@ async def poll_pending_transcriptions() -> list[str]:
            WHERE status = ? AND provider_job_id IS NOT NULL""",
         (RecordingStatus.transcribing.value,),
     )
+    return [dict(r) for r in rows]
 
-    if not rows:
+
+async def poll_pending_transcriptions() -> list[str]:
+    """Scheduled poll: check pending transcription jobs and process completed ones.
+
+    Records a run only when something is pending, so idle polls every 5
+    minutes don't fill the job list. Skips silently if a poll is already
+    running (e.g. a manual one).
+
+    Returns:
+        List of recording IDs that completed processing.
+    """
+    global _poll_running
+
+    if not get_settings().speech_enabled or _poll_running:
         return []
 
-    # Create a run for transcription polling
-    run_id = await _create_sync_run("scheduled", run_type="transcription_poll")
+    # Claim the slot before any await, so a manual poll can't slip in while
+    # the pending rows are being fetched and poll the same jobs.
+    _poll_running = True
+    try:
+        rows = await _pending_transcriptions()
+        if not rows:
+            _poll_running = False
+            return []
+        run_id = await _create_sync_run("scheduled", run_type="transcription_poll")
+    except BaseException:
+        _poll_running = False
+        raise
+    return await _execute_poll(run_id, rows)
+
+
+async def start_poll() -> str:
+    """Manual poll: create a run, poll in the background, return the run ID.
+
+    Always records a run (even with nothing pending) so the user sees the
+    result of clicking "Poll Now".
+
+    Raises:
+        HTTPException 409 if speech isn't configured or a poll is running.
+    """
+    global _poll_running
+
+    if not get_settings().speech_enabled:
+        raise HTTPException(
+            status_code=409,
+            detail="Transcription is not configured on this server",
+        )
+    if _poll_running:
+        raise HTTPException(
+            status_code=409,
+            detail="A transcription poll is already in progress",
+        )
+
+    _poll_running = True
+    try:
+        run_id = await _create_sync_run("manual", run_type="transcription_poll")
+    except BaseException:
+        _poll_running = False
+        raise
+    _spawn(_execute_poll(run_id, None))
+    return run_id
+
+
+async def _execute_poll(run_id: str, rows: list[dict] | None) -> list[str]:
+    """Poll Azure Speech for each pending job of an already-created run.
+
+    Releases the poll slot. ``rows`` is fetched here when None.
+    """
+    global _poll_running
+
     run_logger = RunLogger(run_id)
-
-    speech = SpeechClient()
     completed: list[str] = []
+    stats = {"polled": 0, "completed": 0, "failed": 0, "still_running": 0, "errors": 0}
+    status = SyncRunStatus.completed
+    error_message = None
 
-    await run_logger.info("Polling %d pending transcription(s)" % len(rows))
+    try:
+        if rows is None:
+            rows = await _pending_transcriptions()
+        stats["polled"] = len(rows)
 
-    for row in rows:
-        r = dict(row)
-        recording_id = r["id"]
-        job_id = r["provider_job_id"]
+        if not rows:
+            await run_logger.info("No pending transcriptions")
+        else:
+            await run_logger.info("Polling %d pending transcription(s)" % len(rows))
 
-        try:
-            transcription = await speech.get_transcription(job_id)
-            status = transcription.get("status", "")
+        db = await get_db()
+        speech = SpeechClient() if rows else None
 
-            if status == "Succeeded":
-                await run_logger.info(
-                    "Transcription complete: %s" % (r["original_filename"] or recording_id[:8])
-                )
-                await _handle_transcription_complete(
-                    recording_id, r["user_id"], job_id, speech, run_logger
-                )
-                completed.append(recording_id)
+        for r in rows:
+            recording_id = r["id"]
+            job_id = r["provider_job_id"]
+            name = r["original_filename"] or recording_id[:8]
 
-            elif status == "Failed":
-                error = transcription.get("properties", {}).get(
-                    "error", {}
-                ).get("message", "Transcription failed")
-                await db.execute(
-                    """UPDATE recordings
-                       SET status = ?, status_message = ?, updated_at = datetime('now')
-                       WHERE id = ?""",
-                    (RecordingStatus.failed.value, error, recording_id),
-                )
-                await db.commit()
-                logger.warning("Transcription failed for %s: %s", recording_id, error)
-                await run_logger.error(
-                    "Transcription failed: %s — %s" % (r["original_filename"] or recording_id[:8], error)
-                )
+            try:
+                transcription = await speech.get_transcription(job_id)
+                job_status = transcription.get("status", "")
 
-            else:
-                await run_logger.debug(
-                    "Still %s: %s" % (status, r["original_filename"] or recording_id[:8])
-                )
+                if job_status == "Succeeded":
+                    await run_logger.info("Transcription complete: %s" % name)
+                    await _handle_transcription_complete(
+                        recording_id, r["user_id"], job_id, speech, run_logger
+                    )
+                    completed.append(recording_id)
+                    stats["completed"] += 1
 
-        except Exception as exc:
-            logger.exception("Error polling transcription for %s: %s", recording_id, exc)
-            await run_logger.error("Error polling %s: %s" % (recording_id[:8], exc))
+                elif job_status == "Failed":
+                    error = transcription.get("properties", {}).get(
+                        "error", {}
+                    ).get("message", "Transcription failed")
+                    await db.execute(
+                        """UPDATE recordings
+                           SET status = ?, status_message = ?, updated_at = datetime('now')
+                           WHERE id = ?""",
+                        (RecordingStatus.failed.value, error, recording_id),
+                    )
+                    await db.commit()
+                    stats["failed"] += 1
+                    logger.warning("Transcription failed for %s: %s", recording_id, error)
+                    await run_logger.error("Transcription failed: %s — %s" % (name, error))
 
-    poll_status = SyncRunStatus.completed
-    await run_logger.info("Poll complete: %d transcription(s) finished" % len(completed))
-    await _finish_sync_run(run_id, poll_status, {"completed": len(completed), "polled": len(rows)})
+                else:
+                    stats["still_running"] += 1
+                    await run_logger.debug("Still %s: %s" % (job_status, name))
 
+            except Exception as exc:
+                stats["errors"] += 1
+                logger.exception("Error polling transcription for %s: %s", recording_id, exc)
+                await run_logger.error("Error polling %s: %s" % (recording_id[:8], exc))
+
+        await run_logger.info(
+            "Poll complete: %d completed, %d still running, %d failed, %d errors"
+            % (stats["completed"], stats["still_running"], stats["failed"], stats["errors"])
+        )
+    except Exception as exc:
+        status = SyncRunStatus.failed
+        error_message = str(exc)
+        logger.exception("Poll run %s failed: %s", run_id, exc)
+        await run_logger.error("Poll failed: %s" % exc)
+    finally:
+        _poll_running = False
+
+    await _finish_sync_run(run_id, status, stats, error_message)
     return completed
 
 

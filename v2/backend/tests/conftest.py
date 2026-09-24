@@ -15,7 +15,7 @@ import httpx
 import pytest
 
 from app.config import Settings, get_settings
-from app.database import SCHEMA_SQL, FTS_SCHEMA_SQL, get_db
+from app.database import SCHEMA_SQL, FTS_SCHEMA_SQL, SEARCH_SCHEMA_SQL, get_db
 from app.models import (
     User,
     Recording,
@@ -58,6 +58,7 @@ async def test_db():
     db.row_factory = aiosqlite.Row
     await db.executescript(SCHEMA_SQL)
     await db.executescript(FTS_SCHEMA_SQL)
+    await db.executescript(SEARCH_SCHEMA_SQL)
     await db.commit()
     yield db
     await db.close()
