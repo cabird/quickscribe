@@ -1,8 +1,8 @@
 # MCP OAuth
 
 QuickScribe supports browser-approved MCP access through its existing Microsoft
-website sign-in. This change is not deployed yet. After deployment, the server
-URL is `https://quickscribe.cabird.com/mcp`.
+website sign-in. It is live in version **2.8.18**. The server URL is
+`https://quickscribe.cabird.com/mcp`.
 
 In Claude's custom connector dialog select **Sign in now** and **Use Claude's
 published identity**. Leave request headers, client ID and client secret empty.
@@ -87,8 +87,21 @@ Follow `CLAUDE.md` and the current migration notes for deployment. Pin the
 Pay-As-You-Go subscription `dfd21f2e-a846-4677-9341-78dd8723df4e`, take a fresh
 backup, and stop → configure → start the single SQLite/Litestream instance.
 The build script increments `v2/backend/VERSION`; do not bump it in advance.
-Production login and hosted Claude/ChatGPT compatibility still require a public
-deployment and client checks.
+Hosted Claude/ChatGPT end-to-end sign-in still requires checks in those clients.
+
+## Production deployment (September 27, 2026)
+
+Version **2.8.18** was deployed from `main` to the new subscription's `quickscribe`
+App Service using stop → configure → start. A fresh database backup passed
+SQLite integrity checks before the deployment. The production health endpoint
+reports 2.8.18, with one running instance.
+
+Production checks passed for the website bundle and Microsoft configuration,
+OAuth discovery and error responses, secure browser-bound consent, CIMD resolution
+using Codex's published identity, and Microsoft authentication enforcement.
+The existing manual token successfully initialized MCP, discovered all nine tools,
+and called `list_tags`. These checks issued no OAuth grant; the complete real
+Codex sign-in, refresh, and revocation checks below used the local test instance.
 
 ## Validation record (September 27, 2026)
 
