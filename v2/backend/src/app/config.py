@@ -39,6 +39,8 @@ class Settings(BaseSettings):
     auth_disabled: bool = False
     azure_tenant_id: str = "common"
     azure_client_id: str = ""
+    oauth_issuer: str = "https://quickscribe.cabird.com"
+    oauth_cimd_hosts: list[str] = ["claude.ai", "chatgpt.com"]
 
     # --- Storage ---
     # When local_blob_path is set, files are stored on local filesystem instead of Azure Blob.

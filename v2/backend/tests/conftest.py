@@ -108,6 +108,7 @@ async def other_user(test_db: aiosqlite.Connection) -> User:
 async def client(
     test_db: aiosqlite.Connection,
     test_user: User,
+    monkeypatch,
 ):
     """Async HTTP test client with dependency overrides for DB and auth."""
     from app.main import app
@@ -125,9 +126,12 @@ async def client(
     app.dependency_overrides[get_settings] = _override_get_settings
 
     # Override auth — import here to avoid circular imports
-    from app.auth import get_current_user
+    from app.auth import get_current_user, get_current_user_or_api_key
 
     app.dependency_overrides[get_current_user] = _override_get_current_user
+    app.dependency_overrides[get_current_user_or_api_key] = _override_get_current_user
+    from app import database
+    monkeypatch.setattr(database, "_db", test_db)
 
     transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(transport=transport, base_url="http://test") as ac:
@@ -140,10 +144,11 @@ async def client(
 async def client_as_other(
     test_db: aiosqlite.Connection,
     other_user: User,
+    monkeypatch,
 ):
     """Test client authenticated as the 'other' user for ownership tests."""
     from app.main import app
-    from app.auth import get_current_user
+    from app.auth import get_current_user, get_current_user_or_api_key
 
     async def _override_get_db():
         return test_db
@@ -157,6 +162,9 @@ async def client_as_other(
     app.dependency_overrides[get_db] = _override_get_db
     app.dependency_overrides[get_settings] = _override_get_settings
     app.dependency_overrides[get_current_user] = _override_get_current_user
+    app.dependency_overrides[get_current_user_or_api_key] = _override_get_current_user
+    from app import database
+    monkeypatch.setattr(database, "_db", test_db)
 
     transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(transport=transport, base_url="http://test") as ac:

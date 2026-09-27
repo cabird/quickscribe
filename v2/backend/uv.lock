@@ -1,5 +1,5 @@
 version = 1
-revision = 2
+revision = 3
 requires-python = ">=3.11"
 resolution-markers = [
     "(platform_machine != 'aarch64' and sys_platform == 'linux') or (sys_platform != 'darwin' and sys_platform != 'linux')",
@@ -1265,6 +1265,15 @@ wheels = [
 ]
 
 [[package]]
+name = "oauthlib"
+version = "3.3.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/0b/5f/19930f824ffeb0ad4372da4812c50edbd1434f678c90c2733e1188edfc63/oauthlib-3.3.1.tar.gz", hash = "sha256:0f0f8aa759826a193cf66c12ea1af1637f87b9b4622d46e866952bb022e538c9", size = 185918, upload-time = "2025-06-19T22:48:08.269Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/be/9c/92789c596b8df838baa98fa71844d84283302f7604ed565dafe5a6b5041a/oauthlib-3.3.1-py3-none-any.whl", hash = "sha256:88119c938d2b8fb88561af5f6ee0eec8cc8d552b7bb1f712743136eb7523b7a1", size = 160065, upload-time = "2025-06-19T22:48:06.508Z" },
+]
+
+[[package]]
 name = "openai"
 version = "2.30.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1695,6 +1704,7 @@ dependencies = [
     { name = "huggingface-hub" },
     { name = "jinja2" },
     { name = "numpy" },
+    { name = "oauthlib" },
     { name = "openai" },
     { name = "pydantic" },
     { name = "pydantic-settings" },
@@ -1734,6 +1744,7 @@ requires-dist = [
     { name = "huggingface-hub", specifier = "==0.24.7" },
     { name = "jinja2", specifier = ">=3.1.0" },
     { name = "numpy", specifier = ">=1.24.0" },
+    { name = "oauthlib", specifier = "==3.3.1" },
     { name = "openai", specifier = ">=1.51.0" },
     { name = "pydantic", specifier = ">=2.9.0" },
     { name = "pydantic-settings", specifier = ">=2.0.0" },
@@ -2433,18 +2444,18 @@ resolution-markers = [
     "(platform_machine == 'aarch64' and sys_platform == 'linux') or sys_platform == 'darwin'",
 ]
 dependencies = [
-    { name = "filelock", marker = "(platform_machine == 'aarch64' and sys_platform == 'linux') or sys_platform == 'darwin'" },
-    { name = "fsspec", marker = "(platform_machine == 'aarch64' and sys_platform == 'linux') or sys_platform == 'darwin'" },
-    { name = "jinja2", marker = "(platform_machine == 'aarch64' and sys_platform == 'linux') or sys_platform == 'darwin'" },
-    { name = "networkx", marker = "(platform_machine == 'aarch64' and sys_platform == 'linux') or sys_platform == 'darwin'" },
-    { name = "sympy", marker = "(platform_machine == 'aarch64' and sys_platform == 'linux') or sys_platform == 'darwin'" },
-    { name = "typing-extensions", marker = "(platform_machine == 'aarch64' and sys_platform == 'linux') or sys_platform == 'darwin'" },
+    { name = "filelock" },
+    { name = "fsspec" },
+    { name = "jinja2" },
+    { name = "networkx" },
+    { name = "sympy" },
+    { name = "typing-extensions" },
 ]
 wheels = [
-    { url = "https://download-r2.pytorch.org/whl/cpu/torch-2.4.1-cp311-cp311-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:30be2844d0c939161a11073bfbaf645f1c7cb43f62f46cc6e4df1c119fb2a798" },
-    { url = "https://download-r2.pytorch.org/whl/cpu/torch-2.4.1-cp311-none-macosx_11_0_arm64.whl", hash = "sha256:ddddbd8b066e743934a4200b3d54267a46db02106876d21cf31f7da7a96f98ea" },
-    { url = "https://download-r2.pytorch.org/whl/cpu/torch-2.4.1-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:36109432b10bd7163c9b30ce896f3c2cca1b86b9765f956a1594f0ff43091e2a" },
-    { url = "https://download-r2.pytorch.org/whl/cpu/torch-2.4.1-cp312-none-macosx_11_0_arm64.whl", hash = "sha256:72b484d5b6cec1a735bf3fa5a1c4883d01748698c5e9cfdbeb4ffab7c7987e0d" },
+    { url = "https://download-r2.pytorch.org/whl/cpu/torch-2.4.1-cp311-cp311-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:30be2844d0c939161a11073bfbaf645f1c7cb43f62f46cc6e4df1c119fb2a798", upload-time = "2024-09-06T21:25:39Z" },
+    { url = "https://download-r2.pytorch.org/whl/cpu/torch-2.4.1-cp311-none-macosx_11_0_arm64.whl", hash = "sha256:ddddbd8b066e743934a4200b3d54267a46db02106876d21cf31f7da7a96f98ea", upload-time = "2024-09-06T21:25:43Z" },
+    { url = "https://download-r2.pytorch.org/whl/cpu/torch-2.4.1-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:36109432b10bd7163c9b30ce896f3c2cca1b86b9765f956a1594f0ff43091e2a", upload-time = "2024-09-06T21:25:46Z" },
+    { url = "https://download-r2.pytorch.org/whl/cpu/torch-2.4.1-cp312-none-macosx_11_0_arm64.whl", hash = "sha256:72b484d5b6cec1a735bf3fa5a1c4883d01748698c5e9cfdbeb4ffab7c7987e0d", upload-time = "2024-09-06T21:25:50Z" },
 ]
 
 [[package]]
@@ -2455,18 +2466,18 @@ resolution-markers = [
     "(platform_machine != 'aarch64' and sys_platform == 'linux') or (sys_platform != 'darwin' and sys_platform != 'linux')",
 ]
 dependencies = [
-    { name = "filelock", marker = "(platform_machine != 'aarch64' and sys_platform == 'linux') or (sys_platform != 'darwin' and sys_platform != 'linux')" },
-    { name = "fsspec", marker = "(platform_machine != 'aarch64' and sys_platform == 'linux') or (sys_platform != 'darwin' and sys_platform != 'linux')" },
-    { name = "jinja2", marker = "(platform_machine != 'aarch64' and sys_platform == 'linux') or (sys_platform != 'darwin' and sys_platform != 'linux')" },
-    { name = "networkx", marker = "(platform_machine != 'aarch64' and sys_platform == 'linux') or (sys_platform != 'darwin' and sys_platform != 'linux')" },
-    { name = "sympy", marker = "(platform_machine != 'aarch64' and sys_platform == 'linux') or (sys_platform != 'darwin' and sys_platform != 'linux')" },
-    { name = "typing-extensions", marker = "(platform_machine != 'aarch64' and sys_platform == 'linux') or (sys_platform != 'darwin' and sys_platform != 'linux')" },
+    { name = "filelock" },
+    { name = "fsspec" },
+    { name = "jinja2" },
+    { name = "networkx" },
+    { name = "sympy" },
+    { name = "typing-extensions" },
 ]
 wheels = [
-    { url = "https://download-r2.pytorch.org/whl/cpu/torch-2.4.1%2Bcpu-cp311-cp311-linux_x86_64.whl", hash = "sha256:2b03e20f37557d211d14e3fb3f71709325336402db132a1e0dd8b47392185baf" },
-    { url = "https://download-r2.pytorch.org/whl/cpu/torch-2.4.1%2Bcpu-cp311-cp311-win_amd64.whl", hash = "sha256:76a6fe7b10491b650c630bc9ae328df40f79a948296b41d3b087b29a8a63cbad" },
-    { url = "https://download-r2.pytorch.org/whl/cpu/torch-2.4.1%2Bcpu-cp312-cp312-linux_x86_64.whl", hash = "sha256:8800deef0026011d502c0c256cc4b67d002347f63c3a38cd8e45f1f445c61364" },
-    { url = "https://download-r2.pytorch.org/whl/cpu/torch-2.4.1%2Bcpu-cp312-cp312-win_amd64.whl", hash = "sha256:3a570e5c553415cdbddfe679207327b3a3806b21c6adea14fba77684d1619e97" },
+    { url = "https://download-r2.pytorch.org/whl/cpu/torch-2.4.1%2Bcpu-cp311-cp311-linux_x86_64.whl", hash = "sha256:2b03e20f37557d211d14e3fb3f71709325336402db132a1e0dd8b47392185baf", upload-time = "2024-09-06T21:24:24Z" },
+    { url = "https://download-r2.pytorch.org/whl/cpu/torch-2.4.1%2Bcpu-cp311-cp311-win_amd64.whl", hash = "sha256:76a6fe7b10491b650c630bc9ae328df40f79a948296b41d3b087b29a8a63cbad", upload-time = "2024-09-06T21:24:33Z" },
+    { url = "https://download-r2.pytorch.org/whl/cpu/torch-2.4.1%2Bcpu-cp312-cp312-linux_x86_64.whl", hash = "sha256:8800deef0026011d502c0c256cc4b67d002347f63c3a38cd8e45f1f445c61364", upload-time = "2024-09-06T21:24:42Z" },
+    { url = "https://download-r2.pytorch.org/whl/cpu/torch-2.4.1%2Bcpu-cp312-cp312-win_amd64.whl", hash = "sha256:3a570e5c553415cdbddfe679207327b3a3806b21c6adea14fba77684d1619e97", upload-time = "2024-09-06T21:24:50Z" },
 ]
 
 [[package]]
@@ -2477,13 +2488,13 @@ resolution-markers = [
     "(platform_machine == 'aarch64' and sys_platform == 'linux') or sys_platform == 'darwin'",
 ]
 dependencies = [
-    { name = "torch", version = "2.4.1", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "(platform_machine == 'aarch64' and sys_platform == 'linux') or sys_platform == 'darwin'" },
+    { name = "torch", version = "2.4.1", source = { registry = "https://download.pytorch.org/whl/cpu" } },
 ]
 wheels = [
-    { url = "https://download-r2.pytorch.org/whl/cpu/torchaudio-2.4.1-cp311-cp311-linux_aarch64.whl", hash = "sha256:7640aaffb2056e12f2906187b03a22228a0908c87d0295fddf4b0b92334a290b" },
-    { url = "https://download-r2.pytorch.org/whl/cpu/torchaudio-2.4.1-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:60af1531815d22659e5412ea401bed552a16c389938c49664e446e4cfd5ddc06" },
-    { url = "https://download-r2.pytorch.org/whl/cpu/torchaudio-2.4.1-cp312-cp312-linux_aarch64.whl", hash = "sha256:5b62fc7b16ed708b0c07d4393137797e92f63fc3bd5705607d97ba6a9a7cf3f0" },
-    { url = "https://download-r2.pytorch.org/whl/cpu/torchaudio-2.4.1-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:953946cf610ffd57bb3fdd228effa2112fa51c5dfe36a96611effc9074a3d3be" },
+    { url = "https://download-r2.pytorch.org/whl/cpu/torchaudio-2.4.1-cp311-cp311-linux_aarch64.whl", hash = "sha256:7640aaffb2056e12f2906187b03a22228a0908c87d0295fddf4b0b92334a290b", upload-time = "2024-09-06T21:26:13Z" },
+    { url = "https://download-r2.pytorch.org/whl/cpu/torchaudio-2.4.1-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:60af1531815d22659e5412ea401bed552a16c389938c49664e446e4cfd5ddc06", upload-time = "2024-09-06T21:26:13Z" },
+    { url = "https://download-r2.pytorch.org/whl/cpu/torchaudio-2.4.1-cp312-cp312-linux_aarch64.whl", hash = "sha256:5b62fc7b16ed708b0c07d4393137797e92f63fc3bd5705607d97ba6a9a7cf3f0", upload-time = "2024-09-06T21:26:14Z" },
+    { url = "https://download-r2.pytorch.org/whl/cpu/torchaudio-2.4.1-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:953946cf610ffd57bb3fdd228effa2112fa51c5dfe36a96611effc9074a3d3be", upload-time = "2024-09-06T21:26:14Z" },
 ]
 
 [[package]]
@@ -2494,13 +2505,13 @@ resolution-markers = [
     "(platform_machine != 'aarch64' and sys_platform == 'linux') or (sys_platform != 'darwin' and sys_platform != 'linux')",
 ]
 dependencies = [
-    { name = "torch", version = "2.4.1+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "(platform_machine != 'aarch64' and sys_platform == 'linux') or (sys_platform != 'darwin' and sys_platform != 'linux')" },
+    { name = "torch", version = "2.4.1+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" } },
 ]
 wheels = [
-    { url = "https://download-r2.pytorch.org/whl/cpu/torchaudio-2.4.1%2Bcpu-cp311-cp311-linux_x86_64.whl", hash = "sha256:c7c43a514fb62cf2e64d672c9de39ffbd886308da0085e4b8a171a659155abe2" },
-    { url = "https://download-r2.pytorch.org/whl/cpu/torchaudio-2.4.1%2Bcpu-cp311-cp311-win_amd64.whl", hash = "sha256:6a9983de9cd1212668f0a25803b9aee124fd5aaf63c24dfce6b23008b0a8cebb" },
-    { url = "https://download-r2.pytorch.org/whl/cpu/torchaudio-2.4.1%2Bcpu-cp312-cp312-linux_x86_64.whl", hash = "sha256:06f0e0b7df147f03ed43caf2ba349360f161e2f0bdad1d075020072bc8cfe50f" },
-    { url = "https://download-r2.pytorch.org/whl/cpu/torchaudio-2.4.1%2Bcpu-cp312-cp312-win_amd64.whl", hash = "sha256:0aacd20af37433d3bcd655bf7a1f641dc9cb7711ff7e527225a4d3e7a4376896" },
+    { url = "https://download-r2.pytorch.org/whl/cpu/torchaudio-2.4.1%2Bcpu-cp311-cp311-linux_x86_64.whl", hash = "sha256:c7c43a514fb62cf2e64d672c9de39ffbd886308da0085e4b8a171a659155abe2", upload-time = "2024-09-06T21:26:10Z" },
+    { url = "https://download-r2.pytorch.org/whl/cpu/torchaudio-2.4.1%2Bcpu-cp311-cp311-win_amd64.whl", hash = "sha256:6a9983de9cd1212668f0a25803b9aee124fd5aaf63c24dfce6b23008b0a8cebb", upload-time = "2024-09-06T21:26:10Z" },
+    { url = "https://download-r2.pytorch.org/whl/cpu/torchaudio-2.4.1%2Bcpu-cp312-cp312-linux_x86_64.whl", hash = "sha256:06f0e0b7df147f03ed43caf2ba349360f161e2f0bdad1d075020072bc8cfe50f", upload-time = "2024-09-06T21:26:10Z" },
+    { url = "https://download-r2.pytorch.org/whl/cpu/torchaudio-2.4.1%2Bcpu-cp312-cp312-win_amd64.whl", hash = "sha256:0aacd20af37433d3bcd655bf7a1f641dc9cb7711ff7e527225a4d3e7a4376896", upload-time = "2024-09-06T21:26:11Z" },
 ]
 
 [[package]]

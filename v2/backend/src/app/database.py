@@ -557,6 +557,8 @@ async def init_db() -> aiosqlite.Connection:
 
     # Create schema
     await _db.executescript(SCHEMA_SQL)
+    from app.oauth_store import SCHEMA_SQL as OAUTH_SCHEMA_SQL
+    await _db.executescript(OAUTH_SCHEMA_SQL)
     await _db.executescript(FTS_SCHEMA_SQL)
     await _db.commit()
 

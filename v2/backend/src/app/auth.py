@@ -234,6 +234,10 @@ async def get_current_user(
     settings: Annotated[Settings, Depends(get_settings)],
 ) -> User:
     """FastAPI dependency — returns the authenticated user."""
+    from app.oauth import oauth_user
+    oauth = await oauth_user(request)
+    if oauth is not None:
+        return oauth
     if settings.auth_disabled:
         return await _get_dev_user()
 
@@ -305,6 +309,10 @@ async def get_current_user_or_api_key(
 ) -> User:
     """FastAPI dependency — tries Bearer token first, falls back to API key."""
     # Dev bypass
+    from app.oauth import oauth_user
+    oauth = await oauth_user(request)
+    if oauth is not None:
+        return oauth
     if settings.auth_disabled:
         return await _get_dev_user()
 
