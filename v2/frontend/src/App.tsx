@@ -10,6 +10,7 @@ import RecordingsPage from "@/pages/RecordingsPage";
 
 import PeoplePage from "@/pages/PeoplePage";
 import JobsPage from "@/pages/JobsPage";
+import OAuthConsentPage from "@/pages/OAuthConsentPage";
 import SettingsPage from "@/pages/SettingsPage";
 import SearchPage from "@/pages/SearchPage";
 import CollectionsPage from "@/pages/CollectionsPage";
@@ -44,6 +45,7 @@ export default function App() {
       <TooltipProvider>
         <BrowserRouter>
           <Routes>
+            <Route path="oauth/consent" element={<OAuthConsentPage />} />
             <Route element={<Layout />}>
               <Route index element={<Navigate to="/recordings" replace />} />
               <Route path="recordings" element={<RecordingsPage />} />

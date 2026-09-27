@@ -38,6 +38,8 @@ async def lifespan(app: FastAPI):
             "Either set AZURE_CLIENT_ID or set AUTH_DISABLED=true for development."
         )
 
+    from app.oauth import issuer
+    issuer()  # Validate the configured public origin before accepting requests.
     await init_db()
     logger.info("Database initialized")
 
@@ -114,6 +116,22 @@ app.include_router(collections.router)
 app.include_router(mcp_tokens.router)
 app.include_router(mcp_tools.router)
 
+from app.routers import oauth
+from app.oauth import OAuthProblem, oauth_error_handler
+app.include_router(oauth.router)
+app.add_exception_handler(OAuthProblem, oauth_error_handler)
+
+
+@app.middleware("http")
+async def consent_security(request: Request, call_next):
+    response = await call_next(request)
+    # React Router accepts case/trailing-slash variants of this route too.
+    if request.url.path.rstrip("/").lower() == "/oauth/consent":
+        response.headers.update({"Cache-Control": "no-store", "Referrer-Policy": "same-origin",
+                                 "X-Frame-Options": "DENY",
+                                 "Content-Security-Policy": "frame-ancestors 'none'; base-uri 'self'"})
+    return response
+
 
 # ---------------------------------------------------------------------------
 # System endpoints
@@ -164,17 +182,29 @@ from app.services.mcp_token_service import TOKEN_PREFIX as _MCP_PREFIX
 _mcp_bearer_scheme = _HTTPBearer(auto_error=False)
 
 
-async def _mcp_auth(
-    creds: _HTTPAuthCreds | None = _Depends(_mcp_bearer_scheme),
-) -> None:
-    """Require a valid MCP bearer token (qs_mcp_ prefix)."""
-    if creds is None:
-        raise HTTPException(status_code=401, detail="Not authenticated")
-    if not creds.credentials.startswith(_MCP_PREFIX):
-        raise HTTPException(status_code=401, detail="Invalid MCP token format")
+async def _mcp_auth(request: Request, creds: _HTTPAuthCreds | None = _Depends(_mcp_bearer_scheme)) -> None:
+    from app.auth import _try_mcp_token
+    from app.oauth import issuer, validate_access_token
+    if request.headers.get("origin") not in (None, issuer()):
+        raise OAuthProblem("access_denied", "Invalid MCP request origin", 403)
+    if len(request.headers.getlist("authorization")) != 1 or creds is None:
+        raise OAuthProblem("invalid_token", "Connect to QuickScribe to authorize this client", 401)
+    raw = creds.credentials
+    if raw.startswith("qs_oauth_"):
+        await validate_access_token(raw)
+        return
+    if raw.startswith(_MCP_PREFIX) and await _try_mcp_token(raw):
+        return
+    raise OAuthProblem("invalid_token", "The MCP token is invalid or revoked", 401)
 
 
-mcp = _FastApiMCP(
+class _QuickScribeMCP(_FastApiMCP):
+    def _register_mcp_http_endpoint(self, router, transport, mount_path, dependencies):
+        from app.mcp_transport import mount_stateless
+        mount_stateless(self, router, transport, mount_path, dependencies)
+
+
+mcp = _QuickScribeMCP(
     app,
     name="QuickScribe",
     description="Read-only audio recording library with transcripts, speaker identification, and AI summaries",

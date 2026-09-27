@@ -196,9 +196,11 @@ Known quirk: Plaud `.opus` files are actually MP3.
 
 ## MCP Server
 
-Exposed at `/mcp` with bearer-token auth, offering read-only tools for search,
+Exposed at `/mcp` with OAuth (Microsoft sign-in + explicit consent) and manual
+bearer-token auth, offering read-only tools for search,
 recording/transcript retrieval, participants, tags, AI chat, meeting notes, and
-cross-recording synthesis.
+cross-recording synthesis. See [`v2/MCP_OAUTH.md`](v2/MCP_OAUTH.md) for connection
+setup, credential lifetimes, storage boundaries, and validation results.
 
 ---
 

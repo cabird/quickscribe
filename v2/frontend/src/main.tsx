@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import { MsalProvider, MsalAuthenticationTemplate } from "@azure/msal-react";
 import { InteractionType } from "@azure/msal-browser";
 import { authEnabled, initializeMsal, loginRequest, getMsalInstance, isMsalTimeout } from "@/lib/auth";
+import { captureOAuthRequest, takeOAuthReturnPath } from "@/lib/oauthContinuation";
 import App from "./App";
 import "./index.css";
 
@@ -58,10 +59,15 @@ function AuthError({ error }: { error: Error | null }) {
 }
 
 async function bootstrap() {
+  captureOAuthRequest(new URL(window.location.href), sessionStorage);
   const root = createRoot(document.getElementById("root")!);
 
   if (authEnabled) {
     const msalInstance = await initializeMsal();
+    if (msalInstance.getActiveAccount()) {
+      const destination = takeOAuthReturnPath(sessionStorage);
+      if (destination) window.history.replaceState(null, "", destination);
+    }
     root.render(
       <StrictMode>
         <MsalProvider instance={msalInstance}>

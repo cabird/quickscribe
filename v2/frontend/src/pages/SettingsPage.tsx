@@ -28,6 +28,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Eye, EyeOff, HelpCircle, Loader2, Pencil, Plus, RefreshCw, Save, Trash2, Copy, Check, Smartphone, Key, ChevronDown, ChevronUp } from "lucide-react";
+import { ConnectedAppsCard } from "@/components/ConnectedAppsCard";
 import * as api from "@/lib/api";
 import {
   useCurrentUser,
@@ -55,6 +56,8 @@ export default function SettingsPage() {
 
         {/* API Key for iOS uploads */}
         {user && <ApiKeyCard user={user} />}
+
+        <ConnectedAppsCard />
 
         {/* MCP Access Tokens */}
         <McpTokensCard />

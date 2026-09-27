@@ -15,6 +15,7 @@ dependencies = [
 
     # Auth
     "pyjwt[crypto]>=2.9.0",
+    "oauthlib==3.3.1",
 
     # Azure services
     "azure-storage-blob>=12.23.0",
