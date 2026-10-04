@@ -210,9 +210,15 @@ class TestUploadRequest:
 
         assert resp.status_code == 201
         body = resp.json()
-        assert body["status"] == "pending"
-        assert body["duplicate"] is False
-        assert body["filename"] == "memo.m4a"
+        # The iOS Shortcut looks for this exact "success" text
+        assert body == {
+            "success": "File uploaded successfully!",
+            "filename": "memo.m4a",
+            "recording_id": body["recording_id"],
+            "status": "pending",
+            "duplicate": False,
+        }
+        assert list(body)[:4] == ["success", "filename", "recording_id", "status"]
         pipeline.speech.create_transcription.assert_not_called()
 
         # The background task picks it up and is now stuck in the "transcode"
@@ -402,7 +408,7 @@ class TestDuplicates:
 
         assert second.status_code == 200
         assert second.json() == {
-            "success": "Already uploaded",
+            "success": "File uploaded successfully!",
             "filename": "memo.m4a",
             "recording_id": rec_id,
             "status": "pending",

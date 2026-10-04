@@ -150,8 +150,10 @@ async def upload_recording(
 
     if result["duplicate"]:
         response.status_code = 200
+    # "success" keeps its original text in every accepted case: the iOS Shortcut
+    # checks for it. A repeat upload is signalled by "duplicate" instead.
     return {
-        "success": "Already uploaded" if result["duplicate"] else "File uploaded successfully!",
+        "success": "File uploaded successfully!",
         "filename": upload.filename,
         **result,
     }
