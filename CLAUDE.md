@@ -160,6 +160,7 @@ Registered in `v2/backend/src/app/scheduler/jobs.py` (APScheduler, in-process):
 | `poll_transcriptions_job` | 5 min | Poll Azure Speech for completed jobs |
 | `process_uploads_job` | 5 min (and at startup) | Transcode and submit uploads a restart interrupted |
 | `refresh_meeting_notes_job` | 60 min | Generate/regenerate meeting notes |
+| `refresh_detailed_minutes_job` | 60 min | Regenerate existing detailed minutes after speaker names change |
 | `prune_run_history_job` | 24 h | Delete `sync_runs` older than `run_history_retention_days` (30) |
 
 `plaud_sync_job` is only registered when the server-wide `PLAUD_ENABLED` setting
@@ -199,6 +200,18 @@ Known quirk: Plaud `.opus` files are actually MP3.
 - `auth_disabled=True` in settings bypasses auth for local dev and tests.
 
 ---
+
+## Detailed minutes
+
+`services/minutes_service.py` writes `recordings.detailed_minutes`: terse, speaker-attributed
+minutes (~35% of transcript tokens) that keep every specific, generated with
+`gpt-5.6-luna` at low reasoning effort from `transcript_json` in ~2k-token chunks, each
+call seeing the minutes so far. Topic headings carry `[mm:ss]` anchors that line up with
+MCP `get_transcript_window` and the UI transcript. New recordings get minutes after
+speaker identification; older ones on demand (button in the recording view /
+`POST /api/recordings/{id}/generate-minutes`, runs in the background). Pasted-text
+recordings have no `transcript_json` and can't get minutes. The design and its evaluation
+live in `v2/backend/experiments/detailed_minutes/` and `plans/detailed-minutes.md`.
 
 ## MCP Server
 

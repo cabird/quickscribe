@@ -56,6 +56,9 @@ class Settings(BaseSettings):
     azure_openai_mini_deployment: str = ""
     azure_openai_chat_deployment: str = ""
     azure_openai_api_version: str = "2024-06-01"
+    # Detailed minutes: chunked pipeline (same endpoint/key/api_version)
+    azure_openai_minutes_deployment: str = "gpt-5.6-luna"
+    minutes_reasoning_effort: str = "low"
 
     # --- Azure Speech Services ---
     speech_services_key: str = ""

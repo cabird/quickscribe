@@ -412,8 +412,23 @@ async def test_real_mcp_transport_and_manual_token_compatibility(world):
     assert init.status_code == 200, init.text
     assert "mcp-session-id" not in init.headers
     tools = await rpc(client, token, "tools/list", {})
-    assert len(tools.json()["result"]["tools"]) == 9
+    names = {t["name"] for t in tools.json()["result"]["tools"]}
+    assert len(names) == 11
+    assert {"get_minutes", "get_transcript_window"} <= names
     alice, bob = await issue_tokens(world), await issue_tokens(world, "bob")
+    # The detailed-minutes tools are scoped per user under OAuth like the rest
+    for number, (tool, extra) in enumerate(
+        (("get_minutes", {}), ("get_transcript_window", {"start": "0", "end": "60"})), 20
+    ):
+        theirs = await rpc(
+            client,
+            alice["access_token"],
+            "tools/call",
+            {"name": tool, "arguments": {"recording_id": "bob-recording", **extra}},
+            number,
+        )
+        assert theirs.json()["result"].get("isError"), theirs.text
+        assert "bob private" not in theirs.text
     results = await asyncio.gather(
         *(
             rpc(

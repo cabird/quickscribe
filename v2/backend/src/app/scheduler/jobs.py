@@ -107,6 +107,68 @@ async def refresh_meeting_notes_job() -> None:
         logger.exception("Meeting notes refresh job failed")
 
 
+async def refresh_detailed_minutes_job() -> None:
+    """Regenerate detailed minutes whose speaker names changed since generation.
+
+    A stale row whose last refresh failed (or was cancelled) keeps its old
+    minutes with status 'failed' and is retried here too.
+
+    Only recordings that already have minutes are considered: minutes are
+    generated automatically for new recordings and on demand for older ones,
+    never backfilled here. Runs sequentially to keep LLM load modest.
+    """
+    from app.database import get_db
+    from app.services import minutes_service
+
+    if not get_settings().ai_enabled:
+        return
+
+    logger.info("Starting detailed minutes refresh job")
+    try:
+        db = await get_db()
+        # Both timestamps are written with SQLite datetime('now'), so they
+        # compare correctly as text.
+        rows = await db.execute_fetchall(
+            """SELECT id, user_id FROM recordings
+               WHERE detailed_minutes IS NOT NULL
+                 AND detailed_minutes_status IN ('ready', 'failed')
+                 AND speaker_mapping_updated_at IS NOT NULL
+                 AND detailed_minutes_generated_at < speaker_mapping_updated_at
+               ORDER BY COALESCE(recorded_at, created_at) DESC
+               LIMIT 5"""
+        )
+        if not rows:
+            logger.info("Detailed minutes refresh: nothing stale")
+            return
+
+        generated = 0
+        failed = 0
+        skipped = 0
+        for row in rows:
+            r = dict(row)
+            if minutes_service.is_generating(r["id"]):
+                skipped += 1
+                logger.info("Detailed minutes refresh: %s already generating", r["id"][:8])
+                continue
+            try:
+                if await minutes_service.generate_minutes(r["id"], r["user_id"]):
+                    generated += 1
+                else:
+                    failed += 1
+            except Exception as exc:
+                failed += 1
+                logger.warning(
+                    "Detailed minutes refresh failed for %s: %s", r["id"][:8], exc
+                )
+
+        logger.info(
+            "Detailed minutes refresh complete: %d regenerated, %d failed, %d skipped",
+            generated, failed, skipped,
+        )
+    except Exception:
+        logger.exception("Detailed minutes refresh job failed")
+
+
 async def prune_run_history_job() -> None:
     """Delete sync_runs (and cascaded run_logs) older than the retention window.
 
@@ -205,6 +267,15 @@ def start_scheduler() -> None:
     )
 
     scheduler.add_job(
+        refresh_detailed_minutes_job,
+        "interval",
+        minutes=60,
+        id="refresh_detailed_minutes",
+        replace_existing=True,
+        max_instances=1,
+    )
+
+    scheduler.add_job(
         prune_run_history_job,
         "interval",
         hours=24,
@@ -216,7 +287,7 @@ def start_scheduler() -> None:
     scheduler.start()
     logger.info(
         "Scheduler started — Plaud sync %s, polling every 5 min, "
-        "meeting notes every 60 min, run-history pruning every 24h "
+        "meeting notes and detailed minutes every 60 min, run-history pruning every 24h "
         "(retention %d days)",
         f"every {settings.sync_interval_minutes} min" if settings.plaud_enabled else "disabled",
         settings.run_history_retention_days,

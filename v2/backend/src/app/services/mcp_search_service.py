@@ -45,7 +45,8 @@ _MCP_COLUMNS = """
     r.id, r.title, r.description, r.duration_seconds,
     r.recorded_at, r.source, r.status, r.speaker_mapping,
     r.token_count, r.created_at, r.updated_at,
-    r.search_summary, r.search_keywords
+    r.search_summary, r.search_keywords,
+    COALESCE(r.detailed_minutes, '') != '' AS has_minutes
 """
 
 _BATCH_COLUMNS = _MCP_COLUMNS + """,
@@ -189,6 +190,9 @@ def _project_recording(
                 out["search_keywords"] = None
         else:
             out["search_keywords"] = None
+
+    if "has_minutes" in fs:
+        out["has_minutes"] = bool(row.get("has_minutes"))
 
     if "meeting_notes" in fs:
         out["meeting_notes"] = row.get("meeting_notes")

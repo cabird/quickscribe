@@ -5,6 +5,7 @@ import {
   keepPreviousData,
   type UseQueryOptions,
 } from "@tanstack/react-query";
+import { isAxiosError } from "axios";
 import * as api from "./api";
 import type {
   KeywordSearchParams,
@@ -550,6 +551,38 @@ export function useGenerateMeetingNotes() {
     mutationFn: (recordingId: string) => api.generateMeetingNotes(recordingId),
     onSuccess: (_data, recordingId) => {
       void qc.invalidateQueries({ queryKey: queryKeys.recordings.detail(recordingId) });
+    },
+  });
+}
+
+// -- Detailed minutes -------------------------------------------------------
+
+/**
+ * Start detailed minutes generation. A 409 (already running) counts as
+ * success. On success the cached recording is marked 'generating' so the
+ * detail query starts polling (see MinutesButton) until the run finishes.
+ */
+export function useGenerateMinutes() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (recordingId: string) => {
+      try {
+        return await api.generateMinutes(recordingId);
+      } catch (err) {
+        if (isAxiosError(err) && err.response?.status === 409) {
+          return { status: "generating" as const };
+        }
+        throw err;
+      }
+    },
+    onSuccess: async (_data, recordingId) => {
+      const key = queryKeys.recordings.detail(recordingId);
+      // Drop any in-flight refetch so it cannot overwrite the optimistic status.
+      await qc.cancelQueries({ queryKey: key });
+      qc.setQueryData<RecordingDetail>(key, (old) =>
+        old ? { ...old, detailed_minutes_status: "generating", detailed_minutes_error: null } : old,
+      );
+      void qc.invalidateQueries({ queryKey: key });
     },
   });
 }

@@ -320,6 +320,12 @@ class RecordingDetail(BaseModel):
     meeting_notes_generated_at: datetime | None = None
     meeting_notes_tags: list[str] | None = None
 
+    # Detailed minutes (AI-generated)
+    detailed_minutes: str | None = None
+    detailed_minutes_generated_at: datetime | None = None
+    detailed_minutes_status: str | None = None  # None | generating | ready | failed
+    detailed_minutes_error: str | None = None
+
     # Tags
     tag_ids: list[str] | None = None
 
@@ -684,6 +690,7 @@ ALLOWED_RECORDING_FIELDS: tuple[str, ...] = (
     "unresolved_speaker_count",
     "speaker_names",
     "tag_ids",
+    "has_minutes",
     "meeting_notes",
     "meeting_notes_generated_at",
     "match_tier",
@@ -693,7 +700,7 @@ ALLOWED_RECORDING_FIELDS: tuple[str, ...] = (
 _VIEW_COMPACT: tuple[str, ...] = (
     "id", "title", "recorded_at", "duration_seconds",
     "speakers", "speaker_count", "unresolved_speaker_count",
-    "match_tier", "token_count",
+    "match_tier", "token_count", "has_minutes",
 )
 _VIEW_SUMMARY: tuple[str, ...] = _VIEW_COMPACT + (
     "description", "search_summary", "tag_ids",
@@ -706,7 +713,7 @@ _VIEW_FULL_SEARCH: tuple[str, ...] = (
     "source", "status", "token_count", "created_at",
     "search_summary", "search_keywords",
     "speakers", "speaker_count", "unresolved_speaker_count", "speaker_names",
-    "tag_ids", "match_tier",
+    "tag_ids", "match_tier", "has_minutes",
 )
 # Used by get_recordings — adds heavy meeting_notes to the full view since
 # this endpoint is for deeper inspection of known IDs.

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 import time
 from datetime import date
 from enum import Enum
@@ -31,7 +32,7 @@ from app.models import (
     McpView,
     User,
 )
-from app.services import mcp_search_service
+from app.services import mcp_search_service, minutes_service
 
 router = APIRouter(prefix="/api/mcp", tags=["mcp"])
 
@@ -106,6 +107,10 @@ _FIELD_CATALOG_DOC = """
         tag_ids                     UUID array; resolve names via list_tags
                                       ~10 tok per tag
 
+      Minutes:
+        has_minutes                 True when detailed minutes exist; read
+                                      them with get_minutes (~3 tok)
+
       Heavy fields — request only when needed:
         meeting_notes               Full markdown notes (~500–3000+ tok) ⚠
                                       Available only on get_recordings.
@@ -118,7 +123,7 @@ _FIELD_CATALOG_DOC = """
     View presets:
       compact   id, title, recorded_at, duration_seconds, speakers,
                 speaker_count, unresolved_speaker_count, match_tier,
-                token_count                         (~80–150 tok / row)
+                token_count, has_minutes            (~80–150 tok / row)
       summary   compact + description, search_summary, tag_ids
                                                     (~200–400 tok / row)
       full      every field above except meeting_notes
@@ -386,11 +391,16 @@ async def get_recording(
     This is the inspection step between search and transcript retrieval:
     1. Find candidates with search_recordings
     2. Inspect each with get_recording
-    3. Only then fetch the transcript or ask targeted questions
+    3. If `has_minutes` is true, read the detailed minutes with get_minutes
+       (about a third of the transcript's size, keeps every substantive point)
+    4. Only then fetch exact wording with get_transcript_window (a time range
+       taken from the minutes' topic timestamps) or get_transcription
 
     Returns ALL fields including heavy `meeting_notes` (~500–3000+ tokens). For
     bulk lookups or to control payload size, use get_recordings instead — it
-    supports `view`/`fields` projection.
+    supports `view`/`fields` projection. The minutes text itself is not
+    included; `has_minutes`, `minutes_token_count` and `minutes_status`
+    ("generating" | "ready" | "failed" | null) describe it.
 
     Use the returned token_count to judge transcript size, search_summary to
     assess relevance, and speakers to understand who participated.
@@ -402,7 +412,8 @@ async def get_recording(
         """SELECT id, title, description, duration_seconds, recorded_at,
                   source, status, search_summary, search_keywords,
                   speaker_mapping, token_count, meeting_notes,
-                  meeting_notes_generated_at
+                  meeting_notes_generated_at, detailed_minutes,
+                  detailed_minutes_status, detailed_minutes_meta
            FROM recordings
            WHERE id = ? AND user_id = ? AND status = 'ready'""",
         (recording_id, user.id),
@@ -412,6 +423,9 @@ async def get_recording(
         raise HTTPException(status_code=404, detail="Recording not found")
 
     row = dict(rows[0])
+    minutes_tokens = minutes_service.minutes_token_count(
+        row.get("detailed_minutes"), row.get("detailed_minutes_meta"),
+    )
 
     # Parse speakers from speaker_mapping
     speakers: list[dict] = []
@@ -462,6 +476,9 @@ async def get_recording(
         "speakers": speakers,
         "tag_ids": tag_ids,
         "token_count": row.get("token_count"),
+        "has_minutes": bool(row.get("detailed_minutes")),
+        "minutes_token_count": minutes_tokens,
+        "minutes_status": row.get("detailed_minutes_status"),
     }
 
 
@@ -574,6 +591,10 @@ async def get_transcription(
     slightly exceed token_limit. Always use the returned pagination fields
     (returned_tokens, has_more) to compute the next offset rather than assuming
     exact token slicing.
+
+    If the recording has detailed minutes (get_recording `has_minutes`), read
+    them with get_minutes first and use get_transcript_window for the exact
+    wording of a topic; that is usually far cheaper than the whole transcript.
 
     Check token_count via search_recordings or get_recording first to know how
     large the transcript is. If you want an answer about a recording without
@@ -691,6 +712,288 @@ async def get_transcription(
         "token_offset": token_offset,
         "has_more": has_more,
         "text": result_text,
+    }
+
+
+# ---------------------------------------------------------------------------
+# 3b. Detailed minutes
+# ---------------------------------------------------------------------------
+
+
+@router.get("/recordings/{recording_id}/minutes", operation_id="get_minutes")
+async def get_minutes(
+    recording_id: Annotated[
+        str,
+        Path(description="Recording UUID (from search_recordings results)."),
+    ],
+    user: CurrentUser,
+):
+    """Read a recording's detailed minutes: the default way to answer questions about it.
+
+    Detailed minutes sit between the AI summary and the transcript. They keep
+    every substantive point (facts, numbers, who said what, hedging, decisions,
+    commitments, open questions) in terse shorthand at about a third of the
+    transcript's tokens, and answer most questions about a meeting nearly as
+    well as the full transcript.
+
+    Recommended staged workflow:
+    1. search_recordings to find candidates
+    2. get_recording to triage (search_summary, speakers, `has_minutes`)
+    3. get_minutes to answer the question
+    4. get_transcript_window to verify or quote: pass a topic's timestamp from
+       `topics` (or any [mm:ss] in the minutes) as `start` and the next
+       topic's timestamp as `end`
+    Reach for get_transcription (the whole transcript) only when there are no
+    minutes or the minutes and transcript windows don't answer the question.
+
+    The document: "# Title", a Date/Duration/Speakers line, an overview (gist,
+    topics, decisions, action items, open questions, with [mm:ss] times), then
+    "## Minutes" with one "### [mm:ss] Topic" section per topic; a heading
+    marked "(cont.)" continues an earlier topic. Speaker names come from voice
+    matching and may be wrong.
+
+    `topics` is parsed from those headings: [{start_ms, timestamp, title,
+    continued}], in document order.
+
+    When the recording has no minutes, `available` is false, `minutes` is
+    null and `message` explains why (status "generating" means a run is in
+    progress; "failed" includes `error`). Fall back to get_transcription.
+
+    Returns 404 if the recording doesn't exist or isn't owned by the caller.
+
+    Response shape:
+      {
+        "recording_id":  str,
+        "title":         str | null,
+        "available":     bool,
+        "status":        "generating" | "ready" | "failed" | null,
+        "error":         str | null,
+        "generated_at":  str | null,
+        "token_count":   int | null,
+        "topics":        [{start_ms, timestamp, title, continued}],
+        "minutes":       str | null,   // markdown
+        "message":       str | null    // set when minutes are unavailable
+      }"""
+    db = await get_db()
+    rows = await db.execute_fetchall(
+        """SELECT id, title, original_filename, detailed_minutes,
+                  detailed_minutes_generated_at, detailed_minutes_status,
+                  detailed_minutes_error, detailed_minutes_meta
+           FROM recordings
+           WHERE id = ? AND user_id = ? AND status = 'ready'""",
+        (recording_id, user.id),
+    )
+    if not rows:
+        raise HTTPException(status_code=404, detail="Recording not found")
+
+    row = dict(rows[0])
+    doc = row.get("detailed_minutes")
+    status = row.get("detailed_minutes_status")
+    result = {
+        "recording_id": row["id"],
+        "title": row.get("title") or row.get("original_filename"),
+        "available": bool(doc),
+        "status": status,
+        "error": row.get("detailed_minutes_error") if status == "failed" else None,
+        "generated_at": row.get("detailed_minutes_generated_at") if doc else None,
+        "token_count": minutes_service.minutes_token_count(
+            doc, row.get("detailed_minutes_meta"),
+        ),
+        "topics": minutes_service.parse_topics(doc) if doc else [],
+        "minutes": doc or None,
+        "message": None,
+    }
+    if not doc:
+        if status == "generating":
+            msg = "Detailed minutes are being generated for this recording; try again in a few minutes."
+        elif status == "failed":
+            msg = "Detailed minutes generation failed for this recording (see `error`)."
+        else:
+            msg = "Detailed minutes are not available for this recording."
+        result["message"] = msg + " Use get_transcription for the full transcript."
+    return result
+
+
+# ---------------------------------------------------------------------------
+# 3c. Transcript window
+# ---------------------------------------------------------------------------
+
+# A window is capped by duration and by tokens, whichever comes first.
+TRANSCRIPT_WINDOW_MAX_SECONDS = 30 * 60
+TRANSCRIPT_WINDOW_MAX_TOKENS = 8_000
+# Larger inputs are rejected (about 115 days; no recording is that long).
+_MAX_TIME_SECONDS = 10_000_000
+
+
+def _parse_time_param(value: str, name: str) -> int:
+    """Seconds ("312", "312.6") or "mm:ss" / "h:mm:ss" -> milliseconds; 400 otherwise."""
+    v = (value or "").strip()
+    try:
+        seconds = minutes_service.parse_ts(v) / 1000 if ":" in v else float(v)
+    except ValueError:
+        seconds = None
+    if seconds is None or not math.isfinite(seconds) or not 0 <= seconds <= _MAX_TIME_SECONDS:
+        raise HTTPException(
+            status_code=400,
+            detail=(f"Invalid {name}: {value!r}. Use seconds (e.g. 312 or 312.6) or "
+                    f"\"mm:ss\" / \"h:mm:ss\" (e.g. \"05:12\", \"1:02:03\")."),
+        )
+    # round(), not int(): float("312.6") * 1000 is 312599.99...
+    return round(seconds * 1000)
+
+
+@router.get("/recordings/{recording_id}/transcript/window", operation_id="get_transcript_window")
+async def get_transcript_window(
+    recording_id: Annotated[
+        str,
+        Path(description="Recording UUID (from search_recordings results)."),
+    ],
+    user: CurrentUser,
+    start: str = Query(
+        ...,
+        description=(
+            "Window start: seconds (e.g. 312 or 312.6) or a timestamp "
+            "\"mm:ss\" / \"h:mm:ss\" exactly as written in the minutes (e.g. "
+            "\"05:12\", \"1:02:03\")."
+        ),
+    ),
+    end: str = Query(
+        ...,
+        description=(
+            "Window end, same formats as `start`; must be after `start`. "
+            "Typically the next topic's timestamp from get_minutes."
+        ),
+    ),
+):
+    """Fetch the transcript for a time range, to verify or quote what the minutes say.
+
+    Use after get_minutes: take a topic's [mm:ss] timestamp as `start` and the
+    next topic's as `end`. Lines are the same speaker turns the minutes were
+    written from, one per line as "[mm:ss] Name: text" (h:mm:ss past an hour),
+    so timestamps line up with the minutes' headings. Speaker names come from
+    the recording's current speaker_mapping. A turn is included when it
+    starts inside [start, end] or is still running at `start`, so the first
+    line may begin slightly before `start`.
+
+    Windows are capped at 30 minutes and about 8,000 tokens. When capped,
+    `truncated` is true, `truncated_reason` says why, `covered_end` is where
+    the returned text stops, and `next_start` (seconds, millisecond
+    precision) is the exact value to pass as `start` to continue with no gap
+    or repeated line. When no turns fall in the window (e.g. it is past the
+    end of the recording), `text` is empty and `message` gives the
+    recording's duration.
+
+    Errors: 400 for an unparseable or out-of-range time or end <= start, or
+    when the recording has no timestamped transcript (pasted text, older
+    imports) — use get_transcription then. 404 if the recording doesn't exist
+    or isn't owned by the caller.
+
+    Response shape:
+      {
+        "recording_id":       str,
+        "title":              str | null,
+        "start":              str,          // requested, as mm:ss
+        "end":                str,          // requested, as mm:ss
+        "covered_end":        str | null,   // end of the last returned turn
+        "recording_duration": str,          // as mm:ss
+        "line_count":         int,
+        "tokens":             int,
+        "truncated":          bool,
+        "truncated_reason":   str | null,
+        "next_start":         float | null, // seconds; pass back as `start`
+        "message":            str | null,
+        "text":               str           // "[mm:ss] Name: text" lines
+      }"""
+    start_ms = _parse_time_param(start, "start")
+    end_ms = _parse_time_param(end, "end")
+    if end_ms <= start_ms:
+        raise HTTPException(status_code=400, detail="`end` must be after `start`.")
+
+    db = await get_db()
+    rows = await db.execute_fetchall(
+        """SELECT id, title, original_filename, duration_seconds, transcript_json,
+                  speaker_mapping
+           FROM recordings
+           WHERE id = ? AND user_id = ? AND status = 'ready'""",
+        (recording_id, user.id),
+    )
+    if not rows:
+        raise HTTPException(status_code=404, detail="Recording not found")
+    row = dict(rows[0])
+
+    no_timing = HTTPException(
+        status_code=400,
+        detail=("This recording has no timestamped transcript, so time windows "
+                "are unavailable. Use get_transcription instead."),
+    )
+    if not row.get("transcript_json"):
+        raise no_timing
+    try:
+        turns = minutes_service.transcript_turns(
+            row["transcript_json"], row.get("speaker_mapping"),
+        )
+    except (ValueError, TypeError):
+        raise no_timing
+
+    truncated_reason = None
+    effective_end_ms = end_ms
+    if end_ms - start_ms > TRANSCRIPT_WINDOW_MAX_SECONDS * 1000:
+        effective_end_ms = start_ms + TRANSCRIPT_WINDOW_MAX_SECONDS * 1000
+        truncated_reason = "window longer than 30 minutes"
+
+    # Turns are sorted by start. Paging with next_start = the first turn not
+    # returned keeps pages gap-free: every later turn starts at or after it,
+    # and earlier (already returned) turns have ended by then unless two
+    # speakers genuinely overlap.
+    in_window = [
+        t for t in turns
+        if (t.start_ms >= start_ms or t.end_ms > start_ms) and t.start_ms <= effective_end_ms
+    ]
+    lines: list[str] = []
+    tokens = 0
+    next_turn = None
+    for i, t in enumerate(in_window):
+        line = t.line()
+        n = minutes_service.ntok(line) + 1
+        if lines and tokens + n > TRANSCRIPT_WINDOW_MAX_TOKENS:
+            truncated_reason = "window over ~8,000 tokens"
+            next_turn = in_window[i]
+            break
+        lines.append(line)
+        tokens += n
+
+    if truncated_reason and next_turn is None:
+        # Duration cap: continue with the first turn after the effective end,
+        # unless nothing more falls inside the requested window.
+        next_turn = next((t for t in turns if t.start_ms > effective_end_ms), None)
+        if next_turn is None or next_turn.start_ms > end_ms:
+            truncated_reason, next_turn = None, None
+
+    included = in_window[:len(lines)]
+    duration_ms = round((row.get("duration_seconds") or 0) * 1000) or (
+        max(t.end_ms for t in turns) if turns else 0
+    )
+    message = None
+    if not lines:
+        message = (f"No transcript turns between {minutes_service.ts(start_ms)} and "
+                   f"{minutes_service.ts(end_ms)}. The recording is "
+                   f"{minutes_service.ts(duration_ms)} long.")
+
+    return {
+        "recording_id": row["id"],
+        "title": row.get("title") or row.get("original_filename"),
+        "start": minutes_service.ts(start_ms),
+        "end": minutes_service.ts(end_ms),
+        "covered_end": (minutes_service.ts(max(t.end_ms for t in included))
+                        if included else None),
+        "recording_duration": minutes_service.ts(duration_ms),
+        "line_count": len(lines),
+        "tokens": tokens,
+        "truncated": truncated_reason is not None,
+        "truncated_reason": truncated_reason,
+        "next_start": next_turn.start_ms / 1000 if next_turn else None,
+        "message": message,
+        "text": "\n".join(lines),
     }
 
 
@@ -1019,21 +1322,26 @@ async def synthesize_recordings(body: McpSynthesizeRequest, user: CurrentUser):
     Use this when you need to combine information from several recordings to answer
     a question, identify patterns, compare discussions over time, or produce a
     unified summary. Pass a list of recording IDs (from search_recordings) and a
-    question. The server packs each recording's full transcript and metadata into
-    a single LLM call and returns a synthesized answer.
+    question. The server packs each recording's best available text and metadata
+    into a single LLM call and returns a synthesized answer.
 
     This is ideal for questions like "what recurring themes appear across these
     meetings?" or "how did the discussion about X evolve over time?" where
     single-recording ai_chat would require many separate calls and manual synthesis.
 
-    Per-recording context preference: meeting_notes (if present) > diarized
-    transcript > plain transcript. Speaker names are extracted from each
+    Per-recording context preference: detailed minutes (if present) >
+    meeting_notes > diarized transcript > plain transcript. Detailed minutes
+    keep nearly every substantive point at about a third of the transcript's
+    size, so more recordings fit. Speaker names are extracted from each
     recording's speaker_mapping and attached to the AI prompt for attribution.
 
-    Limit: 20 recordings per call (returns 400 if exceeded). Uses full
-    transcripts (truncated by the AI service to fit context limits when
-    necessary). Returns 400 if no valid recordings are found (IDs missing or
-    not owned by caller), 503 if AI is not configured.
+    Limit: 20 recordings per call (returns 400 if exceeded). Recordings are
+    packed one after another (database order, not necessarily request order)
+    until the context budget is used up: the recording that crosses the
+    limit is truncated and any later recordings are dropped from the prompt,
+    so prefer fewer, more relevant recordings. Returns 400 if no valid
+    recordings are found (IDs missing or not owned by caller), 503 if AI is
+    not configured.
 
     Response shape:
       {
@@ -1058,7 +1366,7 @@ async def synthesize_recordings(body: McpSynthesizeRequest, user: CurrentUser):
     rows = await db.execute_fetchall(
         f"""SELECT id, title, recorded_at, speaker_mapping,
                    search_summary, diarized_text, transcript_text,
-                   meeting_notes
+                   meeting_notes, detailed_minutes
             FROM recordings
             WHERE id IN ({placeholders}) AND user_id = ? AND status = 'ready'""",
         [*body.recording_ids, user.id],
@@ -1086,8 +1394,11 @@ async def synthesize_recordings(body: McpSynthesizeRequest, user: CurrentUser):
             except (json.JSONDecodeError, AttributeError):
                 pass
 
-        # Prefer meeting notes > diarized > plain text
-        text = r.get("meeting_notes") or r.get("diarized_text") or r.get("transcript_text") or ""
+        # Prefer detailed minutes > meeting notes > diarized > plain text
+        text = (
+            r.get("detailed_minutes") or r.get("meeting_notes")
+            or r.get("diarized_text") or r.get("transcript_text") or ""
+        )
 
         recordings_data.append({
             "title": r.get("title"),

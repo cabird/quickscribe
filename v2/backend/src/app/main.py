@@ -216,19 +216,22 @@ mcp = _QuickScribeMCP(
 mcp.server.instructions = """QuickScribe is a read-only audio recording library for finding, inspecting, and \
 extracting information from personal recordings and transcripts. Recordings may come from a Plaud wearable \
 recorder or from manual uploads/pasted text. Each recording can include AI-generated titles, descriptions, \
-retrieval-oriented summaries, full transcripts, identified speakers linked to known participants, and metadata \
-such as recording date, duration, tags, and transcript token count.
+retrieval-oriented summaries, detailed minutes, full transcripts, identified speakers linked to known \
+participants, and metadata such as recording date, duration, tags, and transcript token count.
 
 Use this server as a staged retrieval workflow rather than jumping straight into transcript extraction. Start \
 with search_recordings to find relevant recordings by topic, date range, participant, or transcript content. \
 Then use get_recording to inspect the most promising items, especially the AI-generated search_summary, \
-keywords, and normalized speaker information. Use token_count to judge transcript size before requesting full \
-text. When you need exact wording or source evidence, call get_transcription; when you need a focused answer \
-about a single recording, use ai_chat.
+keywords, normalized speaker information, and has_minutes. To answer questions about a recording, read its \
+detailed minutes with get_minutes: they keep nearly every substantive point at about a third of the transcript's \
+size, with [mm:ss] timestamps per topic. To verify or quote, call get_transcript_window with a topic's time \
+range. Call get_transcription (the whole transcript; check token_count first) only when a recording has no \
+minutes or the minutes and windows fall short; when you need a focused answer about a single recording, use \
+ai_chat.
 
 This server is optimized for fan-out investigation across multiple recordings. It is often effective to search \
-broadly, inspect several candidate recordings in parallel, and then extract transcripts or ask targeted \
-questions only for the most relevant ones. search_recordings supports a cascade mode that searches titles \
+broadly, inspect several candidate recordings in parallel, and then read minutes, extract transcripts or ask \
+targeted questions only for the most relevant ones. search_recordings supports a cascade mode that searches titles \
 first, then AI summaries, then full transcript text; this is usually the best default because it surfaces \
 likely matches quickly while still falling back to deeper transcript search when needed.
 

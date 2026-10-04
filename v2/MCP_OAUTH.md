@@ -28,7 +28,8 @@ MCP tokens remain supported independently.
    binding. The resulting token belongs to the existing QuickScribe user ID.
    Microsoft's credentials are never sent to the MCP client.
 
-OAuth credentials authorize the nine existing MCP tools and their `/api/mcp`
+OAuth credentials authorize the read-only MCP tools (eleven since detailed
+minutes added `get_minutes` and `get_transcript_window`) and their `/api/mcp`
 backing routes. They cannot access general recording writes, account settings,
 API-key creation, manual-token creation or connected-app management. Every MCP
 HTTP request validates its bearer credential before protocol dispatch. Invalid

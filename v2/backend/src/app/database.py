@@ -86,6 +86,13 @@ CREATE TABLE IF NOT EXISTS recordings (
     meeting_notes_tags      TEXT,
     speaker_mapping_updated_at TEXT,
 
+    -- Detailed minutes (AI-generated, chunked pipeline)
+    detailed_minutes            TEXT,
+    detailed_minutes_generated_at TEXT,
+    detailed_minutes_status     TEXT,  -- NULL | 'generating' | 'ready' | 'failed'
+    detailed_minutes_error      TEXT,
+    detailed_minutes_meta       TEXT,  -- JSON: model, effort, prompts, token usage, timings
+
     -- Timestamps
     created_at          TEXT DEFAULT (datetime('now')),
     updated_at          TEXT DEFAULT (datetime('now'))
@@ -310,8 +317,13 @@ END;
 # Column order matters: search_service.BM25_WEIGHTS and the snippet column
 # numbers follow it.
 
-SEARCH_INDEX_COLUMNS = ("title", "summary", "notes", "description", "speakers", "transcript")
-_SEARCH_WATCHED = "title, search_summary, meeting_notes, description, speaker_mapping, diarized_text, transcript_text"
+SEARCH_INDEX_COLUMNS = (
+    "title", "summary", "notes", "description", "speakers", "minutes", "transcript",
+)
+_SEARCH_WATCHED = (
+    "title, search_summary, meeting_notes, description, speaker_mapping, "
+    "detailed_minutes, diarized_text, transcript_text"
+)
 _SEARCH_COLS = ", ".join(SEARCH_INDEX_COLUMNS)
 
 
@@ -347,6 +359,7 @@ SELECT
     (SELECT group_concat(json_extract(je.value, '$.displayName'), ' ')
        FROM json_each(CASE WHEN json_valid(r.speaker_mapping) THEN r.speaker_mapping END) AS je
       WHERE je.type = 'object') AS speakers,
+    r.detailed_minutes AS minutes,
     COALESCE(r.diarized_text, r.transcript_text) AS transcript
 FROM recordings r;
 
@@ -545,6 +558,17 @@ async def _migrate_schema(db: aiosqlite.Connection) -> None:
     if "speaker_mapping_updated_at" not in columns:
         await db.execute("ALTER TABLE recordings ADD COLUMN speaker_mapping_updated_at TEXT")
 
+    # Add detailed minutes columns if missing
+    for col in (
+        "detailed_minutes",
+        "detailed_minutes_generated_at",
+        "detailed_minutes_status",
+        "detailed_minutes_error",
+        "detailed_minutes_meta",
+    ):
+        if col not in columns:
+            await db.execute(f"ALTER TABLE recordings ADD COLUMN {col} TEXT")
+
     # Backfill null recorded_at with created_at for uploaded recordings
     await db.execute(
         "UPDATE recordings SET recorded_at = created_at WHERE recorded_at IS NULL"
@@ -558,6 +582,20 @@ async def _migrate_schema(db: aiosqlite.Connection) -> None:
     await db.execute(CONTENT_HASH_INDEX_SQL)
 
     await db.commit()
+
+
+async def reset_interrupted_minutes(db: aiosqlite.Connection) -> int:
+    """Mark minutes generations left 'generating' by a previous process as failed.
+
+    The app is single-instance, so at startup nothing can still be generating.
+    """
+    cursor = await db.execute(
+        """UPDATE recordings SET detailed_minutes_status = 'failed',
+                  detailed_minutes_error = 'interrupted (server restart)'
+           WHERE detailed_minutes_status = 'generating'"""
+    )
+    await db.commit()
+    return cursor.rowcount
 
 
 async def init_db() -> aiosqlite.Connection:
@@ -580,6 +618,7 @@ async def init_db() -> aiosqlite.Connection:
 
     # Run migrations for existing databases
     await _migrate_schema(_db)
+    await reset_interrupted_minutes(_db)
     await _ensure_search_index(_db)
 
     return _db

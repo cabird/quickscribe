@@ -596,6 +596,16 @@ export async function generateMeetingNotes(
   return data;
 }
 
+/** Start detailed minutes generation in the background (202). 409 = already running. */
+export async function generateMinutes(
+  recordingId: string,
+): Promise<{ status: "generating" }> {
+  const { data } = await apiClient.post<{ status: "generating" }>(
+    `/api/recordings/${recordingId}/generate-minutes`,
+  );
+  return data;
+}
+
 export async function generateSearchSummary(
   recordingId: string,
 ): Promise<{ summary: string; keywords: string[] }> {

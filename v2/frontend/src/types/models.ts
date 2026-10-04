@@ -59,6 +59,8 @@ export interface UserProfile {
   plaud_server_enabled: boolean;
 }
 
+export type DetailedMinutesStatus = "generating" | "ready" | "failed";
+
 export interface Recording {
   id: string;
   user_id: string;
@@ -86,6 +88,11 @@ export interface Recording {
   meeting_notes: string | null;
   meeting_notes_generated_at: string | null;
   meeting_notes_tags: string[] | null;
+  /** Detailed minutes markdown (chunked, timestamped); null until generated. */
+  detailed_minutes: string | null;
+  detailed_minutes_generated_at: string | null;
+  detailed_minutes_status: DetailedMinutesStatus | null;
+  detailed_minutes_error: string | null;
   tags: Tag[];
   collections?: Array<{ id: string; name: string }>;
   created_at: string;

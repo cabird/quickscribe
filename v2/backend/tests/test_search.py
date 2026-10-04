@@ -338,8 +338,9 @@ class TestIndexBuild:
             await _ensure_search_index(db)
             # Simulate an index that lost a row (e.g. a REPLACE into recordings)
             await db.execute(
-                "INSERT INTO search_fts(search_fts, rowid, title, summary, notes, description, speakers, transcript) "
-                "SELECT 'delete', doc_id, title, summary, notes, description, speakers, transcript FROM search_docs"
+                "INSERT INTO search_fts(search_fts, rowid, title, summary, notes, description, speakers, minutes, transcript) "
+                "SELECT 'delete', doc_id, title, summary, notes, description, speakers, minutes, transcript "
+                "FROM search_docs"
             )
             await db.commit()
             await _ensure_search_index(db)
