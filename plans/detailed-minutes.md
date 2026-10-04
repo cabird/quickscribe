@@ -61,7 +61,7 @@ and 39% for existing `meeting_notes`, ~94% of sampled statements grounded.
 - Tests: turn building, chunking, prompt assembly, status transitions, failure path, with the
   OpenAI client mocked.
 
-### T2 — Triggers: endpoint, post-transcription hook, staleness job  ☐
+### T2 — Triggers: endpoint, post-transcription hook, staleness job  ☑
 - `POST /api/recordings/{id}/generate-minutes` → 202 and spawns generation in the background
   (reuse the `_spawn` pattern so shutdown cancels it); 409 if already generating; 400 if no
   `transcript_json`. Status via the recording detail payload.
@@ -107,3 +107,8 @@ and 39% for existing `meeting_notes`, ~94% of sampled statements grounded.
   instance, so any such row is dead) instead of a 30-min timeout in T2's job. Verified
   gpt-5.6-luna accepts `reasoning_effort` on api versions 2024-06-01 and 2025-01-01-preview, so
   no separate api-version setting. Empty LLM output fails the run; `length` truncation only warns.
+- T2 review: `generated_at` = time speaker names were read (not run end), so renames during a
+  run still trigger D7. Refresh job also retries stale rows whose last refresh `failed`.
+  Re-transcribed old recordings regenerate minutes (accepted: new content). Pasted-text
+  recordings have no `transcript_json`, so they can't get minutes (no timestamps); T4 hides
+  the button when the recording has no timed transcript.

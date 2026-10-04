@@ -50,6 +50,15 @@ def _spawn(coro) -> None:
     task.add_done_callback(_on_task_done)
 
 
+def spawn_background(coro) -> None:
+    """Run a coroutine as a strongly referenced background task.
+
+    Shared by other services (e.g. detailed minutes) so their tasks are also
+    cancelled by ``cancel_background_tasks`` at shutdown.
+    """
+    _spawn(coro)
+
+
 def _on_task_done(task: asyncio.Task) -> None:
     _background_tasks.discard(task)
     if not task.cancelled() and task.exception() is not None:
@@ -766,6 +775,22 @@ async def _handle_transcription_complete(
             )
             if run_logger:
                 await run_logger.warning("Speaker ID failed for %s: %s" % (recording_id[:8], exc))
+
+    # Detailed minutes (non-fatal). Runs after speaker identification so the
+    # first generation already has names; spawned in the background because a
+    # multi-minute LLM run must not hold up the poll job.
+    # Silent recordings (no text) are skipped: they would only fail.
+    if settings.ai_enabled and (diarized_text or transcript_text):
+        try:
+            from app.services import minutes_service
+
+            minutes_service.spawn_generation(recording_id, user_id)
+            if run_logger:
+                await run_logger.info("Detailed minutes generation started for %s" % recording_id[:8])
+        except Exception as exc:
+            logger.warning("Could not start detailed minutes for %s: %s", recording_id, exc)
+            if run_logger:
+                await run_logger.warning("Detailed minutes failed to start for %s: %s" % (recording_id[:8], exc))
 
     logger.info("Completed processing for recording %s", recording_id)
 

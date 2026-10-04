@@ -299,6 +299,51 @@ async def generate_meeting_notes(recording_id: str, user: CurrentUser):
     }
 
 
+@router.post("/{recording_id}/generate-minutes", status_code=202)
+async def generate_minutes(recording_id: str, user: CurrentUser):
+    """Start detailed minutes generation in the background.
+
+    Returns 202 at once; progress is visible as ``detailed_minutes_status`` on
+    the recording detail. 409 if a generation is already running.
+    """
+    from app.config import get_settings
+    from app.database import get_db
+    from app.services import minutes_service
+
+    recording = await recording_service.get_recording(user.id, recording_id)
+    if not recording:
+        raise HTTPException(status_code=404, detail="Recording not found")
+    if not get_settings().ai_enabled:
+        raise HTTPException(status_code=503, detail="AI is not configured")
+    if not recording.transcript_json:
+        raise HTTPException(status_code=400, detail="Recording has no transcript")
+    # The in-process guard covers runs whose DB status is not 'generating'
+    # (yet): a run started by the transcription hook or refresh job that has
+    # not written its status, or whose status was reset. The conditional
+    # UPDATE below covers the window before a spawned task enters the guard.
+    if minutes_service.is_generating(recording_id):
+        raise HTTPException(status_code=409, detail="Minutes are already being generated")
+
+    # Check-and-set in one statement so two quick requests cannot both start a
+    # run, and so an immediate GET already shows 'generating'.
+    db = await get_db()
+    cursor = await db.execute(
+        """UPDATE recordings SET detailed_minutes_status = 'generating',
+                  detailed_minutes_error = NULL
+           WHERE id = ? AND user_id = ?
+             AND (detailed_minutes_status IS NULL
+                  OR detailed_minutes_status != 'generating')""",
+        (recording_id, user.id),
+    )
+    claimed = cursor.rowcount
+    await db.commit()
+    if not claimed:
+        raise HTTPException(status_code=409, detail="Minutes are already being generated")
+
+    minutes_service.spawn_generation(recording_id, user.id)
+    return {"status": "generating"}
+
+
 @router.post("/{recording_id}/reidentify", response_model=RecordingDetail)
 async def reidentify_speakers(recording_id: str, user: CurrentUser):
     """Clear auto/suggest speaker data and re-run identification.

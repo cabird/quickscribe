@@ -320,6 +320,12 @@ class RecordingDetail(BaseModel):
     meeting_notes_generated_at: datetime | None = None
     meeting_notes_tags: list[str] | None = None
 
+    # Detailed minutes (AI-generated)
+    detailed_minutes: str | None = None
+    detailed_minutes_generated_at: datetime | None = None
+    detailed_minutes_status: str | None = None  # None | generating | ready | failed
+    detailed_minutes_error: str | None = None
+
     # Tags
     tag_ids: list[str] | None = None
 

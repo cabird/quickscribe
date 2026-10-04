@@ -333,6 +333,17 @@ async def run_pipeline(client: AsyncAzureOpenAI, info: MeetingInfo, turns: list[
 # ---------------------------------------------------------------------------
 
 
+def spawn_generation(recording_id: str, user_id: str) -> None:
+    """Start ``generate_minutes`` as a background task.
+
+    Uses the shared sync_service task set so the run is not garbage collected
+    and is cancelled at shutdown (generate_minutes then marks it failed).
+    """
+    from app.services import sync_service
+
+    sync_service.spawn_background(generate_minutes(recording_id, user_id))
+
+
 async def generate_minutes(recording_id: str, user_id: str) -> bool:
     """Generate and store detailed minutes for a recording.
 
@@ -356,7 +367,8 @@ async def _generate(recording_id: str, user_id: str) -> bool:
     db = await get_db()
     rows = await db.execute_fetchall(
         """SELECT id, title, original_filename, recorded_at, duration_seconds,
-                  transcript_json, speaker_mapping
+                  transcript_json, speaker_mapping,
+                  datetime('now') AS read_at
            FROM recordings WHERE id = ? AND user_id = ?""",
         (recording_id, user_id),
     )
@@ -364,6 +376,11 @@ async def _generate(recording_id: str, user_id: str) -> bool:
         logger.warning("Recording %s not found for minutes generation", recording_id)
         return False
     rec = dict(rows[0])
+    # generated_at records when speaker names were read, not when the run
+    # ended, so a rename during a multi-minute run still leaves the minutes
+    # stale for refresh_detailed_minutes_job. Same format as
+    # speaker_mapping_updated_at (SQLite datetime('now')).
+    read_at = rec["read_at"]
     if not rec.get("transcript_json"):
         logger.warning("Recording %s has no transcript_json for minutes", recording_id)
         return False
@@ -394,11 +411,11 @@ async def _generate(recording_id: str, user_id: str) -> bool:
 
         await db.execute(
             """UPDATE recordings
-               SET detailed_minutes = ?, detailed_minutes_generated_at = datetime('now'),
+               SET detailed_minutes = ?, detailed_minutes_generated_at = ?,
                    detailed_minutes_status = 'ready', detailed_minutes_error = NULL,
                    detailed_minutes_meta = ?, updated_at = datetime('now')
                WHERE id = ? AND user_id = ?""",
-            (doc, json.dumps(meta), recording_id, user_id),
+            (doc, read_at, json.dumps(meta), recording_id, user_id),
         )
         await db.commit()
         logger.info(
