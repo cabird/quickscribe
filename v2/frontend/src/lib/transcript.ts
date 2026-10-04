@@ -210,3 +210,40 @@ export function resolveTranscript(
     speakerMapping,
   };
 }
+
+/**
+ * Parse a minutes timestamp ("mm:ss" or "h:mm:ss", brackets optional) into
+ * milliseconds. Returns null for anything else, including out-of-range
+ * minute/second fields. Pure.
+ */
+export function parseTimestampMs(raw: string): number | null {
+  const match = raw.trim().match(/^\[?(?:(\d+):)?(\d{1,3}):(\d{2})\]?$/);
+  if (!match) return null;
+  const h = match[1] != null ? parseInt(match[1], 10) : 0;
+  const m = parseInt(match[2], 10);
+  const s = parseInt(match[3], 10);
+  if (s >= 60 || (match[1] != null && m >= 60)) return null;
+  return (h * 3600 + m * 60 + s) * 1000;
+}
+
+/**
+ * Id of the transcript entry containing `timeMs`: the last timed entry whose
+ * start is <= timeMs (so a time in a gap maps to the preceding turn). A time
+ * before the first entry maps to the first timed entry. Entries are assumed to
+ * be in time order; untimed entries are ignored. Returns null if no entry has
+ * a start time. Pure.
+ */
+export function findEntryIdAtTime(
+  entries: Pick<TranscriptEntryData, "id" | "startTimeMs">[],
+  timeMs: number
+): string | null {
+  let first: string | null = null;
+  let match: string | null = null;
+  for (const entry of entries) {
+    if (entry.startTimeMs == null) continue;
+    if (first === null) first = entry.id;
+    if (entry.startTimeMs <= timeMs) match = entry.id;
+    else break;
+  }
+  return match ?? first;
+}

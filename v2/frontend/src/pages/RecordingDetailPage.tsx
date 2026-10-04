@@ -43,7 +43,8 @@ import { AudioPlayer } from "@/components/recordings/AudioPlayer";
 import type { AudioPlayerHandle } from "@/components/recordings/AudioPlayer";
 import { TranscriptView } from "@/components/recordings/TranscriptView";
 import { ChatPanel } from "@/components/recordings/ChatPanel";
-import { resolveTranscript } from "@/lib/transcript";
+import { MinutesButton } from "@/components/recordings/MinutesButton";
+import { findEntryIdAtTime, resolveTranscript } from "@/lib/transcript";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import {
   useRecording,
@@ -273,10 +274,30 @@ export default function RecordingDetailPage() {
   );
 
   const handleHighlightEntry = useCallback((entryId: string) => {
-    setHighlightedEntryId(entryId);
     if (highlightTimeoutRef.current) clearTimeout(highlightTimeoutRef.current);
-    highlightTimeoutRef.current = setTimeout(() => setHighlightedEntryId(null), 2000);
+    // Clear first, then set on the next frame, so highlighting the same entry
+    // again within the window still re-scrolls and re-highlights it.
+    setHighlightedEntryId(null);
+    requestAnimationFrame(() => {
+      setHighlightedEntryId(entryId);
+      highlightTimeoutRef.current = setTimeout(() => setHighlightedEntryId(null), 2000);
+    });
   }, []);
+
+  const hasTimedTranscript = useMemo(
+    () => resolved.entries.some((e) => e.startTimeMs != null),
+    [resolved]
+  );
+
+  // Minutes timestamp links: seek the audio and highlight the transcript turn.
+  const handleJumpToTime = useCallback(
+    (timeMs: number) => {
+      audioPlayerRef.current?.seekTo(timeMs);
+      const entryId = findEntryIdAtTime(resolved.entries, timeMs);
+      if (entryId) handleHighlightEntry(entryId);
+    },
+    [resolved, handleHighlightEntry]
+  );
 
   const handleRunAnalysis = useCallback(
     async (template: AnalysisTemplate) => {
@@ -376,6 +397,11 @@ export default function RecordingDetailPage() {
                 recordingId={id!}
                 meetingNotes={recording.meeting_notes}
                 meetingNotesTags={recording.meeting_notes_tags}
+              />
+              <MinutesButton
+                recordingId={id!}
+                hasTimedTranscript={hasTimedTranscript}
+                onJumpToTime={handleJumpToTime}
               />
               <SearchSummaryButton
                 recordingId={id!}

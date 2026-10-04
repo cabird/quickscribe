@@ -83,7 +83,7 @@ and 39% for existing `meeting_notes`, ~94% of sampled statements grounded.
 - Search: add minutes to `search_docs`, `SEARCH_INDEX_COLUMNS`, `_SEARCH_WATCHED`, BM25 weight;
   update `tests/test_search.py` column list. Rebuild happens automatically via schema hash.
 
-### T4 — Frontend: minutes button and viewer  ☐
+### T4 — Frontend: minutes button and viewer  ☑
 - New icon in the recording action bar next to meeting notes: tooltip "View detailed
   minutes" / "Generate detailed minutes" / spinner while `generating` (polls the recording
   until done); error state with retry.
