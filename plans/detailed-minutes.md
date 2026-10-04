@@ -1,6 +1,6 @@
 # Detailed minutes: build plan
 
-Status: **in progress** · Branch: `cabird/detailed-minutes-experiment` · Process: agentic
+Status: **deployed in 2.8.18** · Branch: `cabird/detailed-minutes-experiment` · Process: agentic
 (implement → review → fix → tests → test review → verify → commit, one commit per task)
 
 ## Goal
@@ -93,7 +93,7 @@ and 39% for existing `meeting_notes`, ~94% of sampled statements grounded.
   existing `handleHighlightEntry`).
 - Types in `models.ts`, API/query hooks in `api.ts` / `queries.ts`.
 
-### Verify + deploy (orchestrator)  ☐
+### Verify + deploy (orchestrator)  ☑
 - Full backend suite (compare against the known pre-existing failures), `make lint`,
   frontend build.
 - `make deploy`; confirm version; generate minutes for one recording from the UI and via
@@ -117,3 +117,9 @@ and 39% for existing `meeting_notes`, ~94% of sampled statements grounded.
   search onto `search_service`. Minutes BM25 weight 1.0 (same as transcript) so recordings with
   minutes don't outrank older ones just for having them. Transcript windows include any turn
   overlapping the range; `next_start` is millisecond-exact for gap-free paging.
+- 2026-10-04: Deployed 2.8.18. Live checks: generate-minutes 202 → ready in ~15 s (8-min
+  recording); MCP get_minutes topics + get_transcript_window aligned ([04:40] lands on the
+  described turn); get_recording has_minutes; /api/search finds a minutes-only phrase (33 ms);
+  UI viewer renders, timestamp click closes dialog, seeks to 399 s and scrolls the transcript.
+  Audio playback itself not observable from the background automation tab (Chrome defers media
+  in hidden tabs).
