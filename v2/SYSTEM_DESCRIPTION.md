@@ -35,6 +35,7 @@ v2/
 │   │   │   ├── plaud_client.py       # Plaud.ai API client
 │   │   │   ├── deep_search.py        # Multi-recording semantic search
 │   │   │   ├── search_summary_service.py  # AI search summaries
+│   │   │   ├── minutes_service.py     # Detailed minutes (chunked, gpt-5.6-luna)
 │   │   │   └── ...
 │   │   ├── scheduler/          # APScheduler background jobs
 │   │   └── prompts/            # Jinja2 LLM prompt templates
