@@ -475,7 +475,16 @@ async def test_init_db_migrates_then_resets(monkeypatch, tmp_path):
         # A pre-feature production DB: full schema (incl. FTS) minus the minutes columns.
         await old.executescript(db_mod.SCHEMA_SQL)
         await old.executescript(db_mod.FTS_SCHEMA_SQL)
-        await old.executescript(db_mod.SEARCH_SCHEMA_SQL)
+        # The search schema as it was before minutes were indexed (the current
+        # view reads detailed_minutes, so it can't exist without the column).
+        pre_minutes_search = (
+            db_mod.SEARCH_SCHEMA_SQL
+            .replace("    r.detailed_minutes AS minutes,\n", "")
+            .replace("speakers, minutes, transcript", "speakers, transcript")
+            .replace("detailed_minutes, diarized_text", "diarized_text")
+        )
+        assert "minutes" not in pre_minutes_search
+        await old.executescript(pre_minutes_search)
         for col in ("detailed_minutes", "detailed_minutes_generated_at", "detailed_minutes_status",
                     "detailed_minutes_error", "detailed_minutes_meta"):
             await old.execute(f"ALTER TABLE recordings DROP COLUMN {col}")
@@ -503,6 +512,13 @@ async def test_init_db_migrates_then_resets(monkeypatch, tmp_path):
         rows = await db.execute_fetchall(
             "SELECT detailed_minutes_status, detailed_minutes_error FROM recordings WHERE id = 'r1'")
         assert tuple(rows[0]) == ("failed", "interrupted (server restart)")
+        # The search index was rebuilt to the current schema and indexes minutes.
+        meta = await db.execute_fetchall("SELECT value FROM search_meta WHERE key = 'schema_version'")
+        assert meta[0][0] == db_mod.SEARCH_SCHEMA_VERSION
+        await db.execute("UPDATE recordings SET detailed_minutes = 'quokkaplan' WHERE id = 'r1'")
+        await db.commit()
+        hits = await db.execute_fetchall("SELECT rowid FROM search_fts WHERE search_fts MATCH 'quokkaplan'")
+        assert len(hits) == 1
     finally:
         if db is not None:
             await db.close()

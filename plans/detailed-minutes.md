@@ -72,7 +72,7 @@ and 39% for existing `meeting_notes`, ~94% of sampled statements grounded.
   (D7). Never generates for recordings that have no minutes (D5).
 - `RecordingDetail` model + row mapping expose the minutes fields.
 
-### T3 — MCP, search, synthesis  ☐
+### T3 — MCP, search, synthesis  ☑
 - `get_minutes(recording_id)`: minutes markdown, generated_at, token count, and a topic
   index `[{start_ms, timestamp, title}]` parsed from the headings; clear message if none.
 - `get_transcript_window(recording_id, start, end)`: transcript lines with `[mm:ss]` and
@@ -112,3 +112,8 @@ and 39% for existing `meeting_notes`, ~94% of sampled statements grounded.
   Re-transcribed old recordings regenerate minutes (accepted: new content). Pasted-text
   recordings have no `transcript_json`, so they can't get minutes (no timestamps); T4 hides
   the button when the recording has no timed transcript.
+- T3 review: MCP `search_recordings` still uses the legacy `recordings_fts` index, which does not
+  include minutes; only the Search page / `/api/search` index covers them. Follow-up: move MCP
+  search onto `search_service`. Minutes BM25 weight 1.0 (same as transcript) so recordings with
+  minutes don't outrank older ones just for having them. Transcript windows include any turn
+  overlapping the range; `next_start` is millisecond-exact for gap-free paging.

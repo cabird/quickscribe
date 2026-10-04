@@ -316,8 +316,13 @@ END;
 # Column order matters: search_service.BM25_WEIGHTS and the snippet column
 # numbers follow it.
 
-SEARCH_INDEX_COLUMNS = ("title", "summary", "notes", "description", "speakers", "transcript")
-_SEARCH_WATCHED = "title, search_summary, meeting_notes, description, speaker_mapping, diarized_text, transcript_text"
+SEARCH_INDEX_COLUMNS = (
+    "title", "summary", "notes", "description", "speakers", "minutes", "transcript",
+)
+_SEARCH_WATCHED = (
+    "title, search_summary, meeting_notes, description, speaker_mapping, "
+    "detailed_minutes, diarized_text, transcript_text"
+)
 _SEARCH_COLS = ", ".join(SEARCH_INDEX_COLUMNS)
 
 
@@ -353,6 +358,7 @@ SELECT
     (SELECT group_concat(json_extract(je.value, '$.displayName'), ' ')
        FROM json_each(CASE WHEN json_valid(r.speaker_mapping) THEN r.speaker_mapping END) AS je
       WHERE je.type = 'object') AS speakers,
+    r.detailed_minutes AS minutes,
     COALESCE(r.diarized_text, r.transcript_text) AS transcript
 FROM recordings r;
 

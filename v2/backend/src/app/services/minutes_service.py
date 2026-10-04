@@ -19,6 +19,7 @@ import asyncio
 import hashlib
 import json
 import logging
+import re
 import time
 from dataclasses import dataclass
 
@@ -73,6 +74,73 @@ def ts(ms: int) -> str:
     s = ms // 1000
     h, m, s = s // 3600, s // 60 % 60, s % 60
     return f"{h}:{m:02}:{s:02}" if h else f"{m:02}:{s:02}"
+
+
+_TS_RE = re.compile(r"^(?:(\d+):)?(\d{1,3}):(\d{2})$")
+
+
+def parse_ts(text: str) -> int:
+    """Parse "mm:ss" or "h:mm:ss" (the format ``ts`` writes) into milliseconds.
+
+    Raises ValueError on anything else, including seconds >= 60 or, in
+    h:mm:ss form, minutes >= 60.
+    """
+    m = _TS_RE.match(text.strip())
+    if not m:
+        raise ValueError(f"not a mm:ss or h:mm:ss timestamp: {text!r}")
+    h, mins, secs = int(m.group(1) or 0), int(m.group(2)), int(m.group(3))
+    if secs >= 60 or (m.group(1) is not None and mins >= 60):
+        raise ValueError(f"out-of-range timestamp: {text!r}")
+    return ((h * 60 + mins) * 60 + secs) * 1000
+
+
+# "### [mm:ss] Topic" or "### [mm:ss] (cont.) Topic" in the minutes body.
+_TOPIC_RE = re.compile(
+    r"^###\s+\[(?P<ts>\d+:\d{2}(?::\d{2})?)\]\s*(?P<cont>\(cont\.?\)\s*)?(?P<title>.*?)\s*$",
+    re.IGNORECASE,
+)
+
+
+def parse_topics(document: str) -> list[dict]:
+    """Topic index from a minutes document's ``### [ts] Topic`` headings.
+
+    Only headings under ``## Minutes`` are read (the whole document when that
+    heading is missing). Returns [{start_ms, timestamp, title, continued}].
+    """
+    lines = (document or "").splitlines()
+    for i, line in enumerate(lines):
+        if line.strip().lower() == "## minutes":
+            lines = lines[i + 1:]
+            break
+    topics = []
+    for line in lines:
+        m = _TOPIC_RE.match(line.strip())
+        if not m:
+            continue
+        try:
+            start_ms = parse_ts(m.group("ts"))
+        except ValueError:
+            continue
+        topics.append({
+            "start_ms": start_ms,
+            "timestamp": m.group("ts"),
+            "title": m.group("title"),
+            "continued": bool(m.group("cont")),
+        })
+    return topics
+
+
+def minutes_token_count(document: str | None, meta_json: str | None) -> int | None:
+    """Token count of a minutes document: meta's minutes_tokens, else counted."""
+    if not document:
+        return None
+    try:
+        meta = json.loads(meta_json or "{}")
+    except (json.JSONDecodeError, TypeError):
+        meta = {}
+    if isinstance(meta, dict) and isinstance(meta.get("minutes_tokens"), int):
+        return meta["minutes_tokens"]
+    return ntok(document)
 
 
 @dataclass
@@ -154,6 +222,13 @@ def build_turns(phrases: list[dict], names: dict[str, str]) -> list[Turn]:
         else:
             turns.append(Turn(p["t_ms"], end, speaker, p["text"]))
     return turns
+
+
+def transcript_turns(transcript_json: str, speaker_mapping: str | None) -> list[Turn]:
+    """Speaker turns exactly as the minutes pipeline builds them, so their
+    timestamps line up with the minutes' ``[mm:ss]`` headings. Raises
+    ValueError when transcript_json is not Azure Speech JSON."""
+    return build_turns(parse_phrases(transcript_json), speaker_names(speaker_mapping))
 
 
 def chunk_turns(turns: list[Turn], chunk_tokens: int = CHUNK_TOKENS) -> list[list[Turn]]:

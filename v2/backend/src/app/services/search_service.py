@@ -26,8 +26,8 @@ from app.database import SEARCH_INDEX_COLUMNS, get_db
 from app.models import SearchPerson, SearchResponse, SearchResult
 
 # BM25 column weights, in SEARCH_INDEX_COLUMNS order:
-# title, summary, notes, description, speakers, transcript
-BM25_WEIGHTS = (10.0, 4.0, 3.0, 2.0, 3.0, 1.0)
+# title, summary, notes, description, speakers, minutes, transcript
+BM25_WEIGHTS = (10.0, 4.0, 3.0, 2.0, 3.0, 1.0, 1.0)
 assert len(BM25_WEIGHTS) == len(SEARCH_INDEX_COLUMNS)
 _TITLE_COL = SEARCH_INDEX_COLUMNS.index("title")
 _TRANSCRIPT_COL = SEARCH_INDEX_COLUMNS.index("transcript")
