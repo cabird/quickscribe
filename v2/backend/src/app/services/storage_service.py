@@ -173,10 +173,10 @@ async def _azure_download(blob_name: str, local_path: Path, settings) -> Path:
     ) as client:
         container = client.get_container_client(settings.azure_storage_container)
         blob = container.get_blob_client(blob_name)
+        # Stream to disk in chunks rather than holding the whole blob in memory
         with open(local_path, "wb") as f:
             stream = await blob.download_blob()
-            data = await stream.readall()
-            f.write(data)
+            await stream.readinto(f)
 
     logger.info("Azure Blob: downloaded %s -> %s", blob_name, local_path)
     return local_path

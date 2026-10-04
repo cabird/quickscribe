@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 import logging
 import uuid
-from datetime import datetime, timezone
 
 from fastapi import HTTPException
 
@@ -304,6 +303,8 @@ async def create_recording(
     transcript_json: str | None = None,
     token_count: int | None = None,
     speaker_mapping: str | None = None,
+    recording_id: str | None = None,
+    content_hash: str | None = None,
 ) -> Recording:
     """Create a new recording row.
 
@@ -311,23 +312,23 @@ async def create_recording(
         The created Recording.
     """
     db = await get_db()
-    recording_id = str(uuid.uuid4())
+    recording_id = recording_id or str(uuid.uuid4())
 
     await db.execute(
         """INSERT INTO recordings (
             id, user_id, original_filename, source, title, description,
             file_path, duration_seconds, recorded_at, plaud_id,
             plaud_metadata_json, status, transcript_text, diarized_text,
-            transcript_json, token_count, speaker_mapping,
+            transcript_json, token_count, speaker_mapping, content_hash,
             created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
                   datetime('now'), datetime('now'))""",
         (
             recording_id, user_id, original_filename, source.value,
             title, description, file_path, duration_seconds, recorded_at,
             plaud_id, plaud_metadata_json, status.value,
             transcript_text, diarized_text, transcript_json,
-            token_count, speaker_mapping,
+            token_count, speaker_mapping, content_hash,
         ),
     )
     await db.commit()
@@ -467,32 +468,6 @@ async def paste_transcript(
     return await get_recording(user_id, recording.id)
 
 
-async def reprocess_recording(
-    user_id: str, recording_id: str
-) -> RecordingDetail:
-    """Reset a failed recording to pending status for reprocessing.
-
-    Clears the error message and resets status to pending so the
-    sync poller will pick it up again.
-
-    Raises:
-        HTTPException 404 if not found or not owned by user.
-    """
-    existing = await get_recording(user_id, recording_id)
-
-    db = await get_db()
-    await db.execute(
-        """UPDATE recordings
-           SET status = ?, status_message = NULL, retry_count = retry_count + 1,
-               updated_at = datetime('now')
-           WHERE id = ? AND user_id = ?""",
-        (RecordingStatus.pending.value, recording_id, user_id),
-    )
-    await db.commit()
-
-    return await get_recording(user_id, recording_id)
-
-
 async def assign_speaker(
     user_id: str,
     recording_id: str,
@@ -600,135 +575,6 @@ async def dismiss_speaker(
     await db.commit()
 
     return await get_recording(user_id, recording_id)
-
-
-async def upload_recording(
-    user_id: str,
-    file: "UploadFile",
-    title: str | None = None,
-) -> RecordingDetail:
-    """Handle file upload: save to temp, upload to blob, create recording.
-
-    If speech services are enabled, submits the recording for transcription
-    so the poll_transcriptions scheduler picks it up automatically.
-
-    Args:
-        user_id: Owner's user ID.
-        file: The uploaded file from FastAPI.
-        title: Optional title for the recording.
-
-    Returns:
-        The created RecordingDetail.
-    """
-    import tempfile
-    from pathlib import Path
-    from fastapi import UploadFile
-
-    from app.config import get_settings
-
-    settings = get_settings()
-    original_filename = file.filename or "upload"
-    logger.info("upload_recording: starting for user=%s, file=%s", user_id[:12], original_filename)
-
-    with tempfile.TemporaryDirectory() as tmpdir:
-        local_path = Path(tmpdir) / original_filename
-        # Stream to disk in chunks to avoid loading entire file into memory
-        bytes_written = 0
-        with local_path.open("wb") as out:
-            while chunk := await file.read(1024 * 1024):
-                out.write(chunk)
-                bytes_written += len(chunk)
-        logger.info("upload_recording: saved %s to temp (%d bytes)", original_filename, bytes_written)
-
-        # Transcode to MP3 for Azure Speech Services compatibility
-        mp3_path = Path(tmpdir) / f"{Path(original_filename).stem}.mp3"
-        if local_path.suffix.lower() != ".mp3":
-            from app.services.sync_service import _transcode_to_mp3
-            logger.info("upload_recording: transcoding %s → MP3", local_path.suffix)
-            await _transcode_to_mp3(local_path, mp3_path)
-            upload_path = mp3_path
-            logger.info("upload_recording: transcode complete (%d bytes)", mp3_path.stat().st_size)
-        else:
-            upload_path = local_path
-
-        # Build blob path (always .mp3 for transcription compatibility)
-        recording_id = str(uuid.uuid4())
-        blob_name = f"{user_id}/{recording_id}.mp3"
-
-        # Upload transcoded file to blob storage
-        logger.info("upload_recording: uploading to blob storage as %s", blob_name)
-        await storage_service.upload_file(upload_path, blob_name)
-        logger.info("upload_recording: blob upload complete")
-
-        # If using local storage but speech is enabled, also upload to Azure Blob
-        # so Azure Speech Services can access the audio via a SAS URL
-        if settings.use_local_storage and settings.speech_enabled and settings.azure_storage_connection_string:
-            from azure.storage.blob.aio import BlobServiceClient as AsyncBlobServiceClient
-            async with AsyncBlobServiceClient.from_connection_string(
-                settings.azure_storage_connection_string
-            ) as azure_client:
-                container = azure_client.get_container_client(settings.azure_storage_container)
-                blob = container.get_blob_client(blob_name)
-                with open(upload_path, "rb") as f:
-                    await blob.upload_blob(f, overwrite=True)
-                logger.info("upload_recording: also uploaded to Azure Blob for transcription: %s", blob_name)
-
-    # Determine initial status based on whether speech services are configured
-    should_transcribe = settings.speech_enabled and bool(settings.azure_storage_connection_string)
-    initial_status = RecordingStatus.transcribing if should_transcribe else RecordingStatus.pending
-    logger.info("upload_recording: should_transcribe=%s", should_transcribe)
-
-    # Create recording in DB
-    from datetime import datetime, timezone
-    recording = await create_recording(
-        user_id=user_id,
-        original_filename=original_filename,
-        source=RecordingSource.upload,
-        title=title,
-        file_path=blob_name,
-        status=initial_status,
-        recorded_at=datetime.now(timezone.utc).isoformat(),
-    )
-    logger.info("upload_recording: DB record created id=%s, status=%s", recording.id[:12], initial_status)
-
-    # Submit for transcription if speech services are configured
-    if should_transcribe:
-        try:
-            from app.services.speech_client import SpeechClient
-
-            logger.info("upload_recording: generating SAS URL for %s", blob_name)
-            audio_url = storage_service._azure_sas_url(blob_name, 24, settings)
-            speech = SpeechClient()
-            logger.info("upload_recording: submitting to Azure Speech Services")
-            transcription_id = await speech.create_transcription(
-                audio_url=audio_url,
-                display_name=original_filename,
-            )
-
-            db = await get_db()
-            await db.execute(
-                """UPDATE recordings
-                   SET provider_job_id = ?, processing_started = datetime('now')
-                   WHERE id = ?""",
-                (transcription_id, recording.id),
-            )
-            await db.commit()
-            logger.info("upload_recording: transcription submitted %s (job=%s)", original_filename, transcription_id[:8])
-        except Exception as e:
-            logger.exception("upload_recording: FAILED to submit transcription for %s: %s", original_filename, e)
-            # Revert status to pending so it can be retried
-            db = await get_db()
-            await db.execute(
-                "UPDATE recordings SET status = 'pending', status_message = ? WHERE id = ?",
-                (f"Transcription submission failed: {e}", recording.id),
-            )
-            await db.commit()
-    else:
-        logger.info("upload_recording: skipping transcription (not configured)")
-
-    result = await get_recording(user_id, recording.id)
-    logger.info("upload_recording: done, returning recording %s", recording.id[:12])
-    return result
 
 
 async def search_recordings(user_id: str, query: str) -> list[RecordingSummary]:

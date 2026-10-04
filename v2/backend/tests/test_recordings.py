@@ -1,12 +1,11 @@
 """Tests for recording endpoints.
 
-Covers: list, detail, upload, paste, update, delete, audio URL,
+Covers: list, detail, paste, update, delete, audio URL,
 speaker assignment, tag operations, and full-text search.
 """
 
 from __future__ import annotations
 
-import io
 import json
 import uuid
 from datetime import datetime, timezone
@@ -142,29 +141,7 @@ class TestGetRecording:
         assert resp.status_code == 404
 
 
-# ---------------------------------------------------------------------------
-# POST /api/recordings/upload — File upload
-# ---------------------------------------------------------------------------
-
-
-class TestUploadRecording:
-    @patch("app.services.storage.StorageService.upload_file", new_callable=AsyncMock)
-    async def test_upload_success(
-        self, mock_upload, client: httpx.AsyncClient
-    ):
-        mock_upload.return_value = "audio/test-file.mp3"
-        audio_content = b"\x00" * 1024  # fake audio bytes
-        files = {"file": ("meeting.mp3", io.BytesIO(audio_content), "audio/mpeg")}
-        resp = await client.post("/api/recordings/upload", files=files)
-        assert resp.status_code in (200, 201)
-        body = resp.json()
-        data = body if "data" not in body else body["data"]
-        assert data["original_filename"] == "meeting.mp3"
-        assert data["source"] == "upload"
-
-    async def test_upload_no_file(self, client: httpx.AsyncClient):
-        resp = await client.post("/api/recordings/upload")
-        assert resp.status_code == 422
+# POST /api/recordings/upload and /reprocess are covered in test_upload_pipeline.py
 
 
 # ---------------------------------------------------------------------------

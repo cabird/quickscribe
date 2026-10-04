@@ -25,7 +25,8 @@ v2/
 │   │   │   ├── search.py       # Deep search
 │   │   │   └── sync.py         # Plaud sync runs, logs
 │   │   ├── services/           # Business logic
-│   │   │   ├── recording_service.py  # Core recording ops, upload, transcription
+│   │   │   ├── recording_service.py  # Core recording ops (CRUD, listing, speakers)
+│   │   │   ├── upload_service.py     # Upload receive + background transcode/submit
 │   │   │   ├── sync_service.py       # Plaud sync, transcription polling, speaker-ID
 │   │   │   ├── ai_service.py         # Azure OpenAI chat, analysis, title gen
 │   │   │   ├── speech_client.py      # Azure Speech Services client
@@ -91,7 +92,8 @@ Backend: ~9,000 lines Python. Frontend: ~7,700 lines TypeScript.
 ### Backend (FastAPI)
 
 - **Authentication** (`auth.py`): Dual auth — Azure AD JWT (Bearer token) for browser, API key (X-API-Key header) for iPhone uploads. Email-first user lookup. Auto-provisions users on first login.
-- **Recording Service** (`recording_service.py`): Core CRUD, file upload with ffmpeg transcode to mono MP3, Azure Speech transcription submission, paginated listing with `COALESCE(recorded_at, created_at)` sort.
+- **Recording Service** (`recording_service.py`): Core CRUD, paginated listing with `COALESCE(recorded_at, created_at)` sort.
+- **Upload Service** (`upload_service.py`): Stores the raw upload and returns; a background task transcodes to mono MP3 with ffmpeg and submits to Azure Speech. See "Upload → Transcription Pipeline" below.
 - **Sync Service** (`sync_service.py`): Plaud device sync (fetches recordings via Plaud API), transcription polling (5-min scheduler), AI enrichment (title/description), speaker identification pipeline. Clear logging of skip reasons.
 - **AI Service** (`ai_service.py`): Azure OpenAI integration. Chat uses `gpt-5.4-mini` with `reasoning_effort="low"` for speed. Analysis and speaker inference use the main deployment.
 - **Speaker ID** (`embedding_engine.py`, `speaker_processor.py`): ECAPA-TDNN via SpeechBrain/PyTorch (CPU-only). Lazy-loads model on first use. Runs after transcription completes.
@@ -209,15 +211,35 @@ cd v2/deploy/scripts
 
 ### Upload → Transcription Pipeline
 
-1. File received (multipart form, `file` or `audio_file` field)
-2. Streamed to temp disk (chunked, avoids memory spikes)
-3. Transcoded to mono MP3 via ffmpeg (Azure Speech requires mono)
-4. Uploaded to Azure Blob Storage
-5. Transcription submitted to Azure Speech Services (async, returns immediately)
-6. Response returned to client with `status: "transcribing"`
-7. `poll_transcriptions_job` (5-min interval) picks up completed transcriptions
-8. AI enrichment: title, description, search summary
-9. Speaker identification: ECAPA-TDNN embeddings (if PyTorch available)
+In the request (`services/upload_service.py`, `receive_upload`):
+
+1. File received (multipart form, `file` or `audio_file` field; optional `title` and
+   `recorded_at` form fields)
+2. Streamed to temp disk and hashed (sha256). If this user already uploaded the same
+   bytes, the existing recording is returned with `200` and `"duplicate": true`
+   (and retried if it had failed)
+3. Recording time and duration read from the file with ffprobe (best-effort)
+4. Raw file uploaded to Blob Storage as `{user_id}/{recording_id}.orig.<ext>`
+   (`.mp3` uploads go straight to `{user_id}/{recording_id}.mp3`)
+5. Recording row created with `status: "pending"`; response returned (`201`)
+
+In a background task (`process_upload`), one recording at a time:
+
+6. `status: "transcoding"` — raw file pulled from blob, transcoded to mono MP3 via ffmpeg
+   (Azure Speech requires mono), MP3 uploaded, `file_path` switched, raw blob deleted
+7. Transcription submitted to Azure Speech Services; `status: "transcribing"`
+8. On any error: `status: "failed"` with the reason in `status_message`. The audio stays in
+   blob, so `POST /api/recordings/{id}/reprocess` (or re-uploading the file) retries it
+
+The recording row is the job — there is no jobs table. `pending`/`transcoding` with no
+`provider_job_id` means work is owed; `process_uploads_job` (at startup, then every 5 min)
+resumes anything a restart interrupted.
+
+Then, as for Plaud recordings:
+
+9. `poll_transcriptions_job` (5-min interval) picks up completed transcriptions
+10. AI enrichment: title, description, search summary
+11. Speaker identification: ECAPA-TDNN embeddings (if PyTorch available)
 
 ## 6. Development Workflows
 
@@ -263,7 +285,7 @@ az webapp log tail --name QuickScribeWebApp --resource-group QuickScribeResource
 ./deploy/scripts/upload-db.sh
 
 # Test upload via API key
-curl -X POST https://quickscribe-v2.azurewebsites.net/api/recordings/upload \
+curl -X POST https://quickscribe.cabird.com/api/recordings/upload \
   -H "X-API-Key: YOUR_KEY" \
   -F "file=@recording.m4a"
 ```

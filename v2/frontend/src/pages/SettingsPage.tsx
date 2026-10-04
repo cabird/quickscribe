@@ -128,6 +128,7 @@ function ApiKeyCard({ user }: { user: UserProfile }) {
   const maskedKey = currentKey && currentKey.length > 10
     ? currentKey.slice(0, 6) + "•".repeat(currentKey.length - 10) + currentKey.slice(-4)
     : "—";
+  const uploadUrl = `${window.location.origin}/api/recordings/upload`;
 
   return (
     <Card className="p-5">
@@ -140,6 +141,33 @@ function ApiKeyCard({ user }: { user: UserProfile }) {
         Use this key in an iOS Shortcut to upload Voice Memos directly. Set the
         header <code className="rounded bg-muted px-1 py-0.5">X-API-Key</code> to
         the value below.
+      </p>
+      <ol className="mb-3 list-decimal space-y-1 pl-4 text-xs text-muted-foreground">
+        <li>
+          In the Shortcuts app, create a shortcut and turn on{" "}
+          <span className="font-medium">Show in Share Sheet</span> for media and files.
+        </li>
+        <li>
+          Add <span className="font-medium">Get Contents of URL</span> with URL{" "}
+          <code className="break-all rounded bg-muted px-1 py-0.5">{uploadUrl}</code> and
+          method POST.
+        </li>
+        <li>
+          Add the header <code className="rounded bg-muted px-1 py-0.5">X-API-Key</code> with
+          your key.
+        </li>
+        <li>
+          Set the request body to Form with a field named{" "}
+          <code className="rounded bg-muted px-1 py-0.5">file</code> of type File, set to the
+          Shortcut Input. An optional text field{" "}
+          <code className="rounded bg-muted px-1 py-0.5">title</code> names the recording.
+        </li>
+        <li>In Voice Memos, share a recording to the shortcut.</li>
+      </ol>
+      <p className="mb-3 text-xs text-muted-foreground">
+        The upload returns as soon as the file is saved; conversion and transcription
+        continue in the background. Sharing the same memo twice does not create a second
+        recording.
       </p>
       {currentKey ? (
         <div className="flex items-center gap-2">

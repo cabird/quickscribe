@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import logging
+from datetime import datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Response, UploadFile
 
 from app.auth import get_current_user, get_current_user_or_api_key
 from app.models import (
@@ -17,7 +18,7 @@ from app.models import (
     SpeakerAssignment,
     User,
 )
-from app.services import ai_service, recording_service, tag_service
+from app.services import ai_service, recording_service, tag_service, upload_service
 
 router = APIRouter(prefix="/api/recordings", tags=["recordings"])
 
@@ -109,15 +110,25 @@ async def get_recording(recording_id: str, user: CurrentUser):
 @router.post("/upload", status_code=201)
 async def upload_recording(
     user: CurrentUserOrApiKey,
+    response: Response,
     file: UploadFile | None = File(None),
     audio_file: UploadFile | None = File(None),
-    title: str | None = None,
+    title: str | None = Form(None),
+    recorded_at: datetime | None = Form(None),
+    title_query: str | None = Query(None, alias="title"),
 ):
-    """Upload an audio file for transcription. Accepts 'file' or 'audio_file' field name."""
+    """Upload an audio file for transcription. Accepts 'file' or 'audio_file' field name.
+
+    Returns once the file is stored; transcoding and transcription happen in
+    the background. Optional form fields: 'title', and 'recorded_at' (ISO 8601)
+    to override the recording time read from the file. Re-uploading the same
+    file returns the existing recording with 200 and "duplicate": true.
+    """
     upload = file or audio_file
     if not upload:
         raise HTTPException(status_code=400, detail="No file provided. Use form field 'file' or 'audio_file'.")
 
+    title = title or title_query
     auth_method = "api_key" if not hasattr(user, '_auth_method') else "bearer"
     logger.info(
         "Upload request: user=%s, auth=%s, filename=%s, content_type=%s, title=%s",
@@ -125,23 +136,25 @@ async def upload_recording(
     )
 
     try:
-        recording = await recording_service.upload_recording(
+        result = await upload_service.receive_upload(
             user_id=user.id,
             file=upload,
             title=title,
+            recorded_at=recorded_at,
         )
-        logger.info("Upload complete: recording=%s, status=%s", recording.id[:12], recording.status)
-        return {
-            "success": "File uploaded successfully!",
-            "filename": upload.filename,
-            "recording_id": recording.id,
-            "status": recording.status,
-        }
     except HTTPException:
         raise
     except Exception as e:
         logger.exception("Upload failed for user=%s, filename=%s: %s", user.id[:12], upload.filename, e)
         raise HTTPException(status_code=500, detail=f"Upload failed: {e}")
+
+    if result["duplicate"]:
+        response.status_code = 200
+    return {
+        "success": "Already uploaded" if result["duplicate"] else "File uploaded successfully!",
+        "filename": upload.filename,
+        **result,
+    }
 
 
 @router.post("/paste", response_model=RecordingDetail, status_code=201)
@@ -205,11 +218,7 @@ async def get_audio_url(recording_id: str, user: CurrentUser):
 @router.post("/{recording_id}/reprocess", response_model=RecordingDetail)
 async def reprocess_recording(recording_id: str, user: CurrentUser):
     """Retry processing on a failed recording."""
-    recording = await recording_service.get_recording(user.id, recording_id)
-    if not recording:
-        raise HTTPException(status_code=404, detail="Recording not found")
-    updated = await recording_service.reprocess_recording(user.id, recording_id)
-    return updated
+    return await upload_service.reprocess_recording(user.id, recording_id)
 
 
 # ---------------------------------------------------------------------------

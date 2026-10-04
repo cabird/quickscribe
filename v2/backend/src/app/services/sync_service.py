@@ -337,7 +337,7 @@ async def _sync_user(
     await db.commit()
 
 
-async def _transcode_to_mp3(input_path: Path, output_path: Path) -> Path:
+async def _transcode_to_mp3(input_path: Path, output_path: Path, timeout: int = 300) -> Path:
     """Transcode an audio file to mono MP3 128kbps using ffmpeg.
 
     Azure Speech Services batch transcription requires mono audio for
@@ -356,7 +356,7 @@ async def _transcode_to_mp3(input_path: Path, output_path: Path) -> Path:
             ],
             capture_output=True,
             text=True,
-            timeout=300,
+            timeout=timeout,
         )
         if result.returncode != 0:
             raise RuntimeError(f"ffmpeg failed: {result.stderr[:500]}")

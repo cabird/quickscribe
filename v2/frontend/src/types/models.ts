@@ -376,6 +376,15 @@ export interface SyncTriggerResponse {
   message: string;
 }
 
+/** Returned as soon as the file is stored; processing continues in the background. */
+export interface UploadResult {
+  recording_id: string;
+  status: RecordingStatus;
+  filename: string | null;
+  /** True when these exact bytes were already uploaded; recording_id is the existing one. */
+  duplicate: boolean;
+}
+
 // ---------------------------------------------------------------------------
 // Request / filter types
 // ---------------------------------------------------------------------------

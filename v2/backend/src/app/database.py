@@ -55,6 +55,7 @@ CREATE TABLE IF NOT EXISTS recordings (
     duration_seconds    REAL,
     recorded_at         TEXT,
     source              TEXT NOT NULL,
+    content_hash        TEXT,   -- sha256 of the uploaded bytes, for duplicate detection
 
     -- Plaud-specific
     plaud_id            TEXT UNIQUE,
@@ -436,6 +437,14 @@ async def get_db() -> aiosqlite.Connection:
     return _db
 
 
+# One recording per user per uploaded file. Rows without a hash (Plaud, paste,
+# uploads from before this column) are exempt.
+CONTENT_HASH_INDEX_SQL = """
+CREATE UNIQUE INDEX IF NOT EXISTS idx_recordings_content_hash
+    ON recordings(user_id, content_hash) WHERE content_hash IS NOT NULL
+"""
+
+
 async def _migrate_schema(db: aiosqlite.Connection) -> None:
     """Run lightweight migrations for schema additions."""
     # Add search_summary and search_keywords columns if missing
@@ -540,6 +549,13 @@ async def _migrate_schema(db: aiosqlite.Connection) -> None:
     await db.execute(
         "UPDATE recordings SET recorded_at = created_at WHERE recorded_at IS NULL"
     )
+
+    # Add content_hash (upload duplicate detection) if missing. The index is
+    # created here, not in SCHEMA_SQL, because SCHEMA_SQL runs before this
+    # column exists on older databases.
+    if "content_hash" not in columns:
+        await db.execute("ALTER TABLE recordings ADD COLUMN content_hash TEXT")
+    await db.execute(CONTENT_HASH_INDEX_SQL)
 
     await db.commit()
 

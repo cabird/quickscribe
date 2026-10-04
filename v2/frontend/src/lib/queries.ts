@@ -106,6 +106,14 @@ export function useRecordings(
   return useQuery({
     queryKey: queryKeys.recordings.list(filters),
     queryFn: () => api.fetchRecordings(filters),
+    // Keep the list live while a visible recording is still being processed:
+    // quickly through the short upload steps, slowly while Azure transcribes.
+    refetchInterval: (query) => {
+      const statuses = query.state.data?.data.map((r) => r.status) ?? [];
+      if (statuses.some((s) => s === "pending" || s === "transcoding")) return 5000;
+      if (statuses.some((s) => s === "transcribing" || s === "processing")) return 60000;
+      return false;
+    },
     ...options,
   });
 }

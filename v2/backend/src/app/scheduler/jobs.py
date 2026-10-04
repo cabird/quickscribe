@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from datetime import datetime, timezone
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
@@ -38,6 +39,20 @@ async def poll_transcriptions_job() -> None:
         await sync_service.poll_pending_transcriptions()
     except Exception:
         logger.exception("Transcription polling job failed")
+
+
+async def process_uploads_job() -> None:
+    """Transcode and submit any uploaded recordings still waiting for it.
+
+    Uploads are normally processed right after they arrive; this catches
+    ones interrupted by a restart.
+    """
+    from app.services import upload_service
+
+    try:
+        await upload_service.resume_pending_uploads()
+    except Exception:
+        logger.exception("Upload processing job failed")
 
 
 async def refresh_meeting_notes_job() -> None:
@@ -167,6 +182,17 @@ def start_scheduler() -> None:
         minutes=5,
         id="poll_transcriptions",
         replace_existing=True,
+    )
+
+    # First run is immediate, to resume uploads interrupted by the restart
+    scheduler.add_job(
+        process_uploads_job,
+        "interval",
+        minutes=5,
+        id="process_uploads",
+        replace_existing=True,
+        max_instances=1,
+        next_run_time=datetime.now(timezone.utc),
     )
 
     scheduler.add_job(

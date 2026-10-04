@@ -158,6 +158,7 @@ Registered in `v2/backend/src/app/scheduler/jobs.py` (APScheduler, in-process):
 |-----|----------|---------|
 | `plaud_sync_job` | `sync_interval_minutes` (15) | Pull new recordings from Plaud |
 | `poll_transcriptions_job` | 5 min | Poll Azure Speech for completed jobs |
+| `process_uploads_job` | 5 min (and at startup) | Transcode and submit uploads a restart interrupted |
 | `refresh_meeting_notes_job` | 60 min | Generate/regenerate meeting notes |
 | `prune_run_history_job` | 24 h | Delete `sync_runs` older than `run_history_retention_days` (30) |
 
@@ -165,6 +166,11 @@ Registered in `v2/backend/src/app/scheduler/jobs.py` (APScheduler, in-process):
 is true (the default); when false, manual triggers also return 409 and the UI
 shows sync as disabled. Per-user sync is separately gated by `users.plaud_enabled`
 and `users.plaud_token`.
+
+Uploads (`services/upload_service.py`) return as soon as the raw file is in blob storage;
+ffmpeg and the Azure Speech submission run in a background task. The recording row is the
+job (`pending`/`transcoding` with no `provider_job_id` means work is owed), so there is no
+jobs table and a restart mid-transcode is resumed by `process_uploads_job`.
 
 `sync_runs` previously grew unbounded and reached 25k rows / 88 MB, which also
 inflated every hourly Litestream snapshot. Any new per-run bookkeeping table needs

@@ -34,6 +34,7 @@ import type {
   UpdateRecordingRequest,
   UpdateSettingsRequest,
   UpdateTagRequest,
+  UploadResult,
   UserProfile,
   AnalysisTemplate,
   UpdateAnalysisTemplateRequest,
@@ -147,13 +148,13 @@ export async function uploadRecording(
   file: File,
   title?: string,
   recordedAt?: string,
-): Promise<RecordingDetail> {
+): Promise<UploadResult> {
   const formData = new FormData();
   formData.append("file", file);
   if (title) formData.append("title", title);
   if (recordedAt) formData.append("recorded_at", recordedAt);
 
-  const { data } = await apiClient.post<RecordingDetail>(
+  const { data } = await apiClient.post<UploadResult>(
     `/api/recordings/upload`,
     formData,
     { headers: { "Content-Type": "multipart/form-data" } },
