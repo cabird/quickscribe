@@ -21,10 +21,10 @@ if [ "$CONFIRM" != "$RESOURCE_GROUP" ]; then
 fi
 
 echo "Deleting resource group '$RESOURCE_GROUP'..."
-az group delete \
+azs group delete \
     --name "$RESOURCE_GROUP" \
     --yes \
     --no-wait
 
 echo "Deletion initiated (running in background)."
-echo "Check status: az group show --name $RESOURCE_GROUP"
+echo "Check status: az group show --name $RESOURCE_GROUP${SUBSCRIPTION:+ --subscription $SUBSCRIPTION}"

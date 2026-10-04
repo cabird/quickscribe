@@ -81,6 +81,38 @@ azs() {
     fi
 }
 
+# Stop the web app and wait until its container has actually gone, so it can't
+# still be replicating to Litestream when something else touches the database.
+# Use this instead of `az webapp restart`, and before changing app settings:
+# App Service keeps the old container alive while a new one warms up, and two
+# live containers split the database. See 03-deploy-app.sh.
+stop_app_and_wait() {
+    echo "Stopping $APP_NAME..."
+    azs webapp stop --name "$APP_NAME" --resource-group "$RESOURCE_GROUP" --output none
+    echo "Waiting for the container to stop responding..."
+    local health_url="https://$APP_NAME.azurewebsites.net/api/health"
+    for _ in {1..18}; do
+        if ! curl -sf -m 3 "$health_url" >/dev/null 2>&1; then
+            break
+        fi
+        sleep 5
+    done
+    # Margin for any in-flight Litestream WAL flush
+    sleep 10
+}
+
+start_app() {
+    echo "Starting $APP_NAME..."
+    azs webapp start --name "$APP_NAME" --resource-group "$RESOURCE_GROUP" --output none
+}
+
+# Printed by scripts that exit with the app still stopped
+print_start_hint() {
+    echo ""
+    echo "!!! $APP_NAME is STOPPED. Fix and rerun, or start it with:"
+    echo "!!!   az webapp start --name $APP_NAME --resource-group $RESOURCE_GROUP${SUBSCRIPTION:+ --subscription $SUBSCRIPTION}"
+}
+
 require_frontend_auth_config() {
     if [ "$VITE_AUTH_ENABLED" = "true" ] && { [ -z "$VITE_AZURE_CLIENT_ID" ] || [ -z "$VITE_AZURE_TENANT_ID" ]; }; then
         echo "ERROR: VITE_AUTH_ENABLED=true but VITE_AZURE_CLIENT_ID/VITE_AZURE_TENANT_ID are not set."

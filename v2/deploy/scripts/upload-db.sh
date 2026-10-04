@@ -1,5 +1,9 @@
 #!/bin/bash
 # Upload a local SQLite database to Azure Blob Storage via Litestream.
+#
+# The web app is stopped before the upload and started afterwards, so it is
+# never replicating its own copy to the same destination at the same time;
+# on start it restores the uploaded database.
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -50,15 +54,30 @@ if ! command -v litestream &>/dev/null; then
     install_litestream
 fi
 
+echo "This replaces the production database of $APP_NAME with:"
+echo "  $LOCAL_DB"
+read -p "$APP_NAME will be stopped during the upload. Continue? [y/N] " CONFIRM
+if [[ ! "$CONFIRM" =~ ^[Yy]$ ]]; then
+    echo "Aborting."
+    exit 1
+fi
+
 # --- Get storage key ---
-STORAGE_KEY=$(az storage account keys list \
+STORAGE_KEY=$(azs storage account keys list \
     --account-name "$STORAGE_ACCOUNT" \
     --resource-group "$RESOURCE_GROUP" \
     --query "[0].value" -o tsv)
 
 # --- Create temp Litestream config ---
 TEMP_CONFIG=$(mktemp /tmp/litestream-upload-XXXXXX.yml)
-trap "rm -f $TEMP_CONFIG" EXIT
+APP_STOPPED=false
+on_exit() {
+    rm -f "$TEMP_CONFIG"
+    if [ "$APP_STOPPED" = true ]; then
+        print_start_hint
+    fi
+}
+trap on_exit EXIT
 
 cat > "$TEMP_CONFIG" <<EOF
 dbs:
@@ -72,6 +91,9 @@ dbs:
         sync-interval: 1s
         snapshot-interval: 1h
 EOF
+
+stop_app_and_wait
+APP_STOPPED=true
 
 echo "Uploading database: $LOCAL_DB"
 echo "  -> $STORAGE_ACCOUNT/$BLOB_CONTAINER/$DB_BLOB_NAME"
@@ -90,7 +112,7 @@ wait $LITESTREAM_PID 2>/dev/null || true
 # Verify blobs exist
 echo ""
 echo "Verifying blobs in storage..."
-BLOB_COUNT=$(az storage blob list \
+BLOB_COUNT=$(azs storage blob list \
     --account-name "$STORAGE_ACCOUNT" \
     --account-key "$STORAGE_KEY" \
     --container-name "$BLOB_CONTAINER" \
@@ -98,19 +120,18 @@ BLOB_COUNT=$(az storage blob list \
 
 if [ "$BLOB_COUNT" -gt 0 ]; then
     echo "Upload successful — $BLOB_COUNT blob(s) in container."
-    az storage blob list \
+    azs storage blob list \
         --account-name "$STORAGE_ACCOUNT" \
         --account-key "$STORAGE_KEY" \
         --container-name "$BLOB_CONTAINER" \
         -o table
 else
+    # Leave the app stopped: starting it now would restore an unknown state
     echo "WARNING: No blobs found. Upload may have failed."
     exit 1
 fi
 
 echo ""
-read -p "Restart the web app to pick up the new database? [y/N] " RESTART
-if [[ "$RESTART" =~ ^[Yy]$ ]]; then
-    az webapp restart --name "$APP_NAME" --resource-group "$RESOURCE_GROUP"
-    echo "Web app restarted."
-fi
+start_app
+APP_STOPPED=false
+echo "Web app started; it restores the uploaded database on startup."

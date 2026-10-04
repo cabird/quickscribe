@@ -10,7 +10,7 @@ print_config
 
 echo ""
 echo "Creating resource group '$RESOURCE_GROUP' in '$LOCATION'..."
-az group create \
+azs group create \
     --name "$RESOURCE_GROUP" \
     --location "$LOCATION" \
     --output none
@@ -18,7 +18,7 @@ az group create \
 BICEP_FILE="$SCRIPT_DIR/../bicep/main.bicep"
 
 echo "Deploying Bicep template..."
-az deployment group create \
+azs deployment group create \
     --resource-group "$RESOURCE_GROUP" \
     --template-file "$(az_path "$BICEP_FILE")" \
     --parameters \

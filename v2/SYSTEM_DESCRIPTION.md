@@ -63,7 +63,6 @@ v2/
 │       ├── 01-create-resources.sh
 │       ├── 02-build-push.sh    # Build Docker image, push to ACR
 │       ├── 03-deploy-app.sh    # Deploy to App Service, poll for version
-│       ├── set-secrets.sh      # Set env vars on webapp
 │       ├── upload-db.sh        # Upload SQLite to Azure via Litestream
 │       ├── download-db.sh      # Download SQLite from Azure via Litestream
 │       └── teardown.sh         # Delete all resources
@@ -165,7 +164,6 @@ cd v2/deploy/scripts
 ./03-deploy-app.sh    # Set container on webapp, restart, poll for version match
 
 # Other scripts:
-./set-secrets.sh      # Set env vars from .env file
 ./upload-db.sh        # Upload local SQLite to Azure Blob via Litestream
 ./download-db.sh      # Download live SQLite from Azure Blob
 ```
@@ -286,5 +284,5 @@ curl -X POST https://quickscribe-v2.azurewebsites.net/api/recordings/upload \
 - **Deploy target** is pinned by `SUBSCRIPTION` in `deploy/scripts/config.local.sh` (gitignored); all deploy commands go through the `azs` wrapper in `config.sh`.
 - **Azure Speech requires mono audio**. The `_transcode_to_mp3()` function in sync_service.py handles this with `-ac 1`.
 - **API key auth** only works on the `/api/recordings/upload` endpoint. All other endpoints require Azure AD Bearer tokens.
-- **Config secrets** are in Azure App Service settings, not in the container. Use `set-secrets.sh` to update.
+- **Config secrets** are in Azure App Service settings, not in the container. To change one, run `DEPLOY_APP_SETTINGS="KEY=value" ./03-deploy-app.sh` from `v2/deploy/scripts`: it stops the app, applies the setting, and starts it again on the current image. Don't change settings on a running app; that triggers an overlapping restart.
 - **Litestream** handles DB persistence across container restarts. Never rely on container filesystem for data.

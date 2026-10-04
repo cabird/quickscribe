@@ -6,7 +6,7 @@ BACKEND_DIR  = $(V2_DIR)/backend
 FRONTEND_DIR = $(V2_DIR)/frontend
 SCRIPTS_DIR  = $(V2_DIR)/deploy/scripts
 
-.PHONY: help setup run-backend run-frontend build test lint deploy build-push deploy-app set-secrets download-db version
+.PHONY: help setup run-backend run-frontend build test lint deploy build-push deploy-app download-db version
 
 default: help
 
@@ -27,7 +27,6 @@ help:
 	@echo "  build-push    - Build image and push to ACR (auto-bumps patch VERSION)"
 	@echo "  deploy-app    - Point the web app at the new image and verify"
 	@echo "  deploy        - build-push then deploy-app"
-	@echo "  set-secrets   - Push env vars from .env to the web app"
 	@echo "  download-db   - Download the live SQLite DB for inspection"
 	@echo ""
 	@echo "Deploy workflow:"
@@ -67,9 +66,6 @@ deploy-app:
 deploy: build-push deploy-app
 	@echo ""
 	@echo "✓ Deployed $$(cat $(BACKEND_DIR)/VERSION)"
-
-set-secrets:
-	cd $(SCRIPTS_DIR) && ./set-secrets.sh
 
 download-db:
 	cd $(SCRIPTS_DIR) && ./download-db.sh

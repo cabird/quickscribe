@@ -38,7 +38,7 @@ if ! command -v litestream &>/dev/null; then
 fi
 
 # --- Get storage key ---
-STORAGE_KEY=$(az storage account keys list \
+STORAGE_KEY=$(azs storage account keys list \
     --account-name "$STORAGE_ACCOUNT" \
     --resource-group "$RESOURCE_GROUP" \
     --query "[0].value" -o tsv)
