@@ -363,7 +363,9 @@ export default function RecordingDetailPage() {
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden pr-2">
         {/* Header */}
         <div className="border-b px-4 py-3">
-          <div className="flex items-start gap-3">
+          {/* Wraps so the actions drop below the title when the column is narrow
+              (e.g. chat panel open) instead of squeezing the title */}
+          <div className="flex flex-wrap items-start gap-x-3 gap-y-2">
             {isMobile && (
               <Button
                 variant="ghost"
@@ -375,7 +377,7 @@ export default function RecordingDetailPage() {
               </Button>
             )}
 
-            <div className="min-w-0 flex-1">
+            <div className="min-w-0 flex-[1_1_18rem]">
               <h1 className="text-lg font-semibold leading-tight">{title}</h1>
               <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
                 <span>{date}</span>
@@ -392,7 +394,7 @@ export default function RecordingDetailPage() {
             </div>
 
             {/* Actions */}
-            <div className="flex shrink-0 items-center gap-1">
+            <div className="ml-auto flex max-w-full shrink-0 flex-wrap items-center justify-end gap-1">
               <MeetingNotesButton
                 recordingId={id!}
                 meetingNotes={recording.meeting_notes}
